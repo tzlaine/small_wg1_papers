@@ -4,6 +4,7 @@ OUTDIR = generated
 
 $(OUTDIR)/%.html $(OUTDIR)/%.latex $(OUTDIR)/%.pdf: %.md
 	pandoc $< $(METADATA) $(DATADIR)/references.md \
+       --pdf-engine=xelatex \
        --number-sections \
        --self-contained \
        --table-of-contents \
