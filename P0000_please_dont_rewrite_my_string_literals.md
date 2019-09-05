@@ -34,8 +34,8 @@ the resulting investigation, I wrote this expression, which evaluated to
 strlen(u8"ς") == 5
 ```
 
-After asking around a bit online, I learned about the `/utf-8` and
-`/source-charset:utf-8` MSVC compiler flags.  These fixed my tests.
+After asking around a bit online, I learned about the `/utf-8` MSVC compiler
+flag.  That flag fixed my tests.
 
 To see why, consider this variable declaration:
 
@@ -43,15 +43,14 @@ To see why, consider this variable declaration:
 char str[3] = u8"ς";
 ```
 
-When compiled with MSVC using the `/utf-8` or `/source-charset:utf-8` flag,
-GCC, or Clang, that declaration is equivalent to this:
+When compiled with MSVC using the `/utf-8` flag, GCC, or Clang, that
+declaration is equivalent to this:
 
 ```c++
 char str[3] = {0xcf, 0x82, 0x0};
 ```
 
-When compiled with MSVC, without `/utf-8` or `/source-charset:utf-8` flags it
-is equivalent to this:
+When compiled with MSVC, without `/utf-8` flag it is equivalent to this:
 
 ```c++
 char str[6] = {TODO};
@@ -87,8 +86,10 @@ string literal in their final program.
 # The fix
 
 To fix this, I want to make it ill-formed for a `u8`-, `u16`-, or
-`u32`-prefixed string literal to appear in a TU whose source encoding would
-cause the encoding of the literal to change.
+`u32`-prefixed string literal to appear in a TU whose source and/or executing
+encoding would cause the meaning of the literal to change.  The meaning of the
+literal is preserved if the bits do not change from what the user wrote in the
+source file, or if the literal is transcoded to another UTF format.
 
 This lets users specify that they want a particular UTF encoding, likely
 seeing it in their editor the way they entered it, and have it appear in their
