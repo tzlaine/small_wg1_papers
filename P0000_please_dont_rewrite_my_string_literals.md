@@ -53,7 +53,7 @@ char str[3] = {0xcf, 0x82, 0x0};
 When compiled with MSVC, without `/utf-8` flag it is equivalent to this:
 
 ```c++
-char str[6] = {TODO};
+char str[6] = {0xc3, 0x8f, 0xe2, 0x80, 0x9a, 0x0};
 ```
 
 So, my two UTF-8 code units were silently rewritten to be 5 `chars` in some
