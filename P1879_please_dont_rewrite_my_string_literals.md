@@ -1,6 +1,6 @@
 ---
 title: "Please Don't Rewrite My String Literals"
-document: P1655R0
+document: P1879R0
 date: 2019-08-23
 audience:
   - SG16
