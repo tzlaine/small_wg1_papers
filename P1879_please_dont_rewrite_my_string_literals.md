@@ -149,16 +149,16 @@ results apply to differences across different execution character sets.
 
 ### Before
 ```c++
-// Source character set: UTF-8
-char str[3] = u8"ς";
+// Source character set: Unicode (UTF-8)
+char str[] = u8"ς";
 assert(strlen(str) == 2); // ok
 assert(strlen(str) == 5); // error
 ```
 
 ### After
 ```c++
-// Source character set: UTF-8
-char str[3] = u8"ς";
+// Source character set: Unicode (UTF-8)
+char str[] = u8"ς";
 assert(strlen(str) == 2); // ok
 assert(strlen(str) == 5); // error
 ```
@@ -166,15 +166,15 @@ assert(strlen(str) == 5); // error
 ---
 
 ```c++
-// Source character set: UTF-16
-char str[3] = u8"ς";
+// Source character set: Unicode (UTF-16)
+char str[] = u8"ς";
 assert(strlen(str) == 2); // ok
 assert(strlen(str) == 5); // error
 ```
 
 ```c++
-// Source character set: UTF-16
-char str[3] = u8"ς";
+// Source character set: Unicode (UTF-16)
+char str[] = u8"ς";
 assert(strlen(str) == 2); // ok
 assert(strlen(str) == 5); // error
 ```
@@ -183,7 +183,7 @@ assert(strlen(str) == 5); // error
 
 ```c++
 // Source character set: Windows-1252
-char str[3] = u8"ς";
+char str[5] = u8"ς";
 assert(strlen(str) == 2); // error
 assert(strlen(str) == 5); // ok
 ```
@@ -199,13 +199,13 @@ assert(strlen(str) == 5); // never evaluated
 
 ```c++
 // Source character set: Windows-1252
-char str[3] = u8"asdf";
+char str[] = u8"asdf";
 assert(strlen(str) == 4); // ok
 ```
 
 ```c++
 // Source character set: Windows-1252
-char str[3] = u8"asdf";   // still well-formed
+char str[] = u8"asdf";    // still well-formed
 assert(strlen(str) == 4); // ok
 ```
 
@@ -213,14 +213,26 @@ assert(strlen(str) == 4); // ok
 
 ```c++
 // Any source character set
-char ς[3] = u8"asdf";     // well- or ill-formed
+char ς[] = u8"asdf";
 assert(strlen(str) == 4); // ok
 ```
 
 ```c++
 // Any source character set
-char ς[3] = u8"asdf";     // same well-formedness
+char ς[] = u8"asdf";      // same well-formedness
 assert(strlen(str) == 4); // ok
+```
+
+---
+
+```c++
+// Any source character set
+char str[] = "ς";
+```
+
+```c++
+// Any source character set
+char ς[] = "ς";           // same well-formedness
 ```
 
 :::
