@@ -33269,6 +33269,518 @@ references:
     citation-label: EDIT3194
     title: "[using.headers]/1 Not declaration, but directive?"
     URL: https://wg21.link/edit3194
+  - id: EDIT3195
+    citation-label: EDIT3195
+    title: "[basic.def] missing template declaration in list of non-definitions"
+    URL: https://wg21.link/edit3195
+  - id: EDIT3196
+    citation-label: EDIT3196
+    title: "[lex.pptoken] import-keyword missing from list of categories of preprocessing token"
+    URL: https://wg21.link/edit3196
+  - id: EDIT3197
+    citation-label: EDIT3197
+    title: "Non grammatical term initializer is used like a language construct but not defined"
+    URL: https://wg21.link/edit3197
+  - id: EDIT3198
+    citation-label: EDIT3198
+    title: "[re.regex] assign editorial cleanup."
+    URL: https://wg21.link/edit3198
+  - id: EDIT3199
+    citation-label: EDIT3199
+    title: "[temp.param] Remove unused class template from example."
+    URL: https://wg21.link/edit3199
+  - id: EDIT3200
+    citation-label: EDIT3200
+    title: "[basic.def] Move rule on template definition here"
+    URL: https://wg21.link/edit3200
+  - id: EDIT3201
+    citation-label: EDIT3201
+    title: "Import directive is deleted at the end of translation phase 4"
+    URL: https://wg21.link/edit3201
+  - id: EDIT3202
+    citation-label: EDIT3202
+    title: "[allocator.requirements] inconsistent use of periods in tables"
+    URL: https://wg21.link/edit3202
+  - id: EDIT3203
+    citation-label: EDIT3203
+    title: "[dcl.array] The first element has the same address as the array"
+    URL: https://wg21.link/edit3203
+  - id: EDIT3204
+    citation-label: EDIT3204
+    title: "Gather destructor behavior"
+    URL: https://wg21.link/edit3204
+  - id: EDIT3205
+    citation-label: EDIT3205
+    title: "Improve cv-combination note"
+    URL: https://wg21.link/edit3205
+  - id: EDIT3206
+    citation-label: EDIT3206
+    title: "[range.range] replace hyphens with dashes"
+    URL: https://wg21.link/edit3206
+  - id: EDIT3207
+    citation-label: EDIT3207
+    title: "[containers] \"throws an exception\""
+    URL: https://wg21.link/edit3207
+  - id: EDIT3208
+    citation-label: EDIT3208
+    title: "[deque.modifiers][vector.modifiers] unclear \"assignment operator\""
+    URL: https://wg21.link/edit3208
+  - id: EDIT3209
+    citation-label: EDIT3209
+    title: "[iterators] s/a == b/bool(a == b)/ and s/++a == ++b/bool(++a == ++b)/"
+    URL: https://wg21.link/edit3209
+  - id: EDIT3210
+    citation-label: EDIT3210
+    title: "[span.tuple] simplify definition of get(span<T, I>)"
+    URL: https://wg21.link/edit3210
+  - id: EDIT3211
+    citation-label: EDIT3211
+    title: "[span.syn] Fix inconsistent class key in tuple_size/tuple_element"
+    URL: https://wg21.link/edit3211
+  - id: EDIT3212
+    citation-label: EDIT3212
+    title: "[lex.pptoken] Mention import keywords in the category list."
+    URL: https://wg21.link/edit3212
+  - id: EDIT3213
+    citation-label: EDIT3213
+    title: "[class.dtor] Group declaration properties vs. behavior."
+    URL: https://wg21.link/edit3213
+  - id: EDIT3214
+    citation-label: EDIT3214
+    title: "[thread.latch] Subordinate [latch.syn] and [thread.latch.class]"
+    URL: https://wg21.link/edit3214
+  - id: EDIT3215
+    citation-label: EDIT3215
+    title: "\"Observable behavior\" is not defined properly"
+    URL: https://wg21.link/edit3215
+  - id: EDIT3216
+    citation-label: EDIT3216
+    title: "Use consistent wording to indicate ADL-only lookup."
+    URL: https://wg21.link/edit3216
+  - id: EDIT3217
+    citation-label: EDIT3217
+    title: "[dcl.init.ref] Constructors not mentioned when user-defined conversions are used"
+    URL: https://wg21.link/edit3217
+  - id: EDIT3218
+    citation-label: EDIT3218
+    title: "[class.cdtor] Final overrider used incorrectly"
+    URL: https://wg21.link/edit3218
+  - id: EDIT3219
+    citation-label: EDIT3219
+    title: "[std] Move \\pnum and library element markers to a line of their own."
+    URL: https://wg21.link/edit3219
+  - id: EDIT3220
+    citation-label: EDIT3220
+    title: "[class.spaceship] equal to equivalent"
+    URL: https://wg21.link/edit3220
+  - id: EDIT3221
+    citation-label: EDIT3221
+    title: "[diff] Move markers to lines of their own."
+    URL: https://wg21.link/edit3221
+  - id: EDIT3222
+    citation-label: EDIT3222
+    title: "[basic.life] Lifetime of union member"
+    URL: https://wg21.link/edit3222
+  - id: EDIT3223
+    citation-label: EDIT3223
+    title: "[concepts.arithmetic] fix notes that use undefined terms"
+    URL: https://wg21.link/edit3223
+  - id: EDIT3224
+    citation-label: EDIT3224
+    title: "[over.match.funcs] Remove bullet for single-item bulleted list."
+    URL: https://wg21.link/edit3224
+  - id: EDIT3225
+    citation-label: EDIT3225
+    title: "[basic.stc.dynamic.safety] Avoid undefined term 'dynamic object'."
+    URL: https://wg21.link/edit3225
+  - id: EDIT3226
+    citation-label: EDIT3226
+    title: "[temp.param] Define X in the example."
+    URL: https://wg21.link/edit3226
+  - id: EDIT3227
+    citation-label: EDIT3227
+    title: "[dcl.spec.auto] Add example to show variable redeclaration with 'auto'."
+    URL: https://wg21.link/edit3227
+  - id: EDIT3228
+    citation-label: EDIT3228
+    title: "[basic.stc.dynamic.safety] Fix ambiguous antecedent for 'it'."
+    URL: https://wg21.link/edit3228
+  - id: EDIT3229
+    citation-label: EDIT3229
+    title: "Replace \"shall not throw\" with \"does not throw\" when it describes library behavior"
+    URL: https://wg21.link/edit3229
+  - id: EDIT3230
+    citation-label: EDIT3230
+    title: "Several editorial fixes in [re.regex]."
+    URL: https://wg21.link/edit3230
+  - id: EDIT3231
+    citation-label: EDIT3231
+    title: "[range.elements.overview] range adaptor objects `keys` and `values` are unspecified"
+    URL: https://wg21.link/edit3231
+  - id: EDIT3232
+    citation-label: EDIT3232
+    title: "[ranges] Range adaptor/factory objects not indexed"
+    URL: https://wg21.link/edit3232
+  - id: EDIT3233
+    citation-label: EDIT3233
+    title: "[lib] Use more abstract library indexing macros"
+    URL: https://wg21.link/edit3233
+  - id: EDIT3234
+    citation-label: EDIT3234
+    title: "[class.default.ctor] Implicit definitions of special functions"
+    URL: https://wg21.link/edit3234
+  - id: EDIT3235
+    citation-label: EDIT3235
+    title: "[over.match.viable] footnote is incorrect"
+    URL: https://wg21.link/edit3235
+  - id: EDIT3236
+    citation-label: EDIT3236
+    title: "[ostream.iterator] Wrong type name in default constructor of ostream_iterator"
+    URL: https://wg21.link/edit3236
+  - id: EDIT3237
+    citation-label: EDIT3237
+    title: "[basic.def.odr] Why is \"external linkage\" only mentioned for inline functions & variables?"
+    URL: https://wg21.link/edit3237
+  - id: EDIT3238
+    citation-label: EDIT3238
+    title: "[locale] Example calls time_put::put with ios_base::iostate& but there is no such overload"
+    URL: https://wg21.link/edit3238
+  - id: EDIT3239
+    citation-label: EDIT3239
+    title: "[std] Improve indexing of standard library headers."
+    URL: https://wg21.link/edit3239
+  - id: EDIT3240
+    citation-label: EDIT3240
+    title: "[ostream.iterator] Correct typo"
+    URL: https://wg21.link/edit3240
+  - id: EDIT3241
+    citation-label: EDIT3241
+    title: "[over.match.viable] Properly handle non-trailing default arguments."
+    URL: https://wg21.link/edit3241
+  - id: EDIT3242
+    citation-label: EDIT3242
+    title: "[locale] Fix example."
+    URL: https://wg21.link/edit3242
+  - id: EDIT3243
+    citation-label: EDIT3243
+    title: "[class.temporary] Fix typo in example."
+    URL: https://wg21.link/edit3243
+  - id: EDIT3244
+    citation-label: EDIT3244
+    title: "[expr.prim.id] Fix immediate function id-expression requirement"
+    URL: https://wg21.link/edit3244
+  - id: EDIT3245
+    citation-label: EDIT3245
+    title: "Avoid confusion between lookup and overall overload resolution"
+    URL: https://wg21.link/edit3245
+  - id: EDIT3246
+    citation-label: EDIT3246
+    title: "[index] Create first-letter subheadings for the general index."
+    URL: https://wg21.link/edit3246
+  - id: EDIT3247
+    citation-label: EDIT3247
+    title: "Change type-id to defining-type-id [temp.alias] p4"
+    URL: https://wg21.link/edit3247
+  - id: EDIT3248
+    citation-label: EDIT3248
+    title: "[temp.spec] Make \"specialization\" a proper definition & adjust definition."
+    URL: https://wg21.link/edit3248
+  - id: EDIT3249
+    citation-label: EDIT3249
+    title: "[class.dtor] Remove incorrect note about trivial vs. constexpr."
+    URL: https://wg21.link/edit3249
+  - id: EDIT3250
+    citation-label: EDIT3250
+    title: "[std] Add \"Preamble\" sections to top-level core clauses"
+    URL: https://wg21.link/edit3250
+  - id: EDIT3251
+    citation-label: EDIT3251
+    title: "[std] Introduce 'Preamble' sections to avoid hanging paragraphs."
+    URL: https://wg21.link/edit3251
+  - id: EDIT3252
+    citation-label: EDIT3252
+    title: "[macros,range.counted] Introduce and use \\libconceptx"
+    URL: https://wg21.link/edit3252
+  - id: EDIT3253
+    citation-label: EDIT3253
+    title: "[everywhere] Remove inappropriate paragraph breaks."
+    URL: https://wg21.link/edit3253
+  - id: EDIT3254
+    citation-label: EDIT3254
+    title: "[class.copy.elision] Fix the contradiction introduced by CWG 2278"
+    URL: https://wg21.link/edit3254
+  - id: EDIT3255
+    citation-label: EDIT3255
+    title: "[lib] Parameter names in synopses"
+    URL: https://wg21.link/edit3255
+  - id: EDIT3256
+    citation-label: EDIT3256
+    title: "[travis] Expand automatic LaTeX source checking for \\pnum etc."
+    URL: https://wg21.link/edit3256
+  - id: EDIT3257
+    citation-label: EDIT3257
+    title: "Mis-application of a bit of p1463r1"
+    URL: https://wg21.link/edit3257
+  - id: EDIT3258
+    citation-label: EDIT3258
+    title: "[list.ops] Fix misapplication of P1463R1, \"!=\" should be \"==\"."
+    URL: https://wg21.link/edit3258
+  - id: EDIT3259
+    citation-label: EDIT3259
+    title: "[lib] Remove parameter names from deleted special member functions."
+    URL: https://wg21.link/edit3259
+  - id: EDIT3260
+    citation-label: EDIT3260
+    title: "[expr.typeid] Add a note covering abominable function types as type-id"
+    URL: https://wg21.link/edit3260
+  - id: EDIT3261
+    citation-label: EDIT3261
+    title: "[alg.search] search_n. Use consistent wording with search"
+    URL: https://wg21.link/edit3261
+  - id: EDIT3262
+    citation-label: EDIT3262
+    title: "[basic.lval] Non-static member function designator is a prvalue"
+    URL: https://wg21.link/edit3262
+  - id: EDIT3263
+    citation-label: EDIT3263
+    title: "[expr.typeid] Add note highlighting prohibition of bad function types."
+    URL: https://wg21.link/edit3263
+  - id: EDIT3264
+    citation-label: EDIT3264
+    title: "[atomics] Reorder members of atomic, atomic_ref, atomic_flag"
+    URL: https://wg21.link/edit3264
+  - id: EDIT3265
+    citation-label: EDIT3265
+    title: "[expr.const] Excise 'initialization full-expression'"
+    URL: https://wg21.link/edit3265
+  - id: EDIT3266
+    citation-label: EDIT3266
+    title: "[atomics.ref.ops] Rename stable label from .operations"
+    URL: https://wg21.link/edit3266
+  - id: EDIT3267
+    citation-label: EDIT3267
+    title: "[basic.def.odr] Replace misleading 'for which' with 'where'."
+    URL: https://wg21.link/edit3267
+  - id: EDIT3268
+    citation-label: EDIT3268
+    title: "[support.srcloc] Canonicalize presentation."
+    URL: https://wg21.link/edit3268
+  - id: EDIT3269
+    citation-label: EDIT3269
+    title: "[concept.boolean] Avoid undefined 'Boolean context'."
+    URL: https://wg21.link/edit3269
+  - id: EDIT3270
+    citation-label: EDIT3270
+    title: "[std] Align all comments to multiples of four"
+    URL: https://wg21.link/edit3270
+  - id: EDIT3271
+    citation-label: EDIT3271
+    title: "Upper-case vs Lower-case for expressions"
+    URL: https://wg21.link/edit3271
+  - id: EDIT3272
+    citation-label: EDIT3272
+    title: "[lib] Use macro \\notdef for undefined entities."
+    URL: https://wg21.link/edit3272
+  - id: EDIT3273
+    citation-label: EDIT3273
+    title: "[travis] improve messages for \"overfull \\hbox\" and \"Reference ... und…"
+    URL: https://wg21.link/edit3273
+  - id: EDIT3274
+    citation-label: EDIT3274
+    title: "[utilities] Index _t typedefs and _v variable templates."
+    URL: https://wg21.link/edit3274
+  - id: EDIT3275
+    citation-label: EDIT3275
+    title: "[stmt.jump] Fix markup typo in grammar, causing bad index entries."
+    URL: https://wg21.link/edit3275
+  - id: EDIT3276
+    citation-label: EDIT3276
+    title: "[span.iterators] Fix typo in paragraph 5"
+    URL: https://wg21.link/edit3276
+  - id: EDIT3277
+    citation-label: EDIT3277
+    title: "[class.mem] Avoid 'shall have been defined'"
+    URL: https://wg21.link/edit3277
+  - id: EDIT3278
+    citation-label: EDIT3278
+    title: "[rand.predef] use digit separators for long literals"
+    URL: https://wg21.link/edit3278
+  - id: EDIT3279
+    citation-label: EDIT3279
+    title: "[rand.predef] Add digit separators to large numbers."
+    URL: https://wg21.link/edit3279
+  - id: EDIT3280
+    citation-label: EDIT3280
+    title: "[ranges] Add index entries."
+    URL: https://wg21.link/edit3280
+  - id: EDIT3281
+    citation-label: EDIT3281
+    title: "[dcl.fct] parameter-type-list should be non-hyphenated, and inconsistent use"
+    URL: https://wg21.link/edit3281
+  - id: EDIT3282
+    citation-label: EDIT3282
+    title: "[intro.defs] Hyphenate parameter-type-list."
+    URL: https://wg21.link/edit3282
+  - id: EDIT3283
+    citation-label: EDIT3283
+    title: "[expr.const] drop unused declaration from integral constant expression example"
+    URL: https://wg21.link/edit3283
+  - id: EDIT3284
+    citation-label: EDIT3284
+    title: "missing definition for \"comparison operator\""
+    URL: https://wg21.link/edit3284
+  - id: EDIT3285
+    citation-label: EDIT3285
+    title: "[std] Consistently use 'comparison function'"
+    URL: https://wg21.link/edit3285
+  - id: EDIT3286
+    citation-label: EDIT3286
+    title: "[lib] Do not use macro \\libconcept in headings."
+    URL: https://wg21.link/edit3286
+  - id: EDIT3287
+    citation-label: EDIT3287
+    title: "Should [basic.lval] p9 note refer to [expr.type] not [expr.prop] ?"
+    URL: https://wg21.link/edit3287
+  - id: EDIT3288
+    citation-label: EDIT3288
+    title: "[basic.lval] Adjust cross-reference in the note."
+    URL: https://wg21.link/edit3288
+  - id: EDIT3289
+    citation-label: EDIT3289
+    title: "[basic.def.odr] Variable templates are not excepted from ODR"
+    URL: https://wg21.link/edit3289
+  - id: EDIT3290
+    citation-label: EDIT3290
+    title: "Possible contradiction between [basic.link]/9 and [base.scope.declarative]/4"
+    URL: https://wg21.link/edit3290
+  - id: EDIT3291
+    citation-label: EDIT3291
+    title: "No indefinite articles before grammatical productions"
+    URL: https://wg21.link/edit3291
+  - id: EDIT3292
+    citation-label: EDIT3292
+    title: "[alg.min.max] Correct errors in paragraph 22"
+    URL: https://wg21.link/edit3292
+  - id: EDIT3293
+    citation-label: EDIT3293
+    title: "[set.symmetric.difference] Strike duplicated sentence from para 2"
+    URL: https://wg21.link/edit3293
+  - id: EDIT3294
+    citation-label: EDIT3294
+    title: "[readable.traits] Add template argument list to constrained specialization"
+    URL: https://wg21.link/edit3294
+  - id: EDIT3295
+    citation-label: EDIT3295
+    title: "[module.context]/7"
+    URL: https://wg21.link/edit3295
+  - id: EDIT3296
+    citation-label: EDIT3296
+    title: "Update cross-references to refer to [*.pre]"
+    URL: https://wg21.link/edit3296
+  - id: EDIT3297
+    citation-label: EDIT3297
+    title: "fix residual suggestions that overload resolution might not always happen"
+    URL: https://wg21.link/edit3297
+  - id: EDIT3298
+    citation-label: EDIT3298
+    title: "[duration.cast, time.point.cast] Better subclause names"
+    URL: https://wg21.link/edit3298
+  - id: EDIT3299
+    citation-label: EDIT3299
+    title: "[range.subrange.access] fix typo"
+    URL: https://wg21.link/edit3299
+  - id: EDIT3300
+    citation-label: EDIT3300
+    title: "make-unsigned-like and make-unsigned-like-t are too similar"
+    URL: https://wg21.link/edit3300
+  - id: EDIT3301
+    citation-label: EDIT3301
+    title: "[iterator.concept.winc] fix \"extended integral type\""
+    URL: https://wg21.link/edit3301
+  - id: EDIT3302
+    citation-label: EDIT3302
+    title: "[time.duration.cast,time.point.cast] Rename subclause to 'Conversions'."
+    URL: https://wg21.link/edit3302
+  - id: EDIT3303
+    citation-label: EDIT3303
+    title: "[std] Fix cross-references pointing to entire clauses"
+    URL: https://wg21.link/edit3303
+  - id: EDIT3304
+    citation-label: EDIT3304
+    title: "[time.cal.ymd.overview] Typo fix: comma at end of sentence."
+    URL: https://wg21.link/edit3304
+  - id: EDIT3305
+    citation-label: EDIT3305
+    title: "[time.zone.db.tzdb] Add missing '\\pnum'."
+    URL: https://wg21.link/edit3305
+  - id: EDIT3306
+    citation-label: EDIT3306
+    title: "\"ios_base::failure\" vs. \"ios::failure\" vs. \"basic_ios::failure\""
+    URL: https://wg21.link/edit3306
+  - id: EDIT3307
+    citation-label: EDIT3307
+    title: "[std] Remove 'shall' from notes."
+    URL: https://wg21.link/edit3307
+  - id: EDIT3308
+    citation-label: EDIT3308
+    title: "[numerics,input.output] Consistently use ios_base::failure."
+    URL: https://wg21.link/edit3308
+  - id: EDIT3309
+    citation-label: EDIT3309
+    title: "[support.srcloc.class] Highlight unspecified properties"
+    URL: https://wg21.link/edit3309
+  - id: EDIT3310
+    citation-label: EDIT3310
+    title: "[basic.fundamental]p4 misquotes C"
+    URL: https://wg21.link/edit3310
+  - id: EDIT3311
+    citation-label: EDIT3311
+    title: "Cleanup make-unsigned-like"
+    URL: https://wg21.link/edit3311
+  - id: EDIT3312
+    citation-label: EDIT3312
+    title: "[basic.scope.class] Reinstate a qualification that was lost in 0e26279b88c3b8b0a09babdeec8418d383f07419."
+    URL: https://wg21.link/edit3312
+  - id: EDIT3313
+    citation-label: EDIT3313
+    title: "Upload generated PDFs to GitHub releases from Travis"
+    URL: https://wg21.link/edit3313
+  - id: EDIT3314
+    citation-label: EDIT3314
+    title: " [stmt.dcl] Vacuous initialization is defined in [basic.life]"
+    URL: https://wg21.link/edit3314
+  - id: EDIT3315
+    citation-label: EDIT3315
+    title: "[basic.stc.dynamic.deallocation] Use of incorrect grammar"
+    URL: https://wg21.link/edit3315
+  - id: EDIT3316
+    citation-label: EDIT3316
+    title: "[class.access] Allocation order of data members is described in [expr.rel]"
+    URL: https://wg21.link/edit3316
+  - id: EDIT3317
+    citation-label: EDIT3317
+    title: "[alg.replace]p8 Ambiguous assignment"
+    URL: https://wg21.link/edit3317
+  - id: EDIT3318
+    citation-label: EDIT3318
+    title: "Avoid tracking PDF result files in the main github draft repository"
+    URL: https://wg21.link/edit3318
+  - id: EDIT3319
+    citation-label: EDIT3319
+    title: "assymetry in basic.lval.11 and intro intro.object.3"
+    URL: https://wg21.link/edit3319
+  - id: EDIT3320
+    citation-label: EDIT3320
+    title: "[multimap.modifiers]/1 says Mandates instead of Constraints"
+    URL: https://wg21.link/edit3320
+  - id: EDIT3321
+    citation-label: EDIT3321
+    title: "The standard and the DRY principle: header descriptions"
+    URL: https://wg21.link/edit3321
+  - id: EDIT3322
+    citation-label: EDIT3322
+    title: "[multimap.modifiers] para 1 Mandates should be Constraints"
+    URL: https://wg21.link/edit3322
   - id: EWG1
     citation-label: EWG1
     title: "N3638, N3582, N3386 Return type deduction for normal functions"
@@ -53663,6 +54175,1096 @@ references:
     author:
       - family: Geoffrey Romer
     URL: https://wg21.link/lwg3263
+  - id: LWG3264
+    citation-label: LWG3264
+    title: "sized_range and ranges::size redundantly use disable_sized_range"
+    author:
+      - family: Casey Carter
+    URL: https://wg21.link/lwg3264
+  - id: LWG3265
+    citation-label: LWG3265
+    title: "move_iterator's conversions are more broken after P1207"
+    author:
+      - family: Casey Carter
+    URL: https://wg21.link/lwg3265
+  - id: LWG3266
+    citation-label: LWG3266
+    title: "to_chars(bool) should be deleted"
+    author:
+      - family: Jens Maurer
+    URL: https://wg21.link/lwg3266
+  - id: LWG3267
+    citation-label: LWG3267
+    title: "Rebound allocators and is_always_equal"
+    author:
+      - family: FrankHB1989
+    URL: https://wg21.link/lwg3267
+  - id: LWG3268
+    citation-label: LWG3268
+    title: "memory_order::memory_order_foo broken in C++20"
+    author:
+      - family: Eric Fiselier
+    URL: https://wg21.link/lwg3268
+  - id: LWG3269
+    citation-label: LWG3269
+    title: "Parse manipulators do not specify the result of the extraction from stream"
+    author:
+      - family: Tomasz Kamiński
+    URL: https://wg21.link/lwg3269
+  - id: LWG3270
+    citation-label: LWG3270
+    title: "Parsing and formatting %j with durations"
+    author:
+      - family: Howard Hinnant
+    URL: https://wg21.link/lwg3270
+  - id: LWG3271
+    citation-label: LWG3271
+    title: "Parsing functions should save and restore stream format state"
+    author:
+      - family: Howard Hinnant
+    URL: https://wg21.link/lwg3271
+  - id: LWG3272
+    citation-label: LWG3272
+    title: "%I%p should parse/format duration since midnight"
+    author:
+      - family: Howard Hinnant
+    URL: https://wg21.link/lwg3272
+  - id: LWG3273
+    citation-label: LWG3273
+    title: "Specify weekday_indexed to range of [0, 7]"
+    author:
+      - family: Howard Hinnant
+    URL: https://wg21.link/lwg3273
+  - id: LWG3274
+    citation-label: LWG3274
+    title: "Missing feature test macro for <span>"
+    author:
+      - family: Jonathan Wakely
+    URL: https://wg21.link/lwg3274
+  - id: LWG3275
+    citation-label: LWG3275
+    title: "Why does time_get::do_get require a valid pointer when none of the others do?"
+    author:
+      - family: Marshall Clow
+    URL: https://wg21.link/lwg3275
+  - id: LWG3276
+    citation-label: LWG3276
+    title: "Class split_view::outer_iterator::value_type should inherit from view_interface"
+    author:
+      - family: Eric Niebler
+    URL: https://wg21.link/lwg3276
+  - id: LWG3277
+    citation-label: LWG3277
+    title: "Pre-increment on prvalues is not a requirement of weakly_incrementable"
+    author:
+      - family: Eric Niebler
+    URL: https://wg21.link/lwg3277
+  - id: LWG3278
+    citation-label: LWG3278
+    title: "join_view<V>::iterator<true> tries to write through const join_view ptr"
+    author:
+      - family: Eric Niebler
+    URL: https://wg21.link/lwg3278
+  - id: LWG3279
+    citation-label: LWG3279
+    title: "shared_ptr<int>& does not not satisfy readable"
+    author:
+      - family: Eric Niebler
+    URL: https://wg21.link/lwg3279
+  - id: LWG3280
+    citation-label: LWG3280
+    title: "View converting constructors can cause constraint recursion and are unneeded"
+    author:
+      - family: Eric Niebler
+    URL: https://wg21.link/lwg3280
+  - id: LWG3281
+    citation-label: LWG3281
+    title: "Conversion from pair-like types to subrange is a silent semantic promotion"
+    author:
+      - family: Eric Niebler
+    URL: https://wg21.link/lwg3281
+  - id: LWG3282
+    citation-label: LWG3282
+    title: "subrange converting constructor should disallow derived to base conversions"
+    author:
+      - family: Eric Niebler
+    URL: https://wg21.link/lwg3282
+  - id: LWG3283
+    citation-label: LWG3283
+    title: "Types satisfying input_iterator but not equality_comparable look like C++17 output iterators"
+    author:
+      - family: Eric Niebler
+    URL: https://wg21.link/lwg3283
+  - id: LWG3284
+    citation-label: LWG3284
+    title: "random_access_iterator semantic constraints accidentally promote difference type using unary negate"
+    author:
+      - family: Eric Niebler
+    URL: https://wg21.link/lwg3284
+  - id: LWG3285
+    citation-label: LWG3285
+    title: "The type of a customization point object shall satisfy semiregular"
+    author:
+      - family: Eric Niebler
+    URL: https://wg21.link/lwg3285
+  - id: LWG3286
+    citation-label: LWG3286
+    title: "ranges::size is not required to be valid after a call to ranges::begin on an input range"
+    author:
+      - family: Eric Niebler
+    URL: https://wg21.link/lwg3286
+  - id: LWG3287
+    citation-label: LWG3287
+    title: "Exposition-only cpp17-input-iterator concept is needlessly complex"
+    author:
+      - family: Eric Niebler
+    URL: https://wg21.link/lwg3287
+  - id: LWG3288
+    citation-label: LWG3288
+    title: "atomic<T>::notify_one is unimplementable"
+    author:
+      - family: Anthony Williams
+    URL: https://wg21.link/lwg3288
+  - id: LWG3289
+    citation-label: LWG3289
+    title: "Cannot opt out of C++17 iterator-ness without also opting out of C++20 iterator-ness"
+    author:
+      - family: Eric Niebler
+    URL: https://wg21.link/lwg3289
+  - id: LWG3290
+    citation-label: LWG3290
+    title: "Are std::format field widths code units, code points, or something else?"
+    author:
+      - family: Tom Honermann
+    URL: https://wg21.link/lwg3290
+  - id: LWG3291
+    citation-label: LWG3291
+    title: "iota_view::iterator has the wrong iterator_category"
+    author:
+      - family: Eric Niebler
+    URL: https://wg21.link/lwg3291
+  - id: LWG3292
+    citation-label: LWG3292
+    title: "iota_view is under-constrained"
+    author:
+      - family: Barry Revzin
+    URL: https://wg21.link/lwg3292
+  - id: LWG3293
+    citation-label: LWG3293
+    title: "move_iterator operator+() has incorrect constraints"
+    author:
+      - family: Bo Persson
+    URL: https://wg21.link/lwg3293
+  - id: LWG3294
+    citation-label: LWG3294
+    title: "zoned_time deduction guides misinterprets string/char*"
+    author:
+      - family: Tomasz Kamiński
+    URL: https://wg21.link/lwg3294
+  - id: LWG3295
+    citation-label: LWG3295
+    title: "Comparison category operator== are mis-specified"
+    author:
+      - family: Barry Revzin
+    URL: https://wg21.link/lwg3295
+  - id: LWG3296
+    citation-label: LWG3296
+    title: "Inconsistent default argument for basic_regex<>::assign"
+    author:
+      - family: Mark de Wever
+    URL: https://wg21.link/lwg3296
+  - id: LWG3297
+    citation-label: LWG3297
+    title: "Useless sequence container requirement"
+    author:
+      - family: Casey Carter
+    URL: https://wg21.link/lwg3297
+  - id: LWG3298
+    citation-label: LWG3298
+    title: "Range adaptors introduced by P1035 do not require viewable_range"
+    author:
+      - family: Christopher Di Bella
+    URL: https://wg21.link/lwg3298
+  - id: LWG3299
+    citation-label: LWG3299
+    title: "Pointers don't need customized iterator behavior"
+    author:
+      - family: Casey Carter
+    URL: https://wg21.link/lwg3299
+  - id: LWG3300
+    citation-label: LWG3300
+    title: "Non-array ssize overload is underconstrained"
+    author:
+      - family: Casey Carter
+    URL: https://wg21.link/lwg3300
+  - id: LWG3301
+    citation-label: LWG3301
+    title: "transform_view::iterator has incorrect iterator_category"
+    author:
+      - family: Michel Morin
+    URL: https://wg21.link/lwg3301
+  - id: LWG3302
+    citation-label: LWG3302
+    title: "Range adaptor objects keys and values are unspecified"
+    author:
+      - family: Michel Morin
+    URL: https://wg21.link/lwg3302
+  - id: LWG3303
+    citation-label: LWG3303
+    title: "Bad \"constexpr\" marker for destroy/destroy_n"
+    author:
+      - family: Jens Maurer
+    URL: https://wg21.link/lwg3303
+  - id: LWG3304
+    citation-label: LWG3304
+    title: "Allocate functions of std::polymorphic_allocator should require [[nodiscard]]"
+    author:
+      - family: Hiroaki Ando
+    URL: https://wg21.link/lwg3304
+  - id: LWG3305
+    citation-label: LWG3305
+    title: "any_cast<void>"
+    author:
+      - family: John Shaw
+    URL: https://wg21.link/lwg3305
+  - id: N1208
+    citation-label: N1208
+    title: "Core Language Issues List (Revision 9)"
+    author:
+      - family: William M. Miller
+    URL: https://wg21.link/n1208
+  - id: N1212
+    citation-label: N1212
+    title: "J16 Record of Discussion"
+    author:
+      - family: Sean A. Corfield
+    URL: https://wg21.link/n1212
+  - id: N1213
+    citation-label: N1213
+    title: "WG21 Formal Minutes"
+    author:
+      - family: Sean A. Corfield
+    URL: https://wg21.link/n1213
+  - id: N1214
+    citation-label: N1214
+    title: "J16 Formal Minutes"
+    author:
+      - family: Sean A. Corfield
+    URL: https://wg21.link/n1214
+  - id: N1215
+    citation-label: N1215
+    title: "Exit Processing Order"
+    author:
+      - family: Stephen Clamage
+    URL: https://wg21.link/n1215
+  - id: N1216
+    citation-label: N1216
+    title: "Allocating Zero Bytes or Objects"
+    author:
+      - family: Stephen Clamage
+    URL: https://wg21.link/n1216
+  - id: N1217
+    citation-label: N1217
+    title: "Core WG Defect Resolutions"
+    author:
+      - family: William M. Miller
+    URL: https://wg21.link/n1217
+  - id: N1218
+    citation-label: N1218
+    title: "Clarifying the Definition of Accessible Base Class (Rev. 3)"
+    author:
+      - family: Thomas R. Wilcox
+    URL: https://wg21.link/n1218
+  - id: N1219
+    citation-label: N1219
+    title: "Proposed Resolution to Library Issue 60"
+    author:
+      - family: Judy Ward, Matt Austern
+    URL: https://wg21.link/n1219
+  - id: N1220
+    citation-label: N1220
+    title: "Library Motion for Kona"
+    author:
+      - family: Beman Dawes
+    URL: https://wg21.link/n1220
+  - id: N1221
+    citation-label: N1221
+    title: "Minutes of US TAG Meeting"
+    author:
+      - family: Herb Sutter
+    URL: https://wg21.link/n1221
+  - id: N1222
+    citation-label: N1222
+    title: "C++ Standard Library Defect Report List (Revision 11)"
+    author:
+      - family: Beman Dawes
+    URL: https://wg21.link/n1222
+  - id: N1223
+    citation-label: N1223
+    title: "C++ Standard Library Closed Issues List (Revision 11)"
+    author:
+      - family: Beman Dawes
+    URL: https://wg21.link/n1223
+  - id: N1224
+    citation-label: N1224
+    title: "C++ Standard Library Active Issues List (Revision 11)"
+    author:
+      - family: Beman Dawes
+    URL: https://wg21.link/n1224
+  - id: N1225
+    citation-label: N1225
+    title: "Agenda, SC22/WG21, C++, Tokyo, Japan"
+    author:
+      - family: Thomas Plum
+    URL: https://wg21.link/n1225
+  - id: N1226
+    citation-label: N1226
+    title: "C++ Standard Library Active Issues List (Revision 12)"
+    author:
+      - family: Beman Dawes
+    URL: https://wg21.link/n1226
+  - id: N1227
+    citation-label: N1227
+    title: "C++ Standard Library Defect Report List (Revision 12)"
+    author:
+      - family: Beman Dawes
+    URL: https://wg21.link/n1227
+  - id: N1228
+    citation-label: N1228
+    title: "C++ Standard Library Closed Issues List (Revision 12)"
+    author:
+      - family: Beman Dawes
+    URL: https://wg21.link/n1228
+  - id: N1229
+    citation-label: N1229
+    title: "Friend Declaration Issues"
+    author:
+      - family: John Spicer
+    URL: https://wg21.link/n1229
+  - id: N1230
+    citation-label: N1230
+    title: "Agenda, J16 Meeting No. 30, WG21 Meeting No. 25"
+    author:
+      - family: Stephen D. Clamage
+    URL: https://wg21.link/n1230
+  - id: N1231
+    citation-label: N1231
+    title: "Miscellaneous Template Issues for Tokyo Meeting"
+    author:
+      - family: John Spicer
+    URL: https://wg21.link/n1231
+  - id: N1232
+    citation-label: N1232
+    title: "The core language auto_ptr problem"
+    author:
+      - family: J. Stephen Adamczyk
+    URL: https://wg21.link/n1232
+  - id: N1233
+    citation-label: N1233
+    title: "Technical Report on Basic I/O Hardware Addressing"
+    author:
+      - family: Jan Kristoffersen
+    URL: https://wg21.link/n1233
+  - id: N1234
+    citation-label: N1234
+    title: "Proposed Resolution for Core Issue 73"
+    author:
+      - family: William M. Miller
+    URL: https://wg21.link/n1234
+  - id: N1235
+    citation-label: N1235
+    title: "October 2000 Meeting of WG21/J16 Travel Information"
+    author:
+      - family: Robert Klarer
+    URL: https://wg21.link/n1235
+  - id: N1236
+    citation-label: N1236
+    title: "C++ Standard Core Language Active Issues, Revision 10"
+    author:
+      - family: William M. Miller
+    URL: https://wg21.link/n1236
+  - id: N1237
+    citation-label: N1237
+    title: "C++ Standard Core Language Defect Reports, Revision 10"
+    author:
+      - family: William M. Miller
+    URL: https://wg21.link/n1237
+  - id: N1238
+    citation-label: N1238
+    title: "C++ Standard Core Language Closed Issues, Revision 10"
+    author:
+      - family: William M. Miller
+    URL: https://wg21.link/n1238
+  - id: N1239
+    citation-label: N1239
+    title: "C++ Standard Core Language Active Issues, Revision 12"
+    author:
+      - family: William M. Miller
+    URL: https://wg21.link/n1239
+  - id: N1240
+    citation-label: N1240
+    title: "C++ Standard Core Language Defect Reports, Revision 12"
+    author:
+      - family: William M. Miller
+    URL: https://wg21.link/n1240
+  - id: N1241
+    citation-label: N1241
+    title: "C++ Standard Core Language Closed Issues, Revision 12"
+    author:
+      - family: William M. Miller
+    URL: https://wg21.link/n1241
+  - id: N1242
+    citation-label: N1242
+    title: "C++ Standard Library Active Issues List (Revision 14)"
+    author:
+      - family: Beman Dawes
+    URL: https://wg21.link/n1242
+  - id: N1243
+    citation-label: N1243
+    title: "C++ Standard Library Closed Issues List (Revision 14)"
+    author:
+      - family: Beman Dawes
+    URL: https://wg21.link/n1243
+  - id: N1244
+    citation-label: N1244
+    title: "C++ Standard Library Defect Report List (Revision 14)"
+    author:
+      - family: Beman Dawes
+    URL: https://wg21.link/n1244
+  - id: N1245
+    citation-label: N1245
+    title: "Binder Problem and Reference Proposal (Revised)"
+    author:
+      - family: Bjarne Stroustrup
+    URL: https://wg21.link/n1245
+  - id: N1246
+    citation-label: N1246
+    title: "Fixing valarray for Real-World Use"
+    author:
+      - family: AFNOR
+    URL: https://wg21.link/n1246
+  - id: N1247
+    citation-label: N1247
+    title: "Programmer-directed Optimizations"
+    author:
+      - family: Seiji Hayashida
+    URL: https://wg21.link/n1247
+  - id: N1248
+    citation-label: N1248
+    title: "Draft Technical Report on Performance Issues"
+    author:
+      - family: Performance WG
+    URL: https://wg21.link/n1248
+  - id: N1249
+    citation-label: N1249
+    title: "Drafting from Tokyo Meeting -- Revision 2"
+    author:
+      - family: John Spicer
+    URL: https://wg21.link/n1249
+  - id: N1250
+    citation-label: N1250
+    title: "Library Motions for Tokyo"
+    author:
+      - family: Beman Dawes
+    URL: https://wg21.link/n1250
+  - id: N1251
+    citation-label: N1251
+    title: "Definition of Dependent Name"
+    author:
+      - family: John Spicer
+    URL: https://wg21.link/n1251
+  - id: N1252
+    citation-label: N1252
+    title: "Shades of Namespace std Functions"
+    author:
+      - family: Alan Griffiths
+    URL: https://wg21.link/n1252
+  - id: N1253
+    citation-label: N1253
+    title: "Minutes, SC22/WG21, C++, Tokyo, Japan"
+    author:
+      - family: Thomas Plum
+    URL: https://wg21.link/n1253
+  - id: N1254
+    citation-label: N1254
+    title: "Member Access Control -- Proposed Revisions"
+    author:
+      - family: Martin O'Riordan
+    URL: https://wg21.link/n1254
+  - id: N1255
+    citation-label: N1255
+    title: "Minutes, J16 + WG21 Meeting, Tokyo"
+    author:
+      - family: Robert Klarer
+    URL: https://wg21.link/n1255
+  - id: N1256
+    citation-label: N1256
+    title: "Agenda, SC22/WG21, C++, Toronto, Canada"
+    author:
+      - family: Thomas Plum
+    URL: https://wg21.link/n1256
+  - id: N1257
+    citation-label: N1257
+    title: "Business Plan and Convener's Report, ISO/IEC JTCI/SC22/WG21(C++)"
+    author:
+      - family: Thomas Plum
+    URL: https://wg21.link/n1257
+  - id: N1258
+    citation-label: N1258
+    title: "ROM-ability (Performance Group)"
+    author:
+      - family: Seiji Hayashida
+    URL: https://wg21.link/n1258
+  - id: N1259
+    citation-label: N1259
+    title: "C++ Standard Library Active Issues List (Revision 15)"
+    author:
+      - family: Matt Austern
+    URL: https://wg21.link/n1259
+  - id: N1260
+    citation-label: N1260
+    title: "C++ Standard Library Closed Issues List (Revision 15)"
+    author:
+      - family: Matt Austern
+    URL: https://wg21.link/n1260
+  - id: N1261
+    citation-label: N1261
+    title: "C++ Standard Library Defect Report List (Revision 15)"
+    author:
+      - family: Matt Austern
+    URL: https://wg21.link/n1261
+  - id: N1262
+    citation-label: N1262
+    title: "Agenda, J16 Meeting No. 31, WG21 Meeting No. 26"
+    author:
+      - family: Stephen Clamage
+    URL: https://wg21.link/n1262
+  - id: N1263
+    citation-label: N1263
+    title: "Default Arguments and Friend Declarations"
+    author:
+      - family: John Spicer
+    URL: https://wg21.link/n1263
+  - id: N1265
+    citation-label: N1265
+    title: "C++ Standard Core Language Active Issues, Revision 13"
+    author:
+      - family: William M. Miller
+    URL: https://wg21.link/n1265
+  - id: N1266
+    citation-label: N1266
+    title: "C++ Standard Core Language Defect Reports, Revision 13"
+    author:
+      - family: William M. Miller
+    URL: https://wg21.link/n1266
+  - id: N1267
+    citation-label: N1267
+    title: "C++ Standard Core Language Closed Issues, Revision 13"
+    author:
+      - family: William M. Miller
+    URL: https://wg21.link/n1267
+  - id: N1268
+    citation-label: N1268
+    title: "Member Access Control and Nested Classes"
+    author:
+      - family: Alan Griffiths and Mark Radford
+    URL: https://wg21.link/n1268
+  - id: N1269
+    citation-label: N1269
+    title: "C++ Standard Library Active Issues List (Revision 16)"
+    author:
+      - family: Matt Austern
+    URL: https://wg21.link/n1269
+  - id: N1270
+    citation-label: N1270
+    title: "C++ Standard Library Closed Issues List (Revision 16)"
+    author:
+      - family: Matt Austern
+    URL: https://wg21.link/n1270
+  - id: N1271
+    citation-label: N1271
+    title: "C++ Standard Library Defect Report List (Revision 16)"
+    author:
+      - family: Matt Austern
+    URL: https://wg21.link/n1271
+  - id: N1272
+    citation-label: N1272
+    title: "C++ Standard Core Language Active Issues, Revision 15"
+    author:
+      - family: William M. Miller
+    URL: https://wg21.link/n1272
+  - id: N1273
+    citation-label: N1273
+    title: "C++ Standard Core Language Defect Reports, Revision 15"
+    author:
+      - family: William M. Miller
+    URL: https://wg21.link/n1273
+  - id: N1274
+    citation-label: N1274
+    title: "C++ Standard Core Language Closed Issues, Revision 15"
+    author:
+      - family: William M. Miller
+    URL: https://wg21.link/n1274
+  - id: N1275
+    citation-label: N1275
+    title: "Minutes of ISO WG21 Meeting, October 22, 2000"
+    author:
+      - family: Herb Sutter
+    URL: https://wg21.link/n1275
+  - id: N1276
+    citation-label: N1276
+    title: "Minutes of ANSI J16 and ISO WG21 Co-located Meeting, October 23-27, 2000"
+    author:
+      - family: Herb Sutter
+    URL: https://wg21.link/n1276
+  - id: N1278
+    citation-label: N1278
+    title: "October 2001 WG14/WG21 Meeting"
+    author:
+      - family: Jonathan E. Caves
+    URL: https://wg21.link/n1278
+  - id: N1279
+    citation-label: N1279
+    title: "Definition of Dependent Name - Revision 2"
+    author:
+      - family: John Spicer
+    URL: https://wg21.link/n1279
+  - id: N1280
+    citation-label: N1280
+    title: "Formal Motions"
+    author:
+      - family: Stephen D. Clamage
+    URL: https://wg21.link/n1280
+  - id: N1281
+    citation-label: N1281
+    title: "Performance TR - Working Paper"
+    author:
+      - family: Performance WG
+    URL: https://wg21.link/n1281
+  - id: N1282
+    citation-label: N1282
+    title: "Request for Library TR"
+    author:
+      - family: Nicolai Josuttis
+    URL: https://wg21.link/n1282
+  - id: N1283
+    citation-label: N1283
+    title: "A New Work Item Proposal: Technical Report for Library Issues"
+    author:
+      - family: Nicolai Josuttis
+    URL: https://wg21.link/n1283
+  - id: N1285
+    citation-label: N1285
+    title: "Minutes of U.S. TAG Meeting, October 27, 2000"
+    author:
+      - family: Herb Sutter
+    URL: https://wg21.link/n1285
+  - id: N1286
+    citation-label: N1286
+    title: "The point of destruction of a call argument temporary"
+    author:
+      - family: J. Stephen Adamczyk
+    URL: https://wg21.link/n1286
+  - id: N1287
+    citation-label: N1287
+    title: "Agenda, SC22/WG21, C++, Copenhagen, Denmark"
+    author:
+      - family: Thomas Plum
+    URL: https://wg21.link/n1287
+  - id: N1288
+    citation-label: N1288
+    title: "Agenda, J16 Meeting No.32, WG21 Meeting No. 27, April 30-May 4, 2001"
+    author:
+      - family: Stephen D. Clamage
+    URL: https://wg21.link/n1288
+  - id: N1289
+    citation-label: N1289
+    title: "Library issues 225 and 229"
+    author:
+      - family: Howard Hinnant
+    URL: https://wg21.link/n1289
+  - id: N1290
+    citation-label: N1290
+    title: "Extensions for the programming language C to support embedded proces"
+    author:
+      - family: Jan Kristoffersensors
+    URL: https://wg21.link/n1290
+  - id: N1291
+    citation-label: N1291
+    title: "C++ Standard Library Active Issues List (Revision 17)"
+    author:
+      - family: Matthew Austern
+    URL: https://wg21.link/n1291
+  - id: N1292
+    citation-label: N1292
+    title: "C++ Standard Library Defect Report List (Revision 17)"
+    author:
+      - family: Matthew Austern
+    URL: https://wg21.link/n1292
+  - id: N1293
+    citation-label: N1293
+    title: "C++ Standard Library Closed Issues List (Revision 17)"
+    author:
+      - family: Matthew Austern
+    URL: https://wg21.link/n1293
+  - id: N1294
+    citation-label: N1294
+    title: "October 2001 WG14/WG21 Meeting"
+    author:
+      - family: Jonathan E. Caves
+    URL: https://wg21.link/n1294
+  - id: N1295
+    citation-label: N1295
+    title: "Partial Specialization of Function Templates"
+    author:
+      - family: Peter Dimov
+    URL: https://wg21.link/n1295
+  - id: N1296
+    citation-label: N1296
+    title: "User-supplied Specializations of Standard Library Algorithms"
+    author:
+      - family: Peter Dimov
+    URL: https://wg21.link/n1296
+  - id: N1297
+    citation-label: N1297
+    title: "Improved Iterator Categories and Requirements"
+    author:
+      - family: Jeremy Siek
+    URL: https://wg21.link/n1297
+  - id: N1298
+    citation-label: N1298
+    title: "C++ Core Language Active Issues, Revision 16"
+    author:
+      - family: William M. Miller
+    URL: https://wg21.link/n1298
+  - id: N1299
+    citation-label: N1299
+    title: "C++ Core Language Defect Reports, Revision 16"
+    author:
+      - family: William M. Miller
+    URL: https://wg21.link/n1299
+  - id: N1300
+    citation-label: N1300
+    title: "C++ Core Language Closed Issues, Revision 16"
+    author:
+      - family: William M. Miller
+    URL: https://wg21.link/n1300
+  - id: N1301
+    citation-label: N1301
+    title: "DTR 14652: Specification Method for Cultural Conventions"
+    author:
+      - family: Keld Simonsen
+    URL: https://wg21.link/n1301
+  - id: N1302
+    citation-label: N1302
+    title: "Core WG Defect Resolutions"
+    author:
+      - family: William M. Miller
+    URL: https://wg21.link/n1302
+  - id: N1303
+    citation-label: N1303
+    title: "Minutes of ISO WG21 Meeting, April 29, 2001"
+    author:
+      - family: Robert Klarer, Herb Sutter
+    URL: https://wg21.link/n1303
+  - id: N1304
+    citation-label: N1304
+    title: "Minutes of ANSI J16 and ISO WG21 Co-located Meeting, April 30-May 4,"
+    author:
+      - family: Herb Sutter, Robert Klarer 2001
+    URL: https://wg21.link/n1304
+  - id: N1305
+    citation-label: N1305
+    title: "Agenda, SC22/WG21, C++, Redmond, Washington, USA"
+    author:
+      - family: Thomas Plum
+    URL: https://wg21.link/n1305
+  - id: N1306
+    citation-label: N1306
+    title: "C++ Core Language Active Issues, Revision 18"
+    author:
+      - family: William M. Miller
+    URL: https://wg21.link/n1306
+  - id: N1307
+    citation-label: N1307
+    title: "C++ Core Language Defect Reports, Revision 18"
+    author:
+      - family: William M. Miller
+    URL: https://wg21.link/n1307
+  - id: N1308
+    citation-label: N1308
+    title: "C++ Core Language Closed Issues, Revision 18"
+    author:
+      - family: William M. Miller
+    URL: https://wg21.link/n1308
+  - id: N1309
+    citation-label: N1309
+    title: "Technical Report on C++ Performance (DRAFT)"
+    author:
+      - family: Performance WG
+    URL: https://wg21.link/n1309
+  - id: N1310
+    citation-label: N1310
+    title: "C++ Standard Library Active Issues List (Revision 18)"
+    author:
+      - family: Matthew Austern
+    URL: https://wg21.link/n1310
+  - id: N1311
+    citation-label: N1311
+    title: "C++ Standard Library Defect Report List (Revision 18)"
+    author:
+      - family: Matthew Austern
+    URL: https://wg21.link/n1311
+  - id: N1312
+    citation-label: N1312
+    title: "C++ Standard Library Closed Issues List (Revision 18)"
+    author:
+      - family: Matthew Austern
+    URL: https://wg21.link/n1312
+  - id: N1313
+    citation-label: N1313
+    title: "Binary Search with Heterogeneous Comparison"
+    author:
+      - family: David Abrahams
+    URL: https://wg21.link/n1313
+  - id: N1314
+    citation-label: N1314
+    title: "Notes on standard library extensions"
+    author:
+      - family: Matthew Austern
+    URL: https://wg21.link/n1314
+  - id: N1315
+    citation-label: N1315
+    title: "Business Plan and Convenor's Report"
+    author:
+      - family: Thomas Plum
+    issued:
+      year: 2001
+    URL: https://wg21.link/n1315
+  - id: N1316
+    citation-label: N1316
+    title: "Draft Expanded Technical Corrigendum"
+    author:
+      - family: Andrew Koenig
+    issued:
+      year: 2001
+    URL: https://wg21.link/n1316
+  - id: N1317
+    citation-label: N1317
+    title: "C++ Standard Library Active Issues List (Revision 19)"
+    author:
+      - family: Matt Austern
+    issued:
+      year: 2001
+    URL: https://wg21.link/n1317
+  - id: N1318
+    citation-label: N1318
+    title: "C++ Standard Library Defect Report List (Revision 19)"
+    author:
+      - family: Matt Austern
+    issued:
+      year: 2001
+    URL: https://wg21.link/n1318
+  - id: N1319
+    citation-label: N1319
+    title: "C++ Standard Library Closed Issues List (Revision 19)"
+    author:
+      - family: Matt Austern
+    issued:
+      year: 2001
+    URL: https://wg21.link/n1319
+  - id: N1320
+    citation-label: N1320
+    title: "Agenda, J16 Meeting No.33, WG21 Meeting No. 28, October 22-26, 2001"
+    author:
+      - family: Steve Clamage
+    issued:
+      year: 2001
+    URL: https://wg21.link/n1320
+  - id: N1321
+    citation-label: N1321
+    title: "C++ Core Language Active Issues, Revision 19"
+    author:
+      - family: J. Stephen Adamczyk
+    issued:
+      year: 2001
+    URL: https://wg21.link/n1321
+  - id: N1322
+    citation-label: N1322
+    title: "C++ Core Language Defect Reports, Revision 19"
+    author:
+      - family: J. Stephen Adamczyk
+    issued:
+      year: 2001
+    URL: https://wg21.link/n1322
+  - id: N1323
+    citation-label: N1323
+    title: "C++ Core Language Closed Issues, Revision 19"
+    author:
+      - family: J. Stephen Adamczyk
+    issued:
+      year: 2001
+    URL: https://wg21.link/n1323
+  - id: N1324
+    citation-label: N1324
+    title: "Issue 273: POD classes and operator&"
+    author:
+      - family: Jens Maurer
+    issued:
+      year: 2001
+    URL: https://wg21.link/n1324
+  - id: N1325
+    citation-label: N1325
+    title: "Library Technical Report Proposals List Trial Balloon"
+    author:
+      - family: Beman Dawes
+    issued:
+      year: 2001
+    URL: https://wg21.link/n1325
+  - id: N1326
+    citation-label: N1326
+    title: "A Proposal to Add Hashtables to the Standard Library"
+    author:
+      - family: Matt Austern
+    issued:
+      year: 2001
+    URL: https://wg21.link/n1326
+  - id: N1327
+    citation-label: N1327
+    title: "Minutes of ISO WG21 Meeting, October 21, 2001"
+    author:
+      - family: Herb Sutter
+    issued:
+      year: 2001
+    URL: https://wg21.link/n1327
+  - id: N1328
+    citation-label: N1328
+    title: "Minutes of ANSI J16 and ISO WG21 Co-located Meeting, 22-26 October 2001"
+    author:
+      - family: Herb Sutter
+    issued:
+      year: 2001
+    URL: https://wg21.link/n1328
+  - id: N1329
+    citation-label: N1329
+    title: "Minutes of J16 TAG Meeting, 26 October 2001"
+    author:
+      - family: Herb Sutter
+    issued:
+      year: 2001
+    URL: https://wg21.link/n1329
+  - id: N1330
+    citation-label: N1330
+    title: "Spring 2002 Meeting"
+    author:
+      - family: Michiel Salters
+    issued:
+      year: 2001
+    URL: https://wg21.link/n1330
+  - id: N1331
+    citation-label: N1331
+    title: "ISO WG21 Meeting, October 21, 2001 Record of Discussion"
+    author:
+      - family: Herb Sutter
+    issued:
+      year: 2001
+    URL: https://wg21.link/n1331
+  - id: N1332
+    citation-label: N1332
+    title: "ANSI J16 and ISO WG21 Co-located Meeting, 22-26 October 2001 Record of Discussion"
+    author:
+      - family: Herb Sutter
+    issued:
+      year: 2001
+    URL: https://wg21.link/n1332
+  - id: N1333
+    citation-label: N1333
+    title: "J16 TAG Meeting, 26 October 2001 Record of Discussion"
+    author:
+      - family: Herb Sutter
+    issued:
+      year: 2001
+    URL: https://wg21.link/n1333
+  - id: N1334
+    citation-label: N1334
+    title: "Draft Consolidated Technical Corrigendum"
+    author:
+      - family: Andrew Koenig
+    issued:
+      year: 2001
+    URL: https://wg21.link/n1334
+  - id: N1335
+    citation-label: N1335
+    title: "Agenda, SC22/WG21, C++, Curacao"
+    author:
+      - family: Thomas Plum
+    issued:
+      year: 2001
+    URL: https://wg21.link/n1335
+  - id: N1336
+    citation-label: N1336
+    title: "Technical Report on C++ Performance (DRAFT)"
+    author:
+      - family: Performance WG
+    issued:
+      year: 2001
+    URL: https://wg21.link/n1336
+  - id: N1337
+    citation-label: N1337
+    title: "C++ Standard Library Active Issues List (Revision 20)"
+    author:
+      - family: Matt Austern
+    issued:
+      year: 2001
+    URL: https://wg21.link/n1337
+  - id: N1338
+    citation-label: N1338
+    title: "C++ Standard Library Defect Report List (Revision 20)"
+    author:
+      - family: Matt Austern
+    issued:
+      year: 2001
+    URL: https://wg21.link/n1338
+  - id: N1339
+    citation-label: N1339
+    title: "C++ Standard Library Closed Issues List (Revision 20)"
+    author:
+      - family: Matt Austern
+    issued:
+      year: 2001
+    URL: https://wg21.link/n1339
+  - id: N1340
+    citation-label: N1340
+    title: "WG21 and J16 (C++) Joint Mailing and Meeting Information"
+    author:
+      - family: Thomas Plum
+    issued:
+      year: 2001
+    URL: https://wg21.link/n1340
+  - id: N1341
+    citation-label: N1341
+    title: "C++ Standard Core Language Active Issues, Revision 20"
+    author:
+      - family: J. Stephen Adamczyk
+    issued:
+      year: 2001
+    URL: https://wg21.link/n1341
+  - id: N1342
+    citation-label: N1342
+    title: "C++ Standard Core Language Defect Reports, Revision 20"
+    author:
+      - family: J. Stephen Adamczyk
+    issued:
+      year: 2001
+    URL: https://wg21.link/n1342
+  - id: N1343
+    citation-label: N1343
+    title: "C++ Standard Core Language Closed Issues, Revision 20"
+    author:
+      - family: J. Stephen Adamczyk
+    issued:
+      year: 2001
+    URL: https://wg21.link/n1343
   - id: N1344
     citation-label: N1344
     title: "Namespaces and Library Versioning"
@@ -79471,6 +81073,62 @@ references:
     issued:
       year: 2019
     URL: https://wg21.link/n4830
+  - id: N4831
+    citation-label: N4831
+    title: "2022 Portland Meeting Invitation and Information"
+    author:
+      - family: Erich Keane
+    issued:
+      year: 2019
+    URL: https://wg21.link/n4831
+  - id: N4832
+    citation-label: N4832
+    title: "2021 Kona meeting information"
+    author:
+      - family: Herb Sutter
+    issued:
+      year: 2019
+    URL: https://wg21.link/n4832
+  - id: N4833
+    citation-label: N4833
+    title: "Agenda for Belfast"
+    author:
+      - family: John Spicer
+    issued:
+      year: 2019
+    URL: https://wg21.link/n4833
+  - id: N4834
+    citation-label: N4834
+    title: "WG21 telecon meeting: Pre-Belfast"
+    author:
+      - family: Herb Sutter
+    issued:
+      year: 2019
+    URL: https://wg21.link/n4834
+  - id: N4835
+    citation-label: N4835
+    title: "Working Draft, Standard for Programming Language C++"
+    author:
+      - family: Richard Smith
+    issued:
+      year: 2019
+    URL: https://wg21.link/n4835
+  - id: N4836
+    citation-label: N4836
+    title: "Editors’ Report - Programming Languages - C++"
+    author:
+      - family: Richard Smith
+    issued:
+      year: 2019
+    URL: https://wg21.link/n4836
+  - id: N4837
+    citation-label: N4837
+    title: "2020 Varna Meeting Information"
+    author:
+      - family: Vassil Vassilev
+    issued:
+      year: 2019
+    URL: https://wg21.link/n4837
   - id: P0001R0
     citation-label: P0001R0
     title: "Removing Deprecated Register Keyword"
@@ -84069,6 +85727,14 @@ references:
     issued:
       year: 2019
     URL: https://wg21.link/p0267r9
+  - id: P0267R10
+    citation-label: P0267R10
+    title: "A Proposal to Add 2D Graphics Rendering and Display to C++"
+    author:
+      - family: Michael B McLaughlin, Herb Sutter, Jason Zink, Guy Davidson, Michael Kazakov
+    issued:
+      year: 2019
+    URL: https://wg21.link/p0267r10
   - id: P0268R0
     citation-label: P0268R0
     title: "up-to expression"
@@ -84357,6 +86023,14 @@ references:
     issued:
       year: 2019
     URL: https://wg21.link/p0288r4
+  - id: P0288R5
+    citation-label: P0288R5
+    title: "any_invocable"
+    author:
+      - family: Matt Calabrese, Ryan McDougall
+    issued:
+      year: 2019
+    URL: https://wg21.link/p0288r5
   - id: P0289R0
     citation-label: P0289R0
     title: "Forward declarations of nested classes"
@@ -85085,6 +86759,14 @@ references:
     issued:
       year: 2019
     URL: https://wg21.link/p0330r6
+  - id: P0330R7
+    citation-label: P0330R7
+    title: "Literal Suffixes for ptrdiff_t and size_t"
+    author:
+      - family: JeanHeyd Meneide, Rein Halbersma
+    issued:
+      year: 2019
+    URL: https://wg21.link/p0330r7
   - id: P0331R0
     citation-label: P0331R0
     title: "Motivation and Examples for Multidimensional Array"
@@ -86729,6 +88411,14 @@ references:
     issued:
       year: 2019
     URL: https://wg21.link/p0443r10
+  - id: P0443R11
+    citation-label: P0443R11
+    title: "A Unified Executors Proposal for C++"
+    author:
+      - family: Jared Hoberock, Michael Garland, Chris Kohlhoff, Chris Mysen, Carter Edwards, Gordon Brown, David Hollman, Lee Howes, Kirk Shoop, Eric Niebler
+    issued:
+      year: 2019
+    URL: https://wg21.link/p0443r11
   - id: P0444R0
     citation-label: P0444R0
     title: "Unifying suspend-by-call and suspend-by-return"
@@ -86793,6 +88483,22 @@ references:
     issued:
       year: 2017
     URL: https://wg21.link/p0447r4
+  - id: P0447R8
+    citation-label: P0447R8
+    title: "Introduction of std::colony to the standard library"
+    author:
+      - family: Matt Bentley
+    issued:
+      year: 2019
+    URL: https://wg21.link/p0447r8
+  - id: P0447R9
+    citation-label: P0447R9
+    title: "Introduction of std::colony to the standard library"
+    author:
+      - family: Matt Bentley
+    issued:
+      year: 2019
+    URL: https://wg21.link/p0447r9
   - id: P0448R0
     citation-label: P0448R0
     title: "A strstream replacement using span<charT> as"
@@ -88193,6 +89899,14 @@ references:
     issued:
       year: 2019
     URL: https://wg21.link/p0549r5
+  - id: P0549R6
+    citation-label: P0549R6
+    title: "Adjuncts to std::hash"
+    author:
+      - family: Walter E Brown
+    issued:
+      year: 2019
+    URL: https://wg21.link/p0549r6
   - id: P0550R0
     citation-label: P0550R0
     title: "Transformation Trait uncvref"
@@ -88889,6 +90603,14 @@ references:
     issued:
       year: 2019
     URL: https://wg21.link/p0592r2
+  - id: P0592R3
+    citation-label: P0592R3
+    title: "To boldly suggest an overall plan for C++23"
+    author:
+      - family: Ville Voutilainen
+    issued:
+      year: 2019
+    URL: https://wg21.link/p0592r3
   - id: P0593R0
     citation-label: P0593R0
     title: "What to do with buffers that are not arrays, and undefined behavior thereof?"
@@ -88929,6 +90651,14 @@ references:
     issued:
       year: 2019
     URL: https://wg21.link/p0593r4
+  - id: P0593R5
+    citation-label: P0593R5
+    title: "Implicit creation of objects for low-level object manipulation"
+    author:
+      - family: Richard Smith
+    issued:
+      year: 2019
+    URL: https://wg21.link/p0593r5
   - id: P0594R0
     citation-label: P0594R0
     title: "Relative comparisons and std::less<T*>"
@@ -88969,6 +90699,14 @@ references:
     issued:
       year: 2017
     URL: https://wg21.link/p0596r0
+  - id: P0596R1
+    citation-label: P0596R1
+    title: "Side-effects in constant evaluation: Output and consteval variables"
+    author:
+      - family: Daveed Vandevoorde
+    issued:
+      year: 2019
+    URL: https://wg21.link/p0596r1
   - id: P0597R0
     citation-label: P0597R0
     title: "std::constexpr_vector<T>"
@@ -89597,6 +91335,14 @@ references:
     issued:
       year: 2019
     URL: https://wg21.link/p0642r2
+  - id: P0642R3
+    citation-label: P0642R3
+    title: "The Concurrent Invocation Library"
+    author:
+      - family: Mingxin Wang, Wei Chen
+    issued:
+      year: 2019
+    URL: https://wg21.link/p0642r3
   - id: P0643R0
     citation-label: P0643R0
     title: "Omnibus paper:Toronto 2017 meeting"
@@ -91733,6 +93479,14 @@ references:
     issued:
       year: 2019
     URL: https://wg21.link/p0792r4
+  - id: P0792R5
+    citation-label: P0792R5
+    title: "function_ref: a non-owning reference to a Callable"
+    author:
+      - family: Vittorio Romeo
+    issued:
+      year: 2019
+    URL: https://wg21.link/p0792r5
   - id: P0793R0
     citation-label: P0793R0
     title: "SG5: Transactional Memory (TM) Meeting Minutes 2017/06/19-2017/10/09"
@@ -92509,6 +94263,14 @@ references:
     issued:
       year: 2019
     URL: https://wg21.link/p0849r1
+  - id: P0849R2
+    citation-label: P0849R2
+    title: "auto(x): decay-copy in the language"
+    author:
+      - family: Zhihao Yuan
+    issued:
+      year: 2019
+    URL: https://wg21.link/p0849r2
   - id: P0851R0
     citation-label: P0851R0
     title: "simd<T> is neither a product type nor a container type"
@@ -92725,6 +94487,14 @@ references:
     issued:
       year: 2019
     URL: https://wg21.link/p0876r8
+  - id: P0876R9
+    citation-label: P0876R9
+    title: "fiber_context - fibers without scheduler"
+    author:
+      - family: Oliver Kowalke, Nat Goodspeed
+    issued:
+      year: 2019
+    URL: https://wg21.link/p0876r9
   - id: P0877R0
     citation-label: P0877R0
     title: "A proposal for modular macros"
@@ -93133,6 +94903,14 @@ references:
     issued:
       year: 2019
     URL: https://wg21.link/p0901r4
+  - id: P0901R5
+    citation-label: P0901R5
+    title: "Size feedback in operator new"
+    author:
+      - family: Chris Kennelly, Andrew Hunter
+    issued:
+      year: 2019
+    URL: https://wg21.link/p0901r5
   - id: P0902R0
     citation-label: P0902R0
     title: "Move-only iterators"
@@ -93397,6 +95175,14 @@ references:
     issued:
       year: 2019
     URL: https://wg21.link/p0917r2
+  - id: P0917R3
+    citation-label: P0917R3
+    title: "Making operator?: overloadable"
+    author:
+      - family: Matthias Kretz
+    issued:
+      year: 2019
+    URL: https://wg21.link/p0917r3
   - id: P0918R0
     citation-label: P0918R0
     title: "More simd<> Operations"
@@ -93715,6 +95501,14 @@ references:
     issued:
       year: 2019
     URL: https://wg21.link/p0939r3
+  - id: P0939R4
+    citation-label: P0939R4
+    title: "Direction for ISO C++"
+    author:
+      - family: Howard Hinnant, R. Orr, B. Stroustrup, D. Vandevoorde, M. Wong
+    issued:
+      year: 2019
+    URL: https://wg21.link/p0939r4
   - id: P0940R0
     citation-label: P0940R0
     title: "Concurrency TS is growing: Concurrent Utilities and Data Structures"
@@ -93939,6 +95733,14 @@ references:
     issued:
       year: 2019
     URL: https://wg21.link/p0957r2
+  - id: P0957R3
+    citation-label: P0957R3
+    title: "PFA: A Generic, Extendable and Efficient Solution for Polymorphic Programming"
+    author:
+      - family: Mingxin Wang
+    issued:
+      year: 2019
+    URL: https://wg21.link/p0957r3
   - id: P0958R0
     citation-label: P0958R0
     title: "Networking TS changes to support proposed Executors TS"
@@ -94431,6 +96233,14 @@ references:
     issued:
       year: 2019
     URL: https://wg21.link/p1000r2
+  - id: P1000R3
+    citation-label: P1000R3
+    title: "C++ IS schedule"
+    author:
+      - family: Herb Sutter
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1000r3
   - id: P1001R0
     citation-label: P1001R0
     title: "Target Vectorization Policies from Parallelism V2 TS to C++20"
@@ -94967,6 +96777,14 @@ references:
     issued:
       year: 2019
     URL: https://wg21.link/p1030r2
+  - id: P1030R3
+    citation-label: P1030R3
+    title: "std::filesystem::path_view"
+    author:
+      - family: Niall Douglas
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1030r3
   - id: P1031R0
     citation-label: P1031R0
     title: "Low level file i/o library"
@@ -95215,6 +97033,14 @@ references:
     issued:
       year: 2018
     URL: https://wg21.link/p1045r0
+  - id: P1045R1
+    citation-label: P1045R1
+    title: "constexpr Function Parameters"
+    author:
+      - family: David Stone
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1045r1
   - id: P1046R0
     citation-label: P1046R0
     title: "Automatically Generate More Operators"
@@ -95223,6 +97049,14 @@ references:
     issued:
       year: 2018
     URL: https://wg21.link/p1046r0
+  - id: P1046R1
+    citation-label: P1046R1
+    title: "Automatically Generate More Operators"
+    author:
+      - family: David Stone
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1046r1
   - id: P1048R0
     citation-label: P1048R0
     title: "A proposal for a type trait to detect scoped enumerations"
@@ -95327,6 +97161,14 @@ references:
     issued:
       year: 2018
     URL: https://wg21.link/p1061r0
+  - id: P1061R1
+    citation-label: P1061R1
+    title: "Structured Bindings can introduce a Pack"
+    author:
+      - family: Barry Revzin, Jonathan Wakely
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1061r1
   - id: P1062R0
     citation-label: P1062R0
     title: "Diet Graphics"
@@ -95431,6 +97273,14 @@ references:
     issued:
       year: 2019
     URL: https://wg21.link/p1068r1
+  - id: P1068R2
+    citation-label: P1068R2
+    title: "Vector API for random number generation"
+    author:
+      - family: Ilya Burylov, Pavel Dyakov, Ruslan Arutyunyan, Andrey Nikolaev
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1068r2
   - id: P1069R0
     citation-label: P1069R0
     title: "Refining standard library support for Class Template Argument Deduction"
@@ -95503,6 +97353,14 @@ references:
     issued:
       year: 2019
     URL: https://wg21.link/p1072r4
+  - id: P1072R5
+    citation-label: P1072R5
+    title: "basic_string::resize_default_init"
+    author:
+      - family: Chris Kennelly, Mark Zeren
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1072r5
   - id: P1073R0
     citation-label: P1073R0
     title: "constexpr! functions"
@@ -95959,6 +97817,22 @@ references:
     issued:
       year: 2019
     URL: https://wg21.link/p1108r2
+  - id: P1108R3
+    citation-label: P1108R3
+    title: "web_view"
+    author:
+      - family: Hal Finkel
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1108r3
+  - id: P1108R4
+    citation-label: P1108R4
+    title: "web_view"
+    author:
+      - family: Hal Finkel
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1108r4
   - id: P1109R0
     citation-label: P1109R0
     title: "WG21 2018-06 Rapperswil Record of Discussion"
@@ -96039,6 +97913,14 @@ references:
     issued:
       year: 2019
     URL: https://wg21.link/p1115r0
+  - id: P1115R1
+    citation-label: P1115R1
+    title: "Improving the Return Value of Erase-Like Algorithms II: Free erase/erase if"
+    author:
+      - family: Marc Mutz
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1115r1
   - id: P1116R0
     citation-label: P1116R0
     title: "Re-Gaining Exclusive Ownership from shared_ptrs"
@@ -96207,6 +98089,14 @@ references:
     issued:
       year: 2019
     URL: https://wg21.link/p1132r5
+  - id: P1132R6
+    citation-label: P1132R6
+    title: "out_ptr - a scalable output pointer abstraction"
+    author:
+      - family: JeanHeyd Meneide, Todor Buyukliev, Isabella Muerte
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1132r6
   - id: P1133R0
     citation-label: P1133R0
     title: "Networking TS Associations For Call Wrappers"
@@ -96591,6 +98481,14 @@ references:
     issued:
       year: 2018
     URL: https://wg21.link/p1160r0
+  - id: P1160R1
+    citation-label: P1160R1
+    title: "Add Test Polymorphic Memory Resource to the Standard Library"
+    author:
+      - family: Attila Fehér, Alisdair Meredith
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1160r1
   - id: P1161R0
     citation-label: P1161R0
     title: "Deprecate uses of the comma operator in subscripting expressions"
@@ -97239,6 +99137,14 @@ references:
     issued:
       year: 2019
     URL: https://wg21.link/p1219r1
+  - id: P1219R2
+    citation-label: P1219R2
+    title: "Homogeneous variadic function parameters"
+    author:
+      - family: James Touton
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1219r2
   - id: P1220R0
     citation-label: P1220R0
     title: "Controlling When Inline Functions are Emitted"
@@ -97471,6 +99377,14 @@ references:
     issued:
       year: 2018
     URL: https://wg21.link/p1240r0
+  - id: P1240R1
+    citation-label: P1240R1
+    title: "Scalable Reflection in C++"
+    author:
+      - family: Daveed Vandevoorde, Wyatt Childers, Andrew Sutton, Faisal Vali, Daveed Vandevoorde
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1240r1
   - id: P1241R0
     citation-label: P1241R0
     title: "In support of merging coroutines into C++20"
@@ -97679,6 +99593,14 @@ references:
     issued:
       year: 2019
     URL: https://wg21.link/p1255r4
+  - id: P1255R5
+    citation-label: P1255R5
+    title: "A view of 0 or 1 elements: views::maybe"
+    author:
+      - family: Steve Downey
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1255r5
   - id: P1256R0
     citation-label: P1256R0
     title: "Executors Should Go To A TS"
@@ -98307,6 +100229,14 @@ references:
     issued:
       year: 2019
     URL: https://wg21.link/p1315r3
+  - id: P1315R4
+    citation-label: P1315R4
+    title: "secure_clear"
+    author:
+      - family: Miguel Ojeda
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1315r4
   - id: P1316R0
     citation-label: P1316R0
     title: "A when_all() operator for coroutines"
@@ -98999,6 +100929,14 @@ references:
     issued:
       year: 2019
     URL: https://wg21.link/p1385r2
+  - id: P1385R3
+    citation-label: P1385R3
+    title: "A proposal to add linear algebra support to the C++ standard library"
+    author:
+      - family: Guy Davidson, Bob Steagall
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1385r3
   - id: P1386R0
     citation-label: P1386R0
     title: "A Standard Audio API for C++: Motivation, Scope, and Basic Design"
@@ -99039,6 +100977,14 @@ references:
     issued:
       year: 2019
     URL: https://wg21.link/p1389r0
+  - id: P1389R1
+    citation-label: P1389R1
+    title: "Standing Document for SG20: Guidelines for Teaching C++ to Beginners"
+    author:
+      - family: Christopher Di Bella, Simon Brand, Michael Adams
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1389r1
   - id: P1390R0
     citation-label: P1390R0
     title: "Suggested Reflection TS NB Resolutions"
@@ -99159,6 +101105,14 @@ references:
     issued:
       year: 2019
     URL: https://wg21.link/p1401r1
+  - id: P1401R2
+    citation-label: P1401R2
+    title: "Narrowing contextual conversions to bool"
+    author:
+      - family: Andrzej Krzemieński
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1401r2
   - id: P1402R0
     citation-label: P1402R0
     title: "std::cstring_view - a C compatible std::string_view adapter"
@@ -99503,6 +101457,14 @@ references:
     issued:
       year: 2019
     URL: https://wg21.link/p1436r1
+  - id: P1436R2
+    citation-label: P1436R2
+    title: "Executor properties for affinity-based execution"
+    author:
+      - family: Gordon Brown, Ruyman Reyes, Michael Wong, H. Carter Edwards, Thomas Rodgers, Mark Hoemmen
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1436r2
   - id: P1438R0
     citation-label: P1438R0
     title: "A Rational Number Library for C++"
@@ -99639,6 +101601,14 @@ references:
     issued:
       year: 2019
     URL: https://wg21.link/p1450r1
+  - id: P1450R2
+    citation-label: P1450R2
+    title: "Enriching type modification traits"
+    author:
+      - family: Vincent Reverdy
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1450r2
   - id: P1452R0
     citation-label: P1452R0
     title: "On the non-uniform semantics of return-type-requirements"
@@ -99823,6 +101793,14 @@ references:
     issued:
       year: 2019
     URL: https://wg21.link/p1467r1
+  - id: P1467R2
+    citation-label: P1467R2
+    title: "Extended floating-point types"
+    author:
+      - family: Michał Dominiak, David Olsen
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1467r2
   - id: P1468R0
     citation-label: P1468R0
     title: "Fixed-layout floating-point type aliases"
@@ -99839,6 +101817,14 @@ references:
     issued:
       year: 2019
     URL: https://wg21.link/p1468r1
+  - id: P1468R2
+    citation-label: P1468R2
+    title: "Fixed-layout floating-point type aliases"
+    author:
+      - family: Michał Dominiak, David Olsen, Boris Fomitchev, Sergei Nikolaev
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1468r2
   - id: P1469R0
     citation-label: P1469R0
     title: "Disallow _ Usage in C++20 for Pattern Matching in C++23"
@@ -100047,6 +102033,30 @@ references:
     issued:
       year: 2019
     URL: https://wg21.link/p1494r0
+  - id: P1494R1
+    citation-label: P1494R1
+    title: "Partial program correctness"
+    author:
+      - family: S. Davis Herring
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1494r1
+  - id: P1496R0
+    citation-label: P1496R0
+    title: "Formatting of Negative Zero"
+    author:
+      - family: Alan Talbot, Jorg Brown, Victor Zverovich
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1496r0
+  - id: P1496R1
+    citation-label: P1496R1
+    title: "Formatting of Negative Zero"
+    author:
+      - family: Alan Talbot, Jorg Brown
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1496r1
   - id: P1498R0
     citation-label: P1498R0
     title: "Constrained Internal Linkage for Modules"
@@ -100239,6 +102249,14 @@ references:
     issued:
       year: 2019
     URL: https://wg21.link/p1609r1
+  - id: P1609R2
+    citation-label: P1609R2
+    title: "C++ Should Support Just-in-Time Compilation"
+    author:
+      - family: Hal Finkel
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1609r2
   - id: P1610R0
     citation-label: P1610R0
     title: "Rename await_resume() to await_result()"
@@ -100319,6 +102337,14 @@ references:
     issued:
       year: 2019
     URL: https://wg21.link/p1619r0
+  - id: P1619R1
+    citation-label: P1619R1
+    title: "Functions for Testing Boundary Conditions on Integer Operations"
+    author:
+      - family: Lisa Lippincott
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1619r1
   - id: P1622R0
     citation-label: P1622R0
     title: "Mandating the Standard Library: Clause 31 - Thread support library"
@@ -100335,6 +102361,14 @@ references:
     issued:
       year: 2019
     URL: https://wg21.link/p1622r1
+  - id: P1622R2
+    citation-label: P1622R2
+    title: "Mandating the Standard Library: Clause 32 - Thread support library"
+    author:
+      - family: Daniel Sunderland
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1622r2
   - id: P1624R0
     citation-label: P1624R0
     title: "Resolving technical issues in parameter mapping equivalence and related problems"
@@ -100447,6 +102481,14 @@ references:
     issued:
       year: 2019
     URL: https://wg21.link/p1636r1
+  - id: P1636R2
+    citation-label: P1636R2
+    title: "Formatters for library types"
+    author:
+      - family: Lars Gullik Bjønnes
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1636r2
   - id: P1638R0
     citation-label: P1638R0
     title: "basic_istream_view's iterator should not be copyable"
@@ -100479,6 +102521,14 @@ references:
     issued:
       year: 2019
     URL: https://wg21.link/p1640r0
+  - id: P1640R1
+    citation-label: P1640R1
+    title: "Error size benchmarking: Redux"
+    author:
+      - family: Ben Craig
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1640r1
   - id: P1641R0
     citation-label: P1641R0
     title: "Freestanding Library: Rewording the Status Quo"
@@ -100487,6 +102537,14 @@ references:
     issued:
       year: 2019
     URL: https://wg21.link/p1641r0
+  - id: P1641R1
+    citation-label: P1641R1
+    title: "Freestanding Library: Rewording the Status Quo"
+    author:
+      - family: Ben Craig
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1641r1
   - id: P1642R0
     citation-label: P1642R0
     title: "Freestanding Library: Easy [utilities]"
@@ -100495,6 +102553,14 @@ references:
     issued:
       year: 2019
     URL: https://wg21.link/p1642r0
+  - id: P1642R1
+    citation-label: P1642R1
+    title: "Freestanding Library: Easy [utilities], [ranges], and [iterators]"
+    author:
+      - family: Ben Craig
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1642r1
   - id: P1643R0
     citation-label: P1643R0
     title: "Add wait/notify to atomic_ref<T>"
@@ -100543,6 +102609,14 @@ references:
     issued:
       year: 2019
     URL: https://wg21.link/p1648r1
+  - id: P1648R2
+    citation-label: P1648R2
+    title: "A Library for Sink Argument Passing"
+    author:
+      - family: Mingxin Wang, Agustín Bergé
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1648r2
   - id: P1649R0
     citation-label: P1649R0
     title: "A Generic Library for Compile-time Routing"
@@ -100759,6 +102833,14 @@ references:
     issued:
       year: 2019
     URL: https://wg21.link/p1673r0
+  - id: P1673R1
+    citation-label: P1673R1
+    title: "A free function linear algebra interface based on the BLAS"
+    author:
+      - family: Mark Hoemmen, David Hollman, Christian Trott, Daniel Sunderland, Nevin Liber, Siva Rajamanickam, Li-Ta Lo, Graham Lopez, Peter Caday, Sarah Knepper, Piotr Luszczek, Timothy Costa
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1673r1
   - id: P1674R0
     citation-label: P1674R0
     title: "Evolving a Standard C++ Linear Algebra Library from the BLAS"
@@ -100807,6 +102889,14 @@ references:
     issued:
       year: 2019
     URL: https://wg21.link/p1677r1
+  - id: P1677R2
+    citation-label: P1677R2
+    title: "Cancellation is not an Error"
+    author:
+      - family: Kirk Shoop, Lisa Lippincott, Lewis Baker
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1677r2
   - id: P1678R0
     citation-label: P1678R0
     title: "Callbacks and Composition"
@@ -100823,6 +102913,14 @@ references:
     issued:
       year: 2019
     URL: https://wg21.link/p1678r1
+  - id: P1678R2
+    citation-label: P1678R2
+    title: "Callbacks and Composition"
+    author:
+      - family: Kirk Shoop
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1678r2
   - id: P1679R0
     citation-label: P1679R0
     title: "String Contains function"
@@ -100831,6 +102929,14 @@ references:
     issued:
       year: 2019
     URL: https://wg21.link/p1679r0
+  - id: P1679R1
+    citation-label: P1679R1
+    title: "String Contains function"
+    author:
+      - family: Wim Leflere, Paul Fee
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1679r1
   - id: P1680R0
     citation-label: P1680R0
     title: "Implementing Contracts in GCC"
@@ -100887,6 +102993,14 @@ references:
     issued:
       year: 2019
     URL: https://wg21.link/p1686r0
+  - id: P1686R1
+    citation-label: P1686R1
+    title: "Mandating the Standard Library: Clause 27 - Time library"
+    author:
+      - family: Jeff Garland
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1686r1
   - id: P1687R0
     citation-label: P1687R0
     title: "Summary of the Tooling Study Group's Pre-Cologne Telecons on Modules Tooling Interactions"
@@ -100935,6 +103049,14 @@ references:
     issued:
       year: 2019
     URL: https://wg21.link/p1690r0
+  - id: P1690R1
+    citation-label: P1690R1
+    title: "Refinement Proposal for P0919 Heterogeneous lookup for unordered containers"
+    author:
+      - family: Xiao Shi, Mateusz Pusz, Geoffrey Romer
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1690r1
   - id: P1696R0
     citation-label: P1696R0
     title: "Refinement proposal for P0920 Precalculated hash values in lookup"
@@ -101007,6 +103129,14 @@ references:
     issued:
       year: 2019
     URL: https://wg21.link/p1705r0
+  - id: P1705R1
+    citation-label: P1705R1
+    title: "Enumerating Core Undefined Behavior"
+    author:
+      - family: Shafik Yaghmour
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1705r1
   - id: P1706R0
     citation-label: P1706R0
     title: "Programming Language Vulnerabilities for C++ update"
@@ -101015,6 +103145,14 @@ references:
     issued:
       year: 2019
     URL: https://wg21.link/p1706r0
+  - id: P1706R1
+    citation-label: P1706R1
+    title: "Programming Language Vulnerabilities for C++ update"
+    author:
+      - family: Michael Wong, Stephen Michel
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1706r1
   - id: P1708R0
     citation-label: P1708R0
     title: "Simple Statistics functions"
@@ -101095,6 +103233,14 @@ references:
     issued:
       year: 2019
     URL: https://wg21.link/p1716r1
+  - id: P1716R2
+    citation-label: P1716R2
+    title: "ranges compare algorithm are over-constrained"
+    author:
+      - family: Tomasz Kamiński
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1716r2
   - id: P1717R0
     citation-label: P1717R0
     title: "Compile-time Metaprogramming in C++"
@@ -101111,6 +103257,14 @@ references:
     issued:
       year: 2019
     URL: https://wg21.link/p1718r0
+  - id: P1718R1
+    citation-label: P1718R1
+    title: "Mandating the Standard Library: Clause 25 - Algorithms library"
+    author:
+      - family: Marshall Clow
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1718r1
   - id: P1719R0
     citation-label: P1719R0
     title: "Mandating the Standard Library: Clause 26 - Numerics library"
@@ -101119,6 +103273,14 @@ references:
     issued:
       year: 2019
     URL: https://wg21.link/p1719r0
+  - id: P1719R1
+    citation-label: P1719R1
+    title: "Mandating the Standard Library: Clause 26 - Numerics library"
+    author:
+      - family: Marshall Clow
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1719r1
   - id: P1720R0
     citation-label: P1720R0
     title: "Mandating the Standard Library: Clause 28 - Localization library"
@@ -101127,6 +103289,14 @@ references:
     issued:
       year: 2019
     URL: https://wg21.link/p1720r0
+  - id: P1720R1
+    citation-label: P1720R1
+    title: "Mandating the Standard Library: Clause 28 - Localization library"
+    author:
+      - family: Marshall Clow
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1720r1
   - id: P1721R0
     citation-label: P1721R0
     title: "Mandating the Standard Library: Clause 29 - Input/Output library"
@@ -101135,6 +103305,14 @@ references:
     issued:
       year: 2019
     URL: https://wg21.link/p1721r0
+  - id: P1721R1
+    citation-label: P1721R1
+    title: "Mandating the Standard Library: Clause 29 - Input/Output library"
+    author:
+      - family: Marshall Clow
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1721r1
   - id: P1722R0
     citation-label: P1722R0
     title: "Mandating the Standard Library: Clause 30 - Regular Expression library"
@@ -101143,6 +103321,14 @@ references:
     issued:
       year: 2019
     URL: https://wg21.link/p1722r0
+  - id: P1722R1
+    citation-label: P1722R1
+    title: "Mandating the Standard Library: Clause 30 - Regular Expression library"
+    author:
+      - family: Marshall Clow
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1722r1
   - id: P1723R0
     citation-label: P1723R0
     title: "Mandating the Standard Library: Clause 31 - Atomics library"
@@ -101151,6 +103337,14 @@ references:
     issued:
       year: 2019
     URL: https://wg21.link/p1723r0
+  - id: P1723R1
+    citation-label: P1723R1
+    title: "Mandating the Standard Library: Clause 31 - Atomics library"
+    author:
+      - family: Marshall Clow
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1723r1
   - id: P1724R0
     citation-label: P1724R0
     title: "C++ Standard Library Issues to be moved in Cologne"
@@ -101167,6 +103361,14 @@ references:
     issued:
       year: 2019
     URL: https://wg21.link/p1725r0
+  - id: P1725R1
+    citation-label: P1725R1
+    title: "Modular Topic Design"
+    author:
+      - family: Christopher Di Bella
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1725r1
   - id: P1726R0
     citation-label: P1726R0
     title: "Pointer lifetime-end zap"
@@ -101199,6 +103401,14 @@ references:
     issued:
       year: 2019
     URL: https://wg21.link/p1729r0
+  - id: P1729R1
+    citation-label: P1729R1
+    title: "Text Parsing"
+    author:
+      - family: Victor Zverovich , Elias Kosunen
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1729r1
   - id: P1730R0
     citation-label: P1730R0
     title: "Adding a global contract assumption mode"
@@ -101215,6 +103425,14 @@ references:
     issued:
       year: 2019
     URL: https://wg21.link/p1731r0
+  - id: P1731R1
+    citation-label: P1731R1
+    title: "Memory helper functions for containers"
+    author:
+      - family: Ruslan Arutyunyan, Ilya Burylov, Pablo Halpern
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1731r1
   - id: P1732R0
     citation-label: P1732R0
     title: "Do not promise support for function syntax of operators"
@@ -101295,6 +103513,14 @@ references:
     issued:
       year: 2019
     URL: https://wg21.link/p1739r1
+  - id: P1739R2
+    citation-label: P1739R2
+    title: "Avoid template bloat for forwarding ranges in combination with 'subrange-y' view adaptors."
+    author:
+      - family: Hannes Hauswedell (h2 AT fsfe.org)
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1739r2
   - id: P1743R0
     citation-label: P1743R0
     title: "Contracts, Undefined Behavior, and Defensive Programming"
@@ -101351,6 +103577,14 @@ references:
     issued:
       year: 2019
     URL: https://wg21.link/p1748r0
+  - id: P1748R1
+    citation-label: P1748R1
+    title: "Fill in [delay.cpp] TODO in D1389"
+    author:
+      - family: Yehezkel Bernat
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1748r1
   - id: P1749R0
     citation-label: P1749R0
     title: "Access control for reflection"
@@ -101367,6 +103601,14 @@ references:
     issued:
       year: 2019
     URL: https://wg21.link/p1750r0
+  - id: P1750R1
+    citation-label: P1750R1
+    title: "A Proposal to Add Process Management to the C++ Standard Library"
+    author:
+      - family: Klemans Morgenstern, Jeff Garland, Elias Kosunen, Fatih Bakir
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1750r1
   - id: P1751R0
     citation-label: P1751R0
     title: "Numeric Type Families"
@@ -101527,6 +103769,14 @@ references:
     issued:
       year: 2019
     URL: https://wg21.link/p1772r0
+  - id: P1772R1
+    citation-label: P1772R1
+    title: "Variadic overload sets and overload sequences"
+    author:
+      - family: Vincent Reverdy
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1772r1
   - id: P1773R0
     citation-label: P1773R0
     title: "Contracts have failed to provide a portable \"assume\""
@@ -101543,6 +103793,14 @@ references:
     issued:
       year: 2019
     URL: https://wg21.link/p1774r0
+  - id: P1774R1
+    citation-label: P1774R1
+    title: "Portable optimisation hints"
+    author:
+      - family: Timur Doumler
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1774r1
   - id: P1779R0
     citation-label: P1779R0
     title: "ABI isolation for member functions"
@@ -101607,6 +103865,14 @@ references:
     issued:
       year: 2019
     URL: https://wg21.link/p1787r1
+  - id: P1787R2
+    citation-label: P1787R2
+    title: "Declarations and where to find them"
+    author:
+      - family: S. Davis Herring
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1787r2
   - id: P1788R0
     citation-label: P1788R0
     title: "Reuse of the built modules (BMI)"
@@ -101671,6 +103937,14 @@ references:
     issued:
       year: 2019
     URL: https://wg21.link/p1795r0
+  - id: P1795R1
+    citation-label: P1795R1
+    title: "System topology discovery for heterogeneous & distributed computing"
+    author:
+      - family: Gordon Brown, Ruyman Reyes, Michael Wong, Mark Hoemmen, Jeff Hammond, Tom Scogland, Domagoj Šarić
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1795r1
   - id: P1796R0
     citation-label: P1796R0
     title: "Effective Types: Examples"
@@ -101799,6 +104073,14 @@ references:
     issued:
       year: 2019
     URL: https://wg21.link/p1819r0
+  - id: P1820R0
+    citation-label: P1820R0
+    title: "Recommendations for a compromise on handling errors and cancellations in executors"
+    author:
+      - family: Gordon Brown
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1820r0
   - id: P1823R0
     citation-label: P1823R0
     title: "Remove Contracts from C++20"
@@ -101823,6 +104105,14 @@ references:
     issued:
       year: 2019
     URL: https://wg21.link/p1830r0
+  - id: P1830R1
+    citation-label: P1830R1
+    title: "std::dependent_false"
+    author:
+      - family: Ruslan Arutyunyan
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1830r1
   - id: P1831R0
     citation-label: P1831R0
     title: "deprecating volatile: library"
@@ -101855,6 +104145,14 @@ references:
     issued:
       year: 2019
     URL: https://wg21.link/p1839r0
+  - id: P1839R1
+    citation-label: P1839R1
+    title: "Accessing Object Representations"
+    author:
+      - family: Krystian Stasiowski
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1839r1
   - id: P1840R0
     citation-label: P1840R0
     title: "Cologne 2019, Record of Discussion"
@@ -101919,6 +104217,14 @@ references:
     issued:
       year: 2019
     URL: https://wg21.link/p1847r0
+  - id: P1847R1
+    citation-label: P1847R1
+    title: "Make declaration order layout mandated"
+    author:
+      - family: Pal Balog
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1847r1
   - id: P1851R0
     citation-label: P1851R0
     title: "Guidelines For snake_case Concept Naming"
@@ -101927,6 +104233,606 @@ references:
     issued:
       year: 2019
     URL: https://wg21.link/p1851r0
+  - id: P1854R0
+    citation-label: P1854R0
+    title: "Conversion to execution encoding should not lead to loss of meaning"
+    author:
+      - family: Corentin Jabot
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1854r0
+  - id: P1855R0
+    citation-label: P1855R0
+    title: "Make <compare> freestanding"
+    author:
+      - family: Ben Craig, Bryce Adelstein Lelbach
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1855r0
+  - id: P1856R0
+    citation-label: P1856R0
+    title: "Bit operations do not work on bytes: a generic fix"
+    author:
+      - family: Vincent Reverdy
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1856r0
+  - id: P1857R0
+    citation-label: P1857R0
+    title: "Modules Dependency Discovery"
+    author:
+      - family: Michael Spencer
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1857r0
+  - id: P1857R1
+    citation-label: P1857R1
+    title: "Modules Dependency Discovery"
+    author:
+      - family: Michael Spencer
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1857r1
+  - id: P1858R0
+    citation-label: P1858R0
+    title: "Generalized pack declaration and usage"
+    author:
+      - family: Barry Revzin
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1858r0
+  - id: P1859R0
+    citation-label: P1859R0
+    title: "Standard terminology for execution character set encodings"
+    author:
+      - family: Steve Downey
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1859r0
+  - id: P1860R0
+    citation-label: P1860R0
+    title: "C++ Networking Must Be Secure By Default"
+    author:
+      - family: JF Bastien, Alex Christensen
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1860r0
+  - id: P1861R0
+    citation-label: P1861R0
+    title: "Secure Connections in Networking TS"
+    author:
+      - family: JF Bastien, Alex Christensen
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1861r0
+  - id: P1862R0
+    citation-label: P1862R0
+    title: "Ranges adaptors for non-copyable iterators"
+    author:
+      - family: Corentin Jabot
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1862r0
+  - id: P1865R0
+    citation-label: P1865R0
+    title: "Add max() to latch and barrier"
+    author:
+      - family: David Olsen, Olivier Giroux
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1865r0
+  - id: P1868R0
+    citation-label: P1868R0
+    title: "? width: clarifying units of width and precision in std::format"
+    author:
+      - family: Victor Zverovich, Zach Laine
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1868r0
+  - id: P1869R0
+    citation-label: P1869R0
+    title: "Rename 'condition_variable_any' interruptible wait methods"
+    author:
+      - family: Tomasz Kamiński, Michał Dominiak
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1869r0
+  - id: P1870R0
+    citation-label: P1870R0
+    title: "forwarding-range is too subtle"
+    author:
+      - family: Barry Revzin
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1870r0
+  - id: P1871R0
+    citation-label: P1871R0
+    title: "Should concepts be enabled or disabled?"
+    author:
+      - family: Barry Revzin
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1871r0
+  - id: P1872R0
+    citation-label: P1872R0
+    title: "span should have size_type, not index_type"
+    author:
+      - family: Nevin Liber
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1872r0
+  - id: P1873R0
+    citation-label: P1873R0
+    title: "remove.dots.in.module.names"
+    author:
+      - family: Michael Spencer
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1873r0
+  - id: P1873R1
+    citation-label: P1873R1
+    title: "remove.dots.in.module.names"
+    author:
+      - family: Michael Spencer
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1873r1
+  - id: P1874R0
+    citation-label: P1874R0
+    title: "Dynamic Initialization Order of Non-Local Variables in Modules"
+    author:
+      - family: Michael Spencer
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1874r0
+  - id: P1875R0
+    citation-label: P1875R0
+    title: "Transactional Memory Lite Support in C++"
+    author:
+      - family: Michael Spear, Hans Boehm, Victor Luchangco, Michael Scott, Michael Wong
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1875r0
+  - id: P1876R0
+    citation-label: P1876R0
+    title: "All The Module Names"
+    author:
+      - family: Rene Rivera
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1876r0
+  - id: P1876R1
+    citation-label: P1876R1
+    title: "All The Module Names"
+    author:
+      - family: Rene Rivera
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1876r1
+  - id: P1877R0
+    citation-label: P1877R0
+    title: "Saving Private Ranges: Recovering Lost Information from Comparison and Predicate Algorithms"
+    author:
+      - family: JeanHeyd Meneide
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1877r0
+  - id: P1878R0
+    citation-label: P1878R0
+    title: "Constraining Readable Types"
+    author:
+      - family: Eric Niebler, Casey Carter
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1878r0
+  - id: P1879R0
+    citation-label: P1879R0
+    title: "Please Don't Rewrite My String Literals"
+    author:
+      - family: Zach Laine
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1879r0
+  - id: P1880R0
+    citation-label: P1880R0
+    title: "uNstring Arguments Shall Be UTF-N Encoded"
+    author:
+      - family: Zach Laine
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1880r0
+  - id: P1881R0
+    citation-label: P1881R0
+    title: "Epochs: a backward-compatible language evolution mechanism"
+    author:
+      - family: Vittorio Romeo
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1881r0
+  - id: P1882R0
+    citation-label: P1882R0
+    title: "Addition of a filter to recursive_directory_iterator"
+    author:
+      - family: Noel Tchidjo Moyo
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1882r0
+  - id: P1883R0
+    citation-label: P1883R0
+    title: "Walkthrough of P1031s file_handle for LEWG-I"
+    author:
+      - family: Niall Douglas
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1883r0
+  - id: P1885R0
+    citation-label: P1885R0
+    title: "Naming Text Encodings to Demystify Them"
+    author:
+      - family: Corentin Jabot
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1885r0
+  - id: P1886R0
+    citation-label: P1886R0
+    title: "Error speed benchmarking"
+    author:
+      - family: Ben Craig
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1886r0
+  - id: P1887R0
+    citation-label: P1887R0
+    title: "Typesafe Reflection on attributes"
+    author:
+      - family: Corentin Jabot
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1887r0
+  - id: P1888R0
+    citation-label: P1888R0
+    title: "Executors without exception handling support"
+    author:
+      - family: Matti Rintala, Matti Rintala, Michael Wong, David S. Hollman, Pekka Jääskeläinen
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1888r0
+  - id: P1889R0
+    citation-label: P1889R0
+    title: "C++ Numerics Work In Progress"
+    author:
+      - family: Alexander Zaitsev, Antony Polukhin
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1889r0
+  - id: P1890R0
+    citation-label: P1890R0
+    title: "C++ Numerics Work In Progress Issues"
+    author:
+      - family: Antony Polukhin, Alexander Zaitsev
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1890r0
+  - id: P1891R0
+    citation-label: P1891R0
+    title: "The Linear-Algebra Effort"
+    author:
+      - family: Guy Davidson, Mark Hoemmen, David Hollman, Bob Steagall, Christian Trott
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1891r0
+  - id: P1892R0
+    citation-label: P1892R0
+    title: "Extended locale-specific presentation specifiers for std::format"
+    author:
+      - family: Peter Brett
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1892r0
+  - id: P1893R0
+    citation-label: P1893R0
+    title: "Proposal of Contract Primitives"
+    author:
+      - family: Andrew Tomazos
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1893r0
+  - id: P1894R0
+    citation-label: P1894R0
+    title: "Proposal of std::upto, std::indices and std::enumerate"
+    author:
+      - family: Andrew Tomazos
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1894r0
+  - id: P1895R0
+    citation-label: P1895R0
+    title: "tag_invoke: A general pattern for supporting customisable functions"
+    author:
+      - family: Lewis Baker, Eric Niebler, Kirk Shoop
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1895r0
+  - id: P1896R0
+    citation-label: P1896R0
+    title: "SG16: Unicode meeting summaries 2019/06/12 - 2019/09/25"
+    author:
+      - family: Tom Honermann
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1896r0
+  - id: P1897R0
+    citation-label: P1897R0
+    title: "Towards C++23 executors: An initial set of algorithms"
+    author:
+      - family: Lee Howes
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1897r0
+  - id: P1898R0
+    citation-label: P1898R0
+    title: "Forward progress delegation for executors"
+    author:
+      - family: Lee Howes
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1898r0
+  - id: P1899R0
+    citation-label: P1899R0
+    title: "stride_view"
+    author:
+      - family: Christopher Di Bella
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1899r0
+  - id: P1900R0
+    citation-label: P1900R0
+    title: "Concepts-Adjacent Problems"
+    author:
+      - family: Barry Revzin
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1900r0
+  - id: P1901R0
+    citation-label: P1901R0
+    title: "Enabling the Use of weak_ptr as Keys in Unordered Associative Containers"
+    author:
+      - family: Daryl Haresign
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1901r0
+  - id: P1902R0
+    citation-label: P1902R0
+    title: "Missing feature-test macros 2018-2019"
+    author:
+      - family: Barry Revzin
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1902r0
+  - id: P1905R0
+    citation-label: P1905R0
+    title: "In-Source Mechanism to Identify Importable Headers"
+    author:
+      - family: Corentin Jabot
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1905r0
+  - id: P1906R0
+    citation-label: P1906R0
+    title: "Provided operator= return lvalue-ref on rvalue"
+    author:
+      - family: Peter Sommerlad
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1906r0
+  - id: P1907R0
+    citation-label: P1907R0
+    title: "Inconsistencies with non-type template parameters"
+    author:
+      - family: Jens Maurer
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1907r0
+  - id: P1908R0
+    citation-label: P1908R0
+    title: "Reserving Attribute Names for Future Use"
+    author:
+      - family: Corentin Jabot
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1908r0
+  - id: P1912R0
+    citation-label: P1912R0
+    title: "Interconvertible object representations"
+    author:
+      - family: Timur Doumler
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1912r0
+  - id: P1913R0
+    citation-label: P1913R0
+    title: "Comments on Audio Devices"
+    author:
+      - family: Frank Birbacher
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1913r0
+  - id: P1914R0
+    citation-label: P1914R0
+    title: "On the names of shift algorithms"
+    author:
+      - family: Vincent Reverdy
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1914r0
+  - id: P1915R0
+    citation-label: P1915R0
+    title: "Expected Feedback from simd in the Parallelism TS 2"
+    author:
+      - family: Matthias Kretz
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1915r0
+  - id: P1916R0
+    citation-label: P1916R0
+    title: "There might not be an elegant OOTA fix"
+    author:
+      - family: David Goldblatt
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1916r0
+  - id: P1917R0
+    citation-label: P1917R0
+    title: "C++ Library Issues to be moved in Belfast"
+    author:
+      - family: Marshall Clow
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1917r0
+  - id: P1919R0
+    citation-label: P1919R0
+    title: "Expanding the Rights in SD-8"
+    author:
+      - family: Nevin Liber
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1919r0
+  - id: P1920R0
+    citation-label: P1920R0
+    title: "Proposal of Namespace Templates"
+    author:
+      - family: Andrew Tomazos
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1920r0
+  - id: P1921R0
+    citation-label: P1921R0
+    title: "What's in a Name?"
+    author:
+      - family: Nevin Liber
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1921r0
+  - id: P1922R0
+    citation-label: P1922R0
+    title: "Making std::list constexpr"
+    author:
+      - family: Alexander Zaitsev
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1922r0
+  - id: P1923R0
+    citation-label: P1923R0
+    title: "Making std::deque constexpr"
+    author:
+      - family: Alexander Zaitsev
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1923r0
+  - id: P1924R0
+    citation-label: P1924R0
+    title: "Making std::stack constexpr"
+    author:
+      - family: Alexander Zaitsev
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1924r0
+  - id: P1925R0
+    citation-label: P1925R0
+    title: "Making std::queue constexpr"
+    author:
+      - family: Alexander Zaitsev
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1925r0
+  - id: P1926R0
+    citation-label: P1926R0
+    title: "Making std::priority_queue constexpr"
+    author:
+      - family: Alexander Zaitsev
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1926r0
+  - id: P1927R0
+    citation-label: P1927R0
+    title: "Add std::is_partitioned_until algorithm"
+    author:
+      - family: Alexander Zaitsev
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1927r0
+  - id: P1928R0
+    citation-label: P1928R0
+    title: "Merge data-parallel types from the Parallelism TS 2"
+    author:
+      - family: Matthias Kretz
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1928r0
+  - id: P1929R0
+    citation-label: P1929R0
+    title: "Making std::forward_list constexpr"
+    author:
+      - family: Alexander Zaitsev
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1929r0
+  - id: P1930R0
+    citation-label: P1930R0
+    title: "Towards a standard unit systems library"
+    author:
+      - family: Vincent Reverdy
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1930r0
+  - id: P1932R0
+    citation-label: P1932R0
+    title: "Extension of the C++ random number generators"
+    author:
+      - family: Pavel Dyakov, Ilya Burylov; Ruslan Arutyunyan; Andrey Nikolaev
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1932r0
+  - id: P1933R0
+    citation-label: P1933R0
+    title: "Suggestions for bulk_execute"
+    author:
+      - family: Jared Hoberock
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1933r0
+  - id: P1936R0
+    citation-label: P1936R0
+    title: "Dependent Static Assertion"
+    author:
+      - family: Ruslan Arutyunyan
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1936r0
+  - id: P1937R0
+    citation-label: P1937R0
+    title: "Fixing inconsistencies between `constexpr` and `consteval` functions"
+    author:
+      - family: David Stone
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1937r0
+  - id: P1938R0
+    citation-label: P1938R0
+    title: "if consteval"
+    author:
+      - family: Barry Revzin, Daveed Vandevoorde, Richard Smith
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1938r0
+  - id: P1943R0
+    citation-label: P1943R0
+    title: "Networking TS changes to improve completion token flexibility and performance"
+    author:
+      - family: Christopher Kohlhoff
+    issued:
+      year: 2019
+    URL: https://wg21.link/p1943r0
   - id: P3141
     citation-label: P3141
     title: "std::terminates()"
