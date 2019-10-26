@@ -1,6 +1,6 @@
 ---
 title: "`uNstring` Arguments Shall Be UTF-N Encoded"
-document: P1880R0
+document: D1880R1
 date: 2019-08-23
 audience:
   - SG16
@@ -11,6 +11,11 @@ author:
 toc: false
 
 ---
+
+# Revisions
+
+  - R1
+    - Include `basic_string_view` too.
 
 # `u8string`, `u16string`, and `u32string` Don't Guarantee UTF Endcoding
 
@@ -33,8 +38,9 @@ Append this to the bulleted list in Function arguments [res.on.arguments]:
 
 ::: add
 
-- A function argument whose type is (possibly cv-qualified) `u8string`,
-  `u16string`, or `u32string` ([string.classes]), or a reference to one of
-  those types, shall be respectively UTF-8, UTF-16, or UTF-32 encoded.
+- A function argument whose type is (possibly cv-qualified) `basic_string<T>`
+  ([basic.string]) or `basic_string_view<T>` ([string.view.template]), or a
+  reference to one of those types, where `T` is `char8_t`, `char16_t`, or
+  `char32_t`, shall be respectively UTF-8, UTF-16, or UTF-32 encoded.
 
 :::
