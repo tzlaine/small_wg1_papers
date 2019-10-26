@@ -13,6 +13,19 @@ monofont: "DejaVu Sans Mono"
 
 ---
 
+# Revisions
+
+  - R1
+    - Use the terminology conventions from [@P1859R0].
+    - Add T-dog Tables.
+    - Explain why the MSVC current behavior is conforming.
+    - Be explicit that _only_ string literals are affected (and not identifiers).
+
+# Terminology
+
+The terminology used in this paper follows the conventions introduced in
+[@P1859R0].
+
 # The `u8` string literal prefix does not do what you think it does
 
 I was writing tests for a Unicode library for Boost.  The tests included some
@@ -97,9 +110,9 @@ UTF-8 encoded string literal in their final program.
 # The fix
 
 To fix this, I want to make it ill-formed for a `u8`-, `u`-, or `U`-prefixed
-string literal to appear in a TU whose source and/or execution encoding would
-cause the meaning of the literal to change.  The meaning of the literal is
-preserved if:
+string literal to appear in a TU whose source and/or execution character sets
+would cause the meaning of the literal to change.  The meaning of the literal
+is preserved if:
 
 - the bits do not change from what the user wrote in the source file, or
 
@@ -107,9 +120,10 @@ preserved if:
   points represented by the original bits in the original UTF format are
   preserved.
 
-This lets users specify that they want a particular UTF encoding, likely
-seeing it in their editor the way they entered it, and have it appear in their
-object code with no unexpected semantics.
+This lets users specify that they want a particular UTF character set to be
+used for a particular string literal, likely seeing it in their editor the way
+they entered it, and have it appear in their object code with no unexpected
+semantics.
 
 Note that this only applies to transformations applied to the contents of
 `u8`-, `u`-, or `U`-string literals during phases 1 and 5 of translation.  In
@@ -123,19 +137,19 @@ char ς[] = "status quo";
 Also note that this change will not silently change any existing code.  This
 change also will not cause any existing string literals to be diagnosed, if
 they happen to preserve meaning.  In particular, ASCII contents of `u8` string
-literals will not be ill-fomed when the source encoding is Windows-1252 or
-EBCDIC.
+literals will not be ill-fomed when the source character set is Windows-1252
+or EBCDIC.
 
 # Semantic changes
 
-Below, I've show differences across different source encodings.  The same
-results apply to differences across different execution encodings.
+Below, I've show differences across different source character sets.  The same
+results apply to differences across different execution character sets.
 
 ::: tonytable
 
 ### Before
 ```c++
-// Source encoding: UTF-8
+// Source character set: UTF-8
 char str[3] = u8"ς";
 assert(strlen(str) == 2); // ok
 assert(strlen(str) == 5); // error
@@ -143,7 +157,7 @@ assert(strlen(str) == 5); // error
 
 ### After
 ```c++
-// Source encoding: UTF-8
+// Source character set: UTF-8
 char str[3] = u8"ς";
 assert(strlen(str) == 2); // ok
 assert(strlen(str) == 5); // error
@@ -152,14 +166,14 @@ assert(strlen(str) == 5); // error
 ---
 
 ```c++
-// Source encoding: UTF-16
+// Source character set: UTF-16
 char str[3] = u8"ς";
 assert(strlen(str) == 2); // ok
 assert(strlen(str) == 5); // error
 ```
 
 ```c++
-// Source encoding: UTF-16
+// Source character set: UTF-16
 char str[3] = u8"ς";
 assert(strlen(str) == 2); // ok
 assert(strlen(str) == 5); // error
@@ -168,14 +182,14 @@ assert(strlen(str) == 5); // error
 ---
 
 ```c++
-// Source encoding: Windows-1252
+// Source character set: Windows-1252
 char str[3] = u8"ς";
 assert(strlen(str) == 2); // error
 assert(strlen(str) == 5); // ok
 ```
 
 ```c++
-// Source encoding: Windows-1252
+// Source character set: Windows-1252
 char str[3] = u8"ς";      // ill-formed
 assert(strlen(str) == 2); // never evaluated
 assert(strlen(str) == 5); // never evaluated
@@ -184,13 +198,13 @@ assert(strlen(str) == 5); // never evaluated
 ---
 
 ```c++
-// Source encoding: Windows-1252
+// Source character set: Windows-1252
 char str[3] = u8"asdf";
 assert(strlen(str) == 4); // ok
 ```
 
 ```c++
-// Source encoding: Windows-1252
+// Source character set: Windows-1252
 char str[3] = u8"asdf";   // still well-formed
 assert(strlen(str) == 4); // ok
 ```
@@ -198,14 +212,14 @@ assert(strlen(str) == 4); // ok
 ---
 
 ```c++
-// Any source encoding
-char ς[3] = u8"asdf";     // well-formed, weird
+// Any source character set
+char ς[3] = u8"asdf";     // well- or ill-formed
 assert(strlen(str) == 4); // ok
 ```
 
 ```c++
-// Any source encoding
-char ς[3] = u8"asdf";     // still well-formed
+// Any source character set
+char ς[3] = u8"asdf";     // same well-formedness
 assert(strlen(str) == 4); // ok
 ```
 
