@@ -15,7 +15,8 @@ toc: false
 # Revisions
 
   - R1
-    - Include `basic_string_view` too.
+    - Include `basic_string_view` and `pmr::` strings too.
+    - Include a list of affected uses of strings in the current draft.
 
 # `u8string`, `u16string`, and `u32string` Don't Guarantee UTF Endcoding
 
@@ -40,13 +41,13 @@ Append this to the bulleted list in Function arguments [res.on.arguments]:
 
 - A function argument whose type is (possibly cv-qualified) `basic_string<T>`
   ([string.syn]), `basic_string_view<T>` ([string.view.template]),
-  `pmr::basic_string<T>` ([string.syn]), or a reference to one of those types,
-  where `T` is `char8_t`, `char16_t`, or `char32_t`, shall be respectively
-  UTF-8, UTF-16, or UTF-32 encoded.
+  `pmr::basic_string<T>` ([string.syn]), or a `const` reference to one of
+  those types, where `T` is `char8_t`, `char16_t`, or `char32_t`, shall be
+  respectively UTF-8, UTF-16, or UTF-32 encoded.
 
 :::
 
-# References to Those Three Types:
+# References to Those Three Types in N4835:
 
 # `u8string`-specific: 
 
