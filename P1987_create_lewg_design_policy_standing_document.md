@@ -44,3 +44,20 @@ runtime-polymorphically without using inheritence.  Examples are `any` and
 
 An erased type should be named `any_C`, where `C` is the name of the concept
 that it represents.
+
+## Interfaces With Optional Timeouts
+
+For a standard library function set or overload set that represents an
+operation with an optional timeout, the optional timeout should not be
+represented with a defaulted function parameter.  Instead, overloads for
+operation `X` should be provided, like this:
+
+```c++
+X(...)
+try_X(...) -> bool
+try_X_for(..., chrono::duration) -> bool
+try_X_until(..., chrono::time_point) -> bool
+```
+
+In particular, an absolute timeout is represented by `chrono::time_point` and
+a relative timeout is represented by `chrono::duration`.
