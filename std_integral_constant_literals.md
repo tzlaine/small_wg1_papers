@@ -1,7 +1,7 @@
 ---
 title: "`std::integral_constant` literals"
-document: D0000R0
-date: 2022-11-13
+document: P2725R0
+date: 2022-11-18
 audience:
   - LEWG-I
   - LEWG
@@ -21,12 +21,14 @@ makes it very verbose.  Fortunately, we can do a lot better.
 
 ::: tonytable
 
----
-
 ### Before
 ```c++
 // From P2630R1
-auto y = submdspan(x, strided_index_range{integral_constant<size_t, 0>{}, integral_constant<size_t, 10>{}, 3});
+auto const sir =
+  strided_index_range{integral_constant<size_t, 0>{},
+                      integral_constant<size_t, 10>{},
+                      3};
+auto y = submdspan(x, sir);
 ```
 
 ### After
@@ -35,8 +37,6 @@ using namespace std::literals::integal_constant_literals;
 // strided_index_range{0ic, 10ic, 3} would work, too.
 auto y = submdspan(x, strided_index_range{0uzic, 10uzic, 3});
 ```
-
----
 
 :::
 
@@ -47,25 +47,25 @@ terseness of literals:
 
 ::: tonytable
 
----
-
 ### Before
 ```c++
-auto y = submdspan(x, compute_index_range(integral_constant<size_t, 0>{},
-                                          integral_constant<size_t, 3>{},
-                                          integral_constant<size_t, 8>{},
-                                          integral_constant<size_t, 5>{},
-                                          integral_constant<size_t, 2>{},
-                                          integral_constant<size_t, 10>{});
+auto const sir =
+  compute_index_range(integral_constant<size_t, 0>{},
+                      integral_constant<size_t, 3>{},
+                      integral_constant<size_t, 8>{},
+                      integral_constant<size_t, 5>{},
+                      integral_constant<size_t, 2>{},
+                      integral_constant<size_t, 10>{});
+auto y = submdspan(x, sir);
 ```
 
 ### After
 ```c++
 using namespace std::literals::integal_constant_literals;
-auto y = submdspan(x, compute_index_range(0ic, 3ic, 8ic, 5ic, 2ic, 10ic));
+auto const sir =
+  compute_index_range(0ic, 3ic, 8ic, 5ic, 2ic, 10ic);
+auto y = submdspan(x, sir);
 ```
-
----
 
 :::
 
@@ -84,8 +84,6 @@ For instance, if we added an index operator to `std::tuple` that takes a
 
 ::: tonytable
 
----
-
 ### Before
 ```c++
 auto t = tuple<int, string>(0, "some text");
@@ -99,16 +97,12 @@ auto t = tuple<int, string>(0, "some text");
 t[1ic] = "some different text";
 ```
 
----
-
 :::
 
 Or, if we added an overload of `std::get()` that takes a
 `std::integral_constant<size_t>`:
 
 ::: tonytable
-
----
 
 ### Before
 ```c++
@@ -123,8 +117,6 @@ auto t = tuple<int, string>(0, "some text");
 get(t, 1ic) = "some different text";
 ```
 
----
-
 :::
 
 Modifications to `std::tuple` and/or `std::get` are out of scope for this
@@ -132,20 +124,24 @@ paper, but they show the utility of `std::integral_constant` literals.
 
 # Proposed design
 
-Add a UDL for each permutation of the literal suffixes in
-[lex.icon]/integer-literal.  Each UDL will return a `std::integral_constant<T, V>`,
-where `T` is the type that corresponds to the literal suffixes, and `V` is the
-value specified by the characters given to the UDL.
+Add a UDL for each permutation `P` of the literal suffixes in
+[lex.icon]/integer-literal, with the suffix "`ic`" appended to `P`
+(e.g. "`ull`" + "`ic`" = "`ullic`").  Each UDL will return a
+`std::integral_constant<T, V>`, where `T` is the type that corresponds to `P`,
+and `V` is the integral value specified by the characters given to the UDL.
 
-Each UDL mandates that the number parsed is `<=
-std::numberic_limits<T>::max()`.  This matches user expectations when writing
-integral literals with out-of-bounds values, except that it turns UB into
-ill-formed code.  This is almost certainly an improvement, since it happens at
-compile time.
+Note that the simpler suffix "`c`" (for "`const`{.cpp}") is not usable, because
+`c` is a valid hex digit.  This makes us sad.
+
+Each call to one of the proposed UDLs is ill-formed when the number parsed is
+`> std::numberic_limits<T>::max()`.  This matches user expectations when
+writing integral literals with out-of-bounds values, except that it turns UB
+into ill-formed code.  This is almost certainly an improvement, since it
+happens at compile time (UB is highly problematic at compile time).
 
 Since a UDL will never include a sign character, in order to be able to write
-natural-looking literals like `-42ic`, also add a unary `operator-` for
-`std::integral_constant`.
+natural-looking literals like `-42ic`, we also ned to add a unary `operator-`
+for `std::integral_constant`.
 
 ## A minor limitation
 
@@ -160,9 +156,10 @@ unsigned integers and then using unary negation.  Assuming `INT_MIN ==
 ```
 
 Before the negation can occur, the implementation must reject `2147483648ic`,
-because it is greater thatn `INT_MAX`.  There is simply no way to spell
+because it is greater than `INT_MAX`.  There is simply no way to spell
 `std::integral_constant<T, std::numberic_limits<T>::min()>` as a literal, if
-`T` is signed.  Fortunately, one can still spell it the verbose way.
+`T` is signed.  Fortunately, one can still spell it the verbose way, as you
+saw one sentence ago.
 
 # Implementation experience
 
@@ -171,100 +168,252 @@ An `integral_constant` with the proposed semantics has been a part of
 since its initial release in May of 2016.  Its literals have been used by
 many, many users.
 
-I independently implemented similar support, including additional checks that
-the parsed number can fit within the range of the integral type being
-generated.  It was straightforward; it only took me about 4 hours, including
+Using the Hana implementation as a guide, I independently implemented the UDLs
+in this paper, including checks (missing from the Hana implementation) that
+the parsed number can fit within the range of the integral type associated
+with the UDL.  It was straightforward; it took me about 4 hours, including
 tests.  The implementation can be found on
-[Github](https://github.com/tzlaine/ic_literals).
+[Github](https://github.com/tzlaine/ic_literals).  The C++26 implementation is
+nearly trivial, since `std::from_chars()` is `constexpr`{.cpp} in C++23 and
+later.
 
 # Wording
 
+In [meta.type.synop]{.sref}, append to [meta.help]:
+
+::: add
+
+> ```cpp
+>   inline namespace literals::inline integral_constant_literals {
+>     // [meta.help.literals], suffix for integral_constant literals
+>     template <char ...Chars>
+>     constexpr auto operator"" ic();
+> 
+>     template <char ...Chars>
+>     constexpr auto operator"" uic();
+>     template <char ...Chars>
+>     constexpr auto operator"" Uic();
+> 
+>     template <char ...Chars>
+>     constexpr auto operator"" lic();
+>     template <char ...Chars>
+>     constexpr auto operator"" Lic();
+> 
+>     template <char ...Chars>
+>     constexpr auto operator"" luic();
+>     template <char ...Chars>
+>     constexpr auto operator"" ulic();
+>     template <char ...Chars>
+>     constexpr auto operator"" Ulic();
+>     template <char ...Chars>
+>     constexpr auto operator"" lUic();
+>     template <char ...Chars>
+>     constexpr auto operator"" Luic();
+>     template <char ...Chars>
+>     constexpr auto operator"" uLic();
+>     template <char ...Chars>
+>     constexpr auto operator"" ULic();
+>     template <char ...Chars>
+>     constexpr auto operator"" LUic();
+> 
+>     template <char ...Chars>
+>     constexpr auto operator"" llic();
+>     template <char ...Chars>
+>     constexpr auto operator"" LLic();
+> 
+>     template <char ...Chars>
+>     constexpr auto operator"" lluic();
+>     template <char ...Chars>
+>     constexpr auto operator"" ullic();
+>     template <char ...Chars>
+>     constexpr auto operator"" Ullic();
+>     template <char ...Chars>
+>     constexpr auto operator"" llUic();
+>     template <char ...Chars>
+>     constexpr auto operator"" LLuic();
+>     template <char ...Chars>
+>     constexpr auto operator"" uLLic();
+>     template <char ...Chars>
+>     constexpr auto operator"" ULLic();
+>     template <char ...Chars>
+>     constexpr auto operator"" LLUic();
+> 
+>     template <char ...Chars>
+>     constexpr auto operator"" zic();
+>     template <char ...Chars>
+>     constexpr auto operator"" Zic();
+> 
+>     template <char ...Chars>
+>     constexpr auto operator"" zuic();
+>     template <char ...Chars>
+>     constexpr auto operator"" uzic();
+>     template <char ...Chars>
+>     constexpr auto operator"" Uzic();
+>     template <char ...Chars>
+>     constexpr auto operator"" zUic();
+>     template <char ...Chars>
+>     constexpr auto operator"" Zuic();
+>     template <char ...Chars>
+>     constexpr auto operator"" uZic();
+>     template <char ...Chars>
+>     constexpr auto operator"" UZic();
+>     template <char ...Chars>
+>     constexpr auto operator"" ZUic();
+>   }
+> ```
+
+:::
+
 In [meta.help]{.sref}:
 
-```cpp
-namespace std {
-  template<class T, T v> struct integral_constant {
-    static constexpr T value = v;
+> ```cpp
+> namespace std {
+>   template<class T, T v> struct integral_constant {
+>     static constexpr T value = v;
+> 
+>     using value_type = T;
+>     using type = integral_constant<T, v>;
+> 
+>     constexpr operator value_type() const noexcept { return value; }
+>     constexpr value_type operator()() const noexcept { return value; }
+> 
+>     @[`constexpr integral_constant<T, -v> operator-();`]{.add}@
+>   };
+> }
+> ```
 
-    using value_type = T;
-    using type = integral_constant<T, v>;
+Add new section [meta.help.op] to the end of [meta.help]{.sref}:
 
-    constexpr operator value_type() const noexcept { return value; }
-    constexpr value_type operator()() const noexcept { return value; }
+::: add
 
-    @[`constexpr integral_constant<T, -V> operator-();`]{.add}@
-  };
-}
-```
+> ```cpp
+> constexpr integral_constant<T, -v> operator-();
+> ```
+> _Mandates:_ `-v` is a value representable by `T`.
+> 
+> _Returns:_ `{}`
 
+:::
 
+Add subsequent new section [meta.help.literals] after new section [meta.help.op]:
 
+::: add
 
+> ```cpp
+> namespace std::inline literals::inline integral_constant_literals {
+>   struct ic_base_and_offset_result // @*exposition only*@
+>   {
+>     int base;
+>     int offset;
+>   };
+> 
+>   template<size_t Size, char... Chars>
+>   constexpr ic_base_and_offset_result ic_base_and_offset() // @*exposition only*@
+>   {
+>       constexpr char arr[] = {Chars...};
+>       if constexpr (arr[0] == '0' && 2 < Size) {
+>         constexpr bool is_hex = arr[1] == 'x' || arr[1] == 'X';
+>         constexpr bool is_binary = arr[1] == 'b';
+> 
+>         if constexpr (is_hex)
+>           return {16, 2};
+>         else if constexpr (is_binary)
+>           return {2, 2};
+>         else
+>           return {8, 1};
+>       }
+>       return {10, 0};
+>   }
+> 
+>   template<typename TargetType, char ...Chars>
+>   constexpr TargetType ic_parse() // @*exposition only*@
+>   {
+>     constexpr auto size = sizeof...(Chars);
+> 
+>     constexpr auto bao = ic_base_and_offset<size, Chars...>();
+>     constexpr int base = bao.base;
+>     constexpr int offset = bao.offset;
+> 
+>     const auto f = std::begin(arr) + offset, l = std::end(arr);
+>     TargetType x{};
+>     constexpr auto result = from_chars(f, l, x, base);
+>     return result.ptr == l && result.ec == errc{} ? x : throw logic_error("");
+>   }
+> }
+> 
+> template <char ...Chars>
+> constexpr auto operator"" ic();
+> template <char ...Chars>
+> constexpr auto operator"" uic();
+> template <char ...Chars>
+> constexpr auto operator"" Uic();
+> template <char ...Chars>
+> constexpr auto operator"" lic();
+> template <char ...Chars>
+> constexpr auto operator"" Lic();
+> template <char ...Chars>
+> constexpr auto operator"" luic();
+> template <char ...Chars>
+> constexpr auto operator"" ulic();
+> template <char ...Chars>
+> constexpr auto operator"" Ulic();
+> template <char ...Chars>
+> constexpr auto operator"" lUic();
+> template <char ...Chars>
+> constexpr auto operator"" Luic();
+> template <char ...Chars>
+> constexpr auto operator"" uLic();
+> template <char ...Chars>
+> constexpr auto operator"" ULic();
+> template <char ...Chars>
+> constexpr auto operator"" LUic();
+> template <char ...Chars>
+> constexpr auto operator"" llic();
+> template <char ...Chars>
+> constexpr auto operator"" LLic();
+> template <char ...Chars>
+> constexpr auto operator"" lluic();
+> template <char ...Chars>
+> constexpr auto operator"" ullic();
+> template <char ...Chars>
+> constexpr auto operator"" Ullic();
+> template <char ...Chars>
+> constexpr auto operator"" llUic();
+> template <char ...Chars>
+> constexpr auto operator"" LLuic();
+> template <char ...Chars>
+> constexpr auto operator"" uLLic();
+> template <char ...Chars>
+> constexpr auto operator"" ULLic();
+> template <char ...Chars>
+> constexpr auto operator"" LLUic();
+> template <char ...Chars>
+> constexpr auto operator"" zic();
+> template <char ...Chars>
+> constexpr auto operator"" Zic();
+> template <char ...Chars>
+> constexpr auto operator"" zuic();
+> template <char ...Chars>
+> constexpr auto operator"" uzic();
+> template <char ...Chars>
+> constexpr auto operator"" Uzic();
+> template <char ...Chars>
+> constexpr auto operator"" zUic();
+> template <char ...Chars>
+> constexpr auto operator"" Zuic();
+> template <char ...Chars>
+> constexpr auto operator"" uZic();
+> template <char ...Chars>
+> constexpr auto operator"" UZic();
+> template <char ...Chars>
+> constexpr auto operator"" ZUic();
+> ```
+> 
+> _Returns_: Let `T` be the integral type associated with the *integer-prefix*
+> corresponding to the function name without the "ic" suffix.  Let `constexpr T
+> x = ic_parse<T, Chars...>()`.  Returns
+> `integral_constant<remove_const_t<decltype(x)>, x>{}`.
 
+:::
 
-
-
-
-
-
-
-
-
-TODO: Add a Mandates: to operator-() that -V is in the range of T.
-
-```c++
-namespace std {
-  template<typename T, T V>
-  constexpr integral_constant<T, -V> operator-(integral_constant<T, V>)
-  {
-    return {};
-  }
-}
-
-namespace std::literals::integral_constant_literals {
-  template<typename TargetType, size_t N>
-  constexpr TargetType parse_ci(const char (&arr)[N]) // exposition only
-  {
-      int base = 10;
-      int offset = 0;
-
-      if (arr[0] == '0') {
-        if (2 < N) {
-          const bool is_hex = arr[1] == 'x' || arr[1] == 'X';
-          const bool is_binary = arr[1] == 'b';
-  
-          if (is_hex) {
-            base = 16;
-            offset = 2;
-          } else if (is_binary) {
-            base = 2;
-            offset = 2;
-          } else {
-            base = 8;
-            offset = 1;
-          }
-        } else if (N == 2) {
-          base = 8;
-          offset = 1;
-        }
-      }
-
-      const auto f = std::begin(arr) + offset, l = std::end(arr);
-      TargetType x{};
-      const auto result = std::from_chars(f, l, x, base);
-      if (result.ptr != l || result.ec != errc{}) {
-        throw logic_error("");
-      }
-      return x;
-  }
-
-  // (signed) int
-  template <char ...chars>
-  constexpr auto operator"" c()
-  {
-    constexpr auto x = parse_ci<int, chars...>();
-    return integral_constant<remove_const_t<decltype(x)>, x>{};
-  }
-
-}
-```
+Add a new feature macro, `__cpp_lib_integral_constant_literals`.
