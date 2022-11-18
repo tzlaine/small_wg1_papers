@@ -409,10 +409,10 @@ Add subsequent new section [meta.help.literals] after new section [meta.help.op]
 > constexpr auto operator"" ZUic();
 > ```
 > 
-> _Returns_: Let `T` be the integral type associated with the *integer-prefix*
-> corresponding to the function name without the "ic" suffix.  Let `constexpr T
-> x = ic_parse<T, Chars...>()`.  Returns
-> `integral_constant<remove_const_t<decltype(x)>, x>{}`.
+> 
+> _Returns_: `integral_constant<T, v>{}`, where `T` is the integral type
+> associated with the *integer-prefix* corresponding to the function name
+> without the "ic" suffix, and `v` is `ic_parse<T, Chars...>()`.
 
 :::
 
