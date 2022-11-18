@@ -325,7 +325,7 @@ Add subsequent new section [meta.help.literals] after new section [meta.help.op]
 >       return {10, 0};
 >   }
 > 
->   template<typename TargetType, char ...Chars>
+>   template<class TargetType, char ...Chars>
 >   constexpr TargetType ic_parse() // @*exposition only*@
 >   {
 >     constexpr auto size = sizeof...(Chars);
