@@ -1,5 +1,5 @@
 ---
-title: "`std::integral_constant` literals"
+title: "`std::integral_constant` Literals"
 document: P2725R0
 date: 2022-11-18
 audience:
