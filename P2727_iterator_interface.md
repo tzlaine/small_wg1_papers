@@ -839,3 +839,65 @@ errors.
 I also attempted to use deduced `this` in `iterator_interface`, but it did not
 get rid of the need for the `D` template parameter. `D` is still needed to
 define the hidden friend operators.
+
+To get interoperability between user-created `const_iterator` and `iterator`
+types, the user must make `iterator`s convertible to `const_iterator`s.  You
+can't automate everything.
+
+Here is a handy table listing all the user-provided operations necessary to
+implement all the various iterator concepts.  This is every user-defined
+operation, even though no one iterator requires all of them.  A following
+table wth indicate which operations are needed when implementing which
+iterator concept.  In the table, `Iter` is a user-defined type derived from
+`iterator_interface`; `i` and `i2` are objects of type `Iter`; `reference` is
+the type passed as the `Reference` template parameter to `iterator_interface`;
+`pointer` is the type passed as the `Pointer` template parameter to
+`iterator_interface`; and `n` is a value of type `difference_type`.
+
++------------+-------------------------------------+-------------------------------------------------------------------+---------------------------------------------------------------------------------------------+
+| Expression | Return Type                         | Semantics                                                         | Notes                                                                                       |
++============+=====================================+===================================================================+=============================================================================================+
+| `*i`       | Convertible to `reference`.         | Dereferences `i` and returns the result.                          | _Precondition:_ `i` is dereferenceable.                                                     |
++------------+-------------------------------------+-------------------------------------------------------------------+---------------------------------------------------------------------------------------------+
+| `i == i2`  | Contextually convertible to `bool`. | Returns true if and only if `i` and `i2` refer to the same value. | _Precondition:_ `(i, i2)` is in the domain of `==`.                                         |
++------------+-------------------------------------+-------------------------------------------------------------------+---------------------------------------------------------------------------------------------+
+| `i2 - i`   | Convertible to `difference_type`.   | Returns `n`.                                                      | _Precondition:_ there exists a value `n` of type `difference_type` such that `i + n == i2`. |
++------------+-------------------------------------+-------------------------------------------------------------------+---------------------------------------------------------------------------------------------+
+| `++i`      | `Iter &`                            | Increments `i`.                                                   |                                                                                             |
++------------+-------------------------------------+-------------------------------------------------------------------+---------------------------------------------------------------------------------------------+
+| `--i`      | `Iter &`                            | Decrements `i`.                                                   |                                                                                             |
++------------+-------------------------------------+-------------------------------------------------------------------+---------------------------------------------------------------------------------------------+
+| `i += n`   | `Iter &`                            | `difference_type m = n;` \                                        |                                                                                             |
+|            |                                     | `if (m >= 0)`            \                                        |                                                                                             |
+|            |                                     | `&nbsp&nbsp&nbsp&nbsp`{=html}`while (m--) ++i;` \                 |                                                                                             |
+|            |                                     | `else`                   \                                        |                                                                                             |
+|            |                                     | `&nbsp&nbsp&nbsp&nbsp`{=html}`while (m++) --i;`                   |                                                                                             |
++------------+-------------------------------------+-------------------------------------------------------------------+---------------------------------------------------------------------------------------------+
+
+This table shows which user-definable operations must be defined to meet the
+requirements of each of the iterator concepts. `i`, `i2`, and `n` have the
+same meaning here as they do in the previous table.
+
++-------------------------------------------------+---------------------------+
+| Concept                                         | Operations                |
++=================================================+===========================+
+| `input_iterator`                                | `*i` \                    |
+|                                                 | `i == i2` \               |
+|                                                 | `++i`                     |
++-------------------------------------------------+---------------------------+
+| `output_iterator`                               | `*i` \                    |
+|                                                 | `++i` \                   |
++-------------------------------------------------+---------------------------+
+| `forward_iterator`                              | `*i` \                    |
+|                                                 | `i == i2` \               |
+|                                                 | `++i`                     |
++-------------------------------------------------+---------------------------+
+| `bidirectional_iterator`                        | `*i` \                    |
+|                                                 | `i == i2` \               |
+|                                                 | `++i` \                   |
+|                                                 | `--i`                     |
++-------------------------------------------------+---------------------------+
+| `random_access_iterator`/`continguous_iterator` | `*i` \                    |
+|                                                 | `i - i2` \                |
+|                                                 | `i += n`                  |
++-------------------------------------------------+---------------------------+
