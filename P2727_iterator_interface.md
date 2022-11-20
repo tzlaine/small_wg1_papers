@@ -1,7 +1,7 @@
 ---
 title: "`std::iterator_interface`"
 document: P2727R0
-date: 2022-11-18
+date: 2022-11-20
 audience:
   - LEWG-I
   - LEWG
