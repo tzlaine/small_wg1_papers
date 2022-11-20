@@ -27,7 +27,7 @@ operations (and usually only three).  Writing all the other operations yields
 very similar-looking code that is hard to review, and all but requires that
 you write full-coverage tests for each iterator.
 
-As an example, say you wanted an iterator that allowed you to do iterate over
+As an example, say you wanted an iterator that allowed you to iterate over
 repetitions of a sequence of characters, like:
 
 ```cpp
@@ -290,7 +290,7 @@ struct my_int
 ```
 
 Clearly, `std::common_reference_with<my_int, int>` is `false`.  However, if I
-also had some simply way of projecting from either one to `int`, like this:
+also had some simple way of projecting from either one to `int`, like this:
 
 ```cpp
 int as_int(int i) { return i; }
@@ -315,8 +315,8 @@ concatenation of `a` and `b`.
 None of the views proposed for the standard has ever supported projections.  I
 don't consider this a defect; it's probably the wrong kind of customization
 for a general-purpose view.  So, what to do?  Write an iterator that fits this
-exact, one-off special case, of course.  Using
-[Boost.STLInterfaces](https://github.com/boostorg/stl_interfaces), in
+one-off, special case, of course!  Using
+[Boost.STLInterfaces](https://github.com/boostorg/stl_interfaces), an
 implementation of everything in this proposal and more, I wrote something like
 this iterator.  To keep all the Unicode-y bits out of our way, I'm showing the
 `int`/`my_int` analogous solution.
@@ -421,7 +421,7 @@ private:
 That's a pleasantly low amount of code to write, and I was able to avoid
 implementing most of the boilerplate bits -- the operations that need to exist
 for my type to be conforming bidirectional iterator, but I which I will not
-explicitly use in my use case.
+explicitly use.
 
 In case you were wondering about the `T` template parameter, that just gets
 around the need for some potentially-messy metaprogramming to determine what
@@ -489,12 +489,12 @@ opportunities to write custom iterators in many more places.  One thing in
 particular that easy-to-write iterators enable is easy-to-write views and view
 adaptors.
 
-## Adaptation
+## Iterator adaptation
 
 Sometimes, you want to take an existing iterator and adapt it for a different
-use.  Since you already have multiple of the iterator operations defined on
-it, it would be useful to simply use those, and fill in the missing ones, or
-perhaps replace the ones that you want to work differently.
+use.  Since you already have all the iterator operations defined on it, it
+would be useful to simply use those, and fill in the missing ones, or perhaps
+replace the ones that you want to work differently.
 
 For example, if we wanted to make a filtering iterator for something like
 `filter_view`, we could write it like this:
@@ -513,7 +513,7 @@ struct filtered_int_iterator : boost::stl_interfaces::iterator_interface<
         pred_(std::move(pred))
     { it_ = std::find_if(it_, last_, pred_); }
 
-    // A forward iterator based on iterator_interface usually required
+    // A forward iterator based on iterator_interface usually requires
     // three user-defined operations.  since we are adapting an existing
     // iterator (an int *), we only need to define this one.  The others are
     // implemented by iterator_interface, using the underlying int *.
@@ -528,7 +528,7 @@ struct filtered_int_iterator : boost::stl_interfaces::iterator_interface<
     int * base() const { return it_; }
 
 private:
-    // Provide access to these private members.
+    // Provide access to base_reference.
     friend boost::stl_interfaces::access;
 
     // These functions are picked up by iterator_interface, and used to
@@ -605,27 +605,21 @@ private:
 };
 ```
 
-Next, a couple of exposition-only functions.  These functions make the
-formation of a pointer to return from `operator->()` uniform, whether the
-iterator is a proxy (returning `proxy_arrow_result` or a similar type) or not.
+Finally, `iterator_interface` itself:
 
 ```cpp
+template<typename D, typename DifferenceType>
+  concept @*has-plus-eq*@ =                             // @*exposition only*@
+    requires (D d) { d += DifferenceType(1); };
+
 template<typename Pointer, typename T>
   requires is_pointer_v<Pointer>
     decltype(auto) @*make-iterator-pointer*@(T&& value) // @*exposition only*@
-      { return std::addressof(value); }
+      { return addressof(value); }
 
 template<typename Pointer, typename T>
   auto @*make-iterator-pointer*@(T&& value)             // @*exposition only*@
     { return Pointer(std::forward<T>(value)); }
-```
-
-Finally, `iterator_interface` itself:
-
-```cpp
-// @*exposition only*@
-template<typename D, typename DifferenceType>
-  concept @*has-plus-eq*@ = requires (D d) { d += DifferenceType(1); };
 
 template<
   typename D,
@@ -762,11 +756,11 @@ public:
 Additionally, we want free a `operator==` (and compiler-provided
 `operator!=`), shown here.  In addition to the constraints shown, they require
 that `D1` and `D2` are derived from specializations of `iterator_interface`.
-This overload picks up comparisons of iterators of different, but
+This is so the overload can pick up comparisons of iterators of different, but
 interoperable types (like `std::vector<int>::const_iterator` and
-`std::vector<int>::iterator`).  As long as one iterator is convertible to the
-other (in either direction), and either: 1) their adapted bases are
-comparable; or 2) a `D1` is subtractable from a `D1`.
+`std::vector<int>::iterator`).  The full constraint is that one iterator is
+convertible to the other (in either direction), and either: 1) their adapted
+bases are comparable; or 2) a `D1` is subtractable from a `D1`.
 
 I know those contraints look oddly specific; here's why they are the way they
 are:
@@ -783,8 +777,7 @@ implementation for `operator==` for random access/contiguous iterators.
 
 For the base-equality-comparable part, similar logic applies: we don't want
 the user to have to define `operator==` when the underlying adapted iterator
-undoubtedly already has it (unless it's an output iterator, of course).  This
-free function supplies it in that case as well.
+undoubtedly already has it (unless it's an output iterator, of course).
 
 ```cpp
 template<typename D1, typename D2>
