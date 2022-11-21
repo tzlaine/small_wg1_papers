@@ -8,7 +8,7 @@ audience:
 author:
   - name: Zach Laine
     email: <whatwasthataddress@gmail.com>
-toc: false
+toc: true
 monofont: "DejaVu Sans Mono"
 
 ---
@@ -553,6 +553,8 @@ work".
 The proposal is to add a CRTP base template that will ease writing iterators,
 in the same way that `std::view_interface` eases the writing of views today.
 
+## Add `iterator_interface_access`
+
 Before looking at the main `iterator_interface` template, we neeed to look at
 some of the bits that allow that template to function.  First,
 `iterator_interface_access`.  `iterator_interface_access` is used by the
@@ -578,6 +580,8 @@ struct iterator_interface_access
   }
 };
 ```
+
+## Add `proxy_arrow_result`
 
 Next, `proxy_arrow_result`, a specialization of which is used as the default
 `pointer` for proxy iterators created using the `proxy_iterator_interface`
@@ -605,7 +609,7 @@ private:
 };
 ```
 
-Finally, `iterator_interface` itself:
+## Add `iterator_interface` itself
 
 ```cpp
 template<typename D, typename DifferenceType>
@@ -753,6 +757,8 @@ public:
 };
 ```
 
+## Add `operator==` overload
+
 Additionally, we want free a `operator==` (and compiler-provided
 `operator!=`), shown here.  In addition to the constraints shown, they require
 that `D1` and `D2` are derived from specializations of `iterator_interface`.
@@ -800,6 +806,8 @@ template<typename D1, typename D2>
       }
     }
 ```
+
+## Add `proxy_iterator_interface`
 
 Finally, there's an alias that makes it easier to define proxy iterators:
 
