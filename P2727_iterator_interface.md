@@ -254,7 +254,7 @@ Some examples of useful iterators you may want to write:
   and containers.
 - *Ad hoc*, single-application iterators.
 
-Because writing iterators is so much work at the moment, most of use avoid it
+Because writing iterators is so much work at the moment, most of us avoid it
 whenever possible.  So *ad hoc* use cases for iterators almost always go
 unfulfilled.  Here's an example of one such *ad hoc* iterator use case.
 
@@ -766,7 +766,7 @@ This is so the overload can pick up comparisons of iterators of different, but
 interoperable types (like `std::vector<int>::const_iterator` and
 `std::vector<int>::iterator`).  The full constraint is that one iterator is
 convertible to the other (in either direction), and either: 1) their adapted
-bases are comparable; or 2) a `D1` is subtractable from a `D1`.
+bases are comparable; or 2) a `D2` is subtractable from a `D1`.
 
 I know those contraints look oddly specific; here's why they are the way they
 are:
