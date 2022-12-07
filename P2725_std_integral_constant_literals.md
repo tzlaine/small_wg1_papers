@@ -313,7 +313,7 @@ Add subsequent new section [meta.help.literals] after new section [meta.help.op]
 >       constexpr char arr[] = {Chars...};
 >       if constexpr (arr[0] == '0' && 2 < Size) {
 >         constexpr bool is_hex = arr[1] == 'x' || arr[1] == 'X';
->         constexpr bool is_binary = arr[1] == 'b';
+>         constexpr bool is_binary = arr[1] == 'b' || arr[1] == 'B';
 > 
 >         if constexpr (is_hex)
 >           return {16, 2};
