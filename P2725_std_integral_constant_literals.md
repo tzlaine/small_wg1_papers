@@ -161,6 +161,45 @@ because it is greater than `INT_MAX`.  There is simply no way to spell
 `T` is signed.  Fortunately, one can still spell it the verbose way, as you
 saw one sentence ago.
 
+## What about `std::integral_constant<T, x>`'s implicit conversion to `T`?
+
+You might have already noticed that this is well-formed:
+
+```c++
+std::integral_constant<int, 5> five;
+int negative_five = -five;
+assert(negative_five == -5);
+```
+
+That's because `std::integral_constant<T, x>` is implicitly convertible to a
+`T` whose value is `x`.
+
+Doesn't adding an `operator-` to `std::integral_constant` change the meaning
+of existing code?  Yes and no.  In the example above, there is no user-visible
+change.  The expression `-five` becomes `std::integral_constant<int, -5>{}`
+instead of `int(-5)`.  The result is the same, though -- the implicit
+conversion still occurs, but it occurs after the negation instead of before
+it.
+
+There are other cases that result in a user-visible change, though:
+
+1) `decltype(-five)` will be very different, which might break some
+constrained templates, for example:
+
+```c++
+void f(std::same_as<int>);
+f(-std::integral_constant<int, 1>{}); // valid now, ill-formed with P2725
+```
+
+2) In the case of any minimum signed value (e.g. INT_MIN),
+`-std::integral_constant<T, std::numberic_limits<T>::min()>{}` changes from UB
+to ill-formed with the introduction of `std::integral_constant::operator-`.
+
+1) is an example of change that we typically accept -- it will not silently
+change the meaning of code, except in some squirrely overload resolution
+cases, and is easily if awkwardly fixed by prepending a `+` at the call site.
+I think that 2) is an improvement.
+
 # Implementation experience
 
 An `integral_constant` with the proposed semantics has been a part of
