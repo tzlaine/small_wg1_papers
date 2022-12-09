@@ -16,6 +16,11 @@ monofont: "DejaVu Sans Mono"
 
 # Motivation
 
+- If there's a specific algorithm specialization that operates directly on
+  UTF-8 or UTF-16, the top-level algorithm should use that when appropriate.
+  This is analogous to having multiple implementations of the algorithms in
+  `std` that differ based on iterator category.
+
 TODO
 
 # The shortest Unicode normalization primer I can manage
@@ -62,7 +67,70 @@ interfaces here and in the papers to come make this assumption.
 
 # Use cases
 
-TODO
+## Case 1: Normalize a sequence of code points to NFC
+
+We want to make a normalized copy of `s`, and we want the underlying
+implementation to use a specialized UTF-8 version of the normalization
+algorithm.  This is the most flexible and general-purpose API.
+
+```cpp
+std::string s = /* ... */; // using a std::string to store UTF-8
+assert(!std::uc::is_normalized(std::uc::as_utf32(s)));
+
+char nfc_s = new char[s.size() * 2];
+// Have to use as_utf32(), because normalization operates on code points, not UTF-8.
+auto out = std::uc::normalize<std::uc::nf::c>(std::uc::as_utf32(s), nfc_s);
+*out = '\0';
+assert(std::uc::is_normalized(nfc_s, out));
+```
+
+## Case 2: Normalize a sequence of code points to NFC, where the output is going into a string-like container
+
+This is like the previous case, except that the results must go into a
+string-like container, not just any old output iterator.  The advantage of
+doing things this way is that the code is a lot faster if you can append the
+results in chunks.
+
+```cpp
+std::string s = /* ... */; // using a std::string to store UTF-8
+assert(!std::uc::is_normalized(std::uc::as_utf32(s)));
+
+std::string nfc_s;
+nfc_s.reserve(s.size());
+// Have to use as_utf32(), because normalization operates on code points, not UTF-8.
+std::uc::normalize_append<std::uc::nf::c>(std::uc::as_utf32(s), nfc_s);
+assert(std::uc::is_normalized(std::uc::as_utf32(nfc_s)));
+```
+
+## Case 3: Modify some normalized text without breaking normalization
+
+You cannot modify arbitrary text that is already normalized without risking
+breaking the normalization.  For instance, let's say I have some
+NFC-normalized text.  That means that all the combining code points that could
+combine with one or more preceeding code points have already done so.  For
+instance, if I see "ä" in the NFC text, then I know it's code point U+00E4
+"Latin Small Letter A with Diaeresis", *not* some combination of "a" and a
+combining two dots.
+
+Now, forget about the "ä" I just gave as an example.  Let's say that I want to
+insert a single code point, "◌̈" (U+0308 Combining Diaeresis) into NFC text.
+Let's also say that the insertion position is right after a letter "o".  If I
+do the insertion and then walk away, I would have broken the NFC normaliztion,
+because "o" followed by "◌̈"" is supposed to combine to form "ö" (U+00F6 Latin
+Small Letter O with Diaeresis).
+
+Similar things can happen when deleting text -- sometimes the deletion can
+leave two code points next to each other that should interact in some way that
+did not apply when they were separated, before the deletion.
+
+```cpp
+std::string s = /* ... */;                            // using a std::string to store UTF-8
+assert(std::uc::is_normalized(std::uc::as_utf32(s))); // already normalized
+
+std::string insertion = /* ... */;
+normalize_insert<std::uc::nf::c>(s, s.begin() + 2, std::uc::as_utf32(insertion));
+assert(std::uc::is_normalized(std::uc::as_utf32(nfc_s)));
+```
 
 # Proposed design
 
@@ -123,7 +191,7 @@ namespace std::uc {
 
 ## Add an enumeration listing the supported normalization forms
 
-`nf` is short for normalization form, and the letter(s) of eacch enumerator
+`nf` is short for normalization form, and the letter(s) of each enumerator
 indicate a form.  The Unicode normalization forms are NFC, NFD, NFKC, and
 NFKD.  There is also an important semi-official one called FCC (described in
 [Unicode Technical Note #5](https://unicode.org/notes/tn5)).
@@ -186,8 +254,9 @@ in one go was substantially faster than the more generic `normalize()`
 algorithm, which appends to the output one code point at a time.  So, we
 should provide support for that as well, in the form of `normalize_append()`.
 
-`normalize_append()` does automatic transcoding to the UTF implied by the size
-of `String::value_type`, if necessary.
+If transocding is necessary when the result is appended, `normalize_append()`
+does automatic transcoding to UTF-N, where N is implied by the size of
+`String::value_type`.
 
 ```cpp
   template<
@@ -219,20 +288,20 @@ range overloads of each. Each one:
 This last step is necessary because insertions and erasures may create
 situations in which code points which may combine are now next to each other,
 when they were not before.  It's all very complicated, and the user should
-have a means of doing this generically.
+have a means of doing this generically, and remaining ignorant of the details.
 
 This API is like the `normalize_append()` overloads in that it may operate on
-UTF-8 or UTF-16 containers, and deduces the UTF from the size of the mutated
-container's value_type.
+UTF-8 or UTF-16 containers, and deduces the output UTF from the size of the
+mutated container's `value_type`.
 
 About the need for `replace_result`: `replace_result` represents the result of
-inserting a sequence of code points `I` into another sequence of code points
-`E`, ensuring proper normalization.  Since the insertion operation may need to
-change some code points just before and/or just after the insertion due to
-normalization, the code points bounded by this range may be longer than `I`.
-`replace_result` values represent the entire sequence of of code points in `E`
-that have changed -- some version of which may have already been present in
-the string before the insertion.
+inserting a sequence of code points `I` into an existing sequence of code
+points `E`, ensuring proper normalization.  Since the insertion operation may
+need to change some code points just before and/or just after the insertion
+due to normalization, the code points described by `replace_result` may be
+longer than `I`.  `replace_result` values represent the entire sequence of
+code points in `E` that have changed -- some version of which may have already
+been present in the string before the insertion.
 
 Note that `replace_result::iterator` refers to the underlying sequence, which
 may not itself be a sequence of code points.  For example, the underlying
@@ -301,6 +370,16 @@ same reason we don't return an `in_out_result` from `normalization()`.
     String& string, StringIter str_first, StringIter str_last);
 }
 ```
+
+## Design notes
+
+Unlike the interfaces from
+[P2728](https://isocpp.org/files/papers/P2728R0.html) "Unicode in the Library,
+Part 1: UTF Transcoding", there are no pointer overloads of any of these
+interfaces.  This is because the pointer-as-null-terminated-range notion does
+not apply here.  Instead of taking any kind of UTF as input, the normalization
+APIs require code points as input.  Null-terminated strings of UTF-32 are not
+a thing.
 
 # Implementation experience
 
