@@ -456,3 +456,7 @@ Add subsequent new section [meta.help.literals] after new section [meta.help.op]
 :::
 
 Add a new feature macro, `__cpp_lib_integral_constant_literals`.
+
+# Acknowledgements
+
+Thanks to Matthias Kretz for his thoughtful comments on this paper.
