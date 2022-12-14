@@ -16,34 +16,57 @@ monofont: "DejaVu Sans Mono"
 
 # Motivation
 
+I’m proposing normalization interfaces that meet certain design requirements
+that I think are important; I hope you’ll agree:
+
+- Ranges are the future. We should have range-friendly ways of doing
+  transcoding. This includes support for sentinels.
+
+- Iterators are the present. We should support generic programming, whether it
+  is done in terms of pointers, a particular iterator, or an iterator type
+  specified as a template parameter.
+
+- A null-terminated string should not be treated as a special case. The
+  ubiquity of such strings means that they should be treated as first-class
+  strings.
+
 - If there's a specific algorithm specialization that operates directly on
   UTF-8 or UTF-16, the top-level algorithm should use that when appropriate.
   This is analogous to having multiple implementations of the algorithms in
   `std` that differ based on iterator category.
 
-TODO
+- Input may come from UTF-8, UTF-16, or UTF-32 strings (though UTF-32 is
+  extremely uncommon in practice).  There should be a single overload of each
+  normalization function, so that the user does not need to change code when
+  the input is changed from UTF-N to UTF-M.  The most optimal version of the
+  algorithm (processing either UTF-8 or UTF-16) will be selected (as mentioned
+  above).
 
 # The shortest Unicode normalization primer I can manage
 
 You can have different strings of code points that mean the same thing.  For
 example, you could have the code point "ä" (U+00E4 Latin Small Letter A with
 Diaeresis), or you could have the two codepoints "a" (U+0061 Latin Small
-Letter A) and "◌̈" (U+0308 Combining Diaeresis).  The former represents "ä" as
+Letter A) and "¨̈" (U+0308 Combining Diaeresis).  The former represents "ä" as
 a single code point, the latter as two.  Unicode rules state that both strings
 must be treated as identical.
 
 To make such comparisons more efficient, Unicode has normalization forms.  If
 all the text you ever compare is in the same normalization form, it doesn't
 matter whether they're all the composed form like "ä" or the decomposed form
-like "a◌̈" -- they'll all compare bitwise-equal to each other if they represent
+like "a¨" -- they'll all compare bitwise-equal to each other if they represent
 the same text.
 
-NFC "Normalization Form: Composed", and NFD is "Normalization Form:
-Decomposed".  There are these two other forms NFKC and NFLD that you can
-safely ignore; they are seldom-used variants of NFC and NFD, respectively.
+There are four official normalization forms.  The first two are NFC
+("Normalization Form: Composed"), and NFD ("Normalization Form: Decomposed").
+There are these two other forms NFKC and NFKD that you can safely ignore; they
+are seldom-used variants of NFC and NFD, respectively.
+
+NFC is the most compact of these four forms.  It is near-ubiquitous on the
+web, as W3C recommends that web sites use it exclusively.
 
 There's this other form FCC, too.  It's really close to NFC, except that it is
-not as compact in all cases (though it is identical to NFC in most cases).
+not as compact in some corner cases (though it is identical to NFC in most cases).
 It's really handy when doing something called collation, which is not yet
 proposed.  It's coming, though.
 
@@ -58,10 +81,10 @@ there are never more than 30 combiners in a row. In practice, you should never
 need anywhere near 30 to represent meaningful text.
 
 Long sequences of combining characters create a problem for algorithms like
-normalization or grapheme breaking; the grapheme breaking algorithm may be
+normalization and grapheme breaking; the grapheme breaking algorithm may be
 required to look ahead a very long way in order to determine how to handle the
 current grapheme. To address this, Unicode allows a conforming implementation
-to assume that a sequence of code points contains graphemes of at most 32 code
+to assume that a sequence of code points contains graphemes of at most 31 code
 points. This is known as the Stream-Safe Format assumption.  All the proposed
 interfaces here and in the papers to come make this assumption.
 
@@ -77,7 +100,7 @@ algorithm.  This is the most flexible and general-purpose API.
 std::string s = /* ... */; // using a std::string to store UTF-8
 assert(!std::uc::is_normalized(std::uc::as_utf32(s)));
 
-char nfc_s = new char[s.size() * 2];
+char * nfc_s = new char[s.size() * 2];
 // Have to use as_utf32(), because normalization operates on code points, not UTF-8.
 auto out = std::uc::normalize<std::uc::nf::c>(std::uc::as_utf32(s), nfc_s);
 *out = '\0';
@@ -113,15 +136,15 @@ instance, if I see "ä" in the NFC text, then I know it's code point U+00E4
 combining two dots.
 
 Now, forget about the "ä" I just gave as an example.  Let's say that I want to
-insert a single code point, "◌̈" (U+0308 Combining Diaeresis) into NFC text.
+insert a single code point, "¨̈" (U+0308 Combining Diaeresis) into NFC text.
 Let's also say that the insertion position is right after a letter "o".  If I
 do the insertion and then walk away, I would have broken the NFC normaliztion,
-because "o" followed by "◌̈"" is supposed to combine to form "ö" (U+00F6 Latin
+because "o" followed by "¨" is supposed to combine to form "ö" (U+00F6 Latin
 Small Letter O with Diaeresis).
 
 Similar things can happen when deleting text -- sometimes the deletion can
 leave two code points next to each other that should interact in some way that
-did not apply when they were separated, before the deletion.
+did not apply when they were separate, before the deletion.
 
 ```cpp
 std::string s = /* ... */;                            // using a std::string to store UTF-8
@@ -144,27 +167,6 @@ Part 1: UTF Transcoding".
 
 ```cpp
 namespace std::uc {
-  template<class T>
-    concept utf8_range = code_unit_range<T, format::utf8>;
-  template<class T>
-    concept contiguous_utf8_range =
-      contiguous_code_unit_range<T, format::utf8>;
-
-  template<class T>
-    concept utf16_range = code_unit_range<T, format::utf16>;
-  template<class T>
-    concept contiguous_utf16_range =
-      contiguous_code_unit_range<T, format::utf16>;
-
-  template<class T>
-    concept utf32_range = code_unit_range<T, format::utf32>;
-  template<class T>
-    concept contiguous_utf32_range =
-      contiguous_code_unit_range<T, format::utf32>;
-
-  template<class T>
-    concept code_point_range = utf32_range<T>;
-
   template<class T, class CodeUnit>
   concept @*eraseable-insertable-sized-bidi-range*@ = // @*exposition only*@
     ranges::sized_range<T> &&
@@ -227,23 +229,16 @@ about how to construct an iterator of type `I` that represents the final
 position of the input is already lost.
 
 ```cpp
-  template<
-    nf Normalization,
-    code_point_iter I,
-    sentinel_for<I> S,
-    output_iterator<uint32_t> O>
-  O normalize(I first, S last, O out);
+  template<nf Normalization, utf_iter I, sentinel_for<I> S, output_iterator<uint32_t> O>
+    O normalize(I first, S last, O out);
 
-  template<
-    nf Normalization,
-    code_point_range R,
-    output_iterator<uint32_t> O>
-  O normalize(R&& r, O out);
+  template<nf Normalization, utf_range_like R, output_iterator<uint32_t> O>
+    O normalize(R&& r, O out);
 
-  template<nf Normalization, code_point_iter I, sentinel_for<I> S>
+  template<nf Normalization, utf_iter I, sentinel_for<I> S>
     bool is_normalized(I first, S last);
 
-  template<nf Normalization, code_point_range R>
+  template<nf Normalization, utf_range_like R>
     bool is_normalized(R&& r);
 ```
 
@@ -259,18 +254,14 @@ does automatic transcoding to UTF-N, where N is implied by the size of
 `String::value_type`.
 
 ```cpp
-  template<
-    nf Normalization,
-    code_point_iter I,
-    sentinel_for<I> S,
-    utf_string String>
-  void normalize_append(I first, S last, String& s);
+  template<nf Normalization, utf_iter I, sentinel_for<I> S, utf_string String>
+    void normalize_append(I first, S last, String& s);
 
-  template<nf Normalization, code_point_range R, utf_string String>
+  template<nf Normalization, utf_range_like R, utf_string String>
     void normalize_append(R&& r, String& s);
 
   template<nf Normalization, utf_string String>
-    void normalize(String& s);
+    void normalize_string(String& s);
 ```
 
 ## Add normalization-aware insertion, erasure, and replacement operations on strings
@@ -311,8 +302,7 @@ same reason we don't return an `in_out_result` from `normalization()`.
 
 ```cpp
   template<class I>
-  struct replace_result : subrange<I>
-  {
+  struct replace_result : subrange<I> {
     using iterator = I;
 
     replace_result() = default;
