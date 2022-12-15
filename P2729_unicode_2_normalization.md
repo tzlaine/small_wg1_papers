@@ -361,21 +361,56 @@ same reason we don't return an `in_out_result` from `normalization()`.
 }
 ```
 
-## Design notes
-
-Unlike the interfaces from
-[P2728](https://isocpp.org/files/papers/P2728R0.html) "Unicode in the Library,
-Part 1: UTF Transcoding", there are no pointer overloads of any of these
-interfaces.  This is because the pointer-as-null-terminated-range notion does
-not apply here.  Instead of taking any kind of UTF as input, the normalization
-APIs require code points as input.  Null-terminated strings of UTF-32 are not
-a thing.
-
 # Implementation experience
 
-TODO
+All of these interfaces have been implemented in
+[Boost.Text](https://github.com/tzlaine/text) (proposed -- not yet a part of
+Boost).  All of the interfaces here have been very well-exercised by
+full-coverage tests, and by other parts of Boost.Text that use normalization.
 
-# Performance
+The first attempt at implementing the normalization algorithms was fairly
+straightforward.  I wrote code following the algorithms as described in the
+Unicode standard and its acompanying Annexes, and got all the
+Unicode-published tests to pass.  However, comparing the performance of the
+naive implementation to the performance of the equivalent ICU normalization
+API showed that the naive implementation was a *lot* slower -- around a factor
+of 50!
 
-TODO
+I managed to optimize the initial implementation quite a lot, and got the
+performance delta down to about a factor of 10.  After that, I could shave no
+more time off of the naive implementation.  I looked at how ICU performs
+normalization, and had a brief discussion about performance with one of the
+ICU maintainers.  It turns out that if you understand the
+normalization-related Unicode data very deeply, you can take advantage of
+certain patterns in those data to take shortcuts.  In fact, it is only
+necessary to perform the full algorithm as described in the Unicode standard
+in a small minority of cases.  ICU is maintained in lockstep with the
+evolution of Unicode, so as new code points are added (often from new
+languages), the new normalization data associated with those new code points
+are designed so that they enable the shortcuts mentioned above.
 
+In the end, I looked at the ICU normalization algorithms, and reimplemented
+them in a generic way, using templates and therefore header-based code.  Being
+generic, this reimplementation works for numerous types of input (iterators,
+ranges, pointers to null-terminated strings) -- not just `icu::UnicodeString`
+(a `std::string`-like UTF-16 type) and `icu::StringPiece` (a
+`std::string_view`-like UTF-8 type) that ICU supports.  Being inline,
+header-only code, the reimplementation optimizes better, and I managed about a
+20% speedup over the ICU implementation.
+
+However, this reimplementation of ICU was a lot of work, and there's no
+guaranteee that it will work for more than just the current version of Unicode
+supported by Boost.Text.  Since ICU and Unicode evolve in lockstep, any
+reimplementation needs to track changes to the ICU implementation when the
+Unicode version is updated, and the equivalent change needs to be applied to
+the reimplementation.
+
+## tl;dr
+
+Standard library implementers will probably want to just use ICU to implement
+the normalization algorithms.  Since ICU only implements the normalization
+algorithms for UTF-16 and UTF-8, and since it only implements the algorithms
+for the exact types `icu::UnicodeString` (for UTF-16) and `icu::StringPiece`
+(for UTF-8), copyng may need to occur.  There are implementation-detail
+interfaces within ICU that more intrepid implementers may wish to use; these
+interfaces can be made to work with iterators and pointers more directly.
