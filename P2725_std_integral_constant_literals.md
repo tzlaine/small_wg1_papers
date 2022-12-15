@@ -13,6 +13,15 @@ monofont: "DejaVu Sans Mono"
 
 ---
 
+# Changelog
+
+## Changes since R0
+
+- Add missing logic for `"0B"` binary literal prefixes.
+
+- Add a discussion of the interaction between `integral_constant::operator-`
+  and implicit conversion to `T`.
+
 # The ergonomics of `std::integral_constant<int>` can be improved
 
 `std::integral_constant<int>` is used in lots of places to communicate a
