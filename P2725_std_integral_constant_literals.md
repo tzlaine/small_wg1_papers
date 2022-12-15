@@ -1,6 +1,6 @@
 ---
 title: "`std::integral_constant` Literals"
-document: P2725R0
+document: P2725R1
 date: 2022-11-18
 audience:
   - LEWG-I
