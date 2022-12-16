@@ -163,6 +163,27 @@ This proposal depends on the existence of
 [P2728](https://isocpp.org/files/papers/P2728R0.html) "Unicode in the Library,
 Part 1: UTF Transcoding".
 
+## Add Unicode version observers
+
+```c++
+namespace std::uc {
+  inline constexpr major_version = @*implementation defined*@;
+  inline constexpr minor_version = @*implementation defined*@;
+  inline constexpr patch_version = @*implementation defined*@;
+}
+```
+
+Unlike [P2728](https://isocpp.org/files/papers/P2728R0.html) (Unicode Part 1),
+the interfaces in this proposal refer to parts of the Unicode standard that
+are allowed to change over time.  The normalization of code points is inlikely
+to change in Unicode N from what it was for those same code points in Unicode
+N-1, but since new code points are introduced with each new Unicode release,
+the normalization algorithms must be updated to keep up.
+
+I'm proposing that implemenations provide support for whatever version of
+Unicode they like, as long as they document which one is supported via
+`major_`-/`minor_`-/`patch_version`.
+
 ## Add concepts that describe the constraints on parameters to the normalization API
 
 ```cpp
