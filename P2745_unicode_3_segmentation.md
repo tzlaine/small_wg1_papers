@@ -21,6 +21,7 @@ monofont: "DejaVu Sans Mono"
 TODO
 
 - Importance of UTF-8
+- Importance of graphemes
 
 # The shortest Unicode text segmentation primer you'll read this week
 
@@ -297,7 +298,58 @@ UTF-8 sequence of `char`, as implied by the `iterator` type.  It is expected
 that most graphemes will be processed as `grapheme_ref`s, and this type exists
 simply to provide a value-semantic alternative when that is called for.
 
-## Add 
+## Add `grapheme_iterator`
+
+```c++
+namespace std::uc {
+    template<code_point_iter I, sentinel_for<I> S = I>
+    struct grapheme_iterator
+    {
+        using value_type = grapheme_ref<I>;
+        using difference_type = ptrdiff_t;
+        using pointer = proxy_arrow_result<value_type>;
+        using reference = value_type;
+        using iterator_category = bidirectional_iterator_tag;
+
+        using iterator = I;
+        using sentinel = S;
+
+        constexpr grapheme_iterator() = default;
+        constexpr grapheme_iterator(iterator first, iterator it, sentinel last);
+        template<code_point_iter I2, sentinel_for<I2> S2>
+          requires convertible_to<I2, I> && convertible_to<S2, S>
+            constexpr grapheme_iterator(grapheme_iterator<I2, S2> const & other);
+
+        constexpr reference operator*() const;
+        constexpr pointer operator->() const;
+
+        constexpr iterator base() const;
+
+        constexpr grapheme_iterator & operator++();
+        constexpr grapheme_iterator operator++(int);
+
+        constexpr grapheme_iterator & operator--();
+        constexpr grapheme_iterator operator--(int);
+
+        friend constexpr bool operator==(grapheme_iterator lhs, grapheme_iterator rhs)
+          { return lhs.base() == rhs.base(); }
+        friend constexpr bool operator==(grapheme_iterator lhs, sentinel rhs)
+          { lhs.base() == rhs; }
+
+    private:
+        template<code_point_iter I2, sentinel_for<I2> S2>
+          friend struct grapheme_iterator;
+    };
+
+    template<class Iter1, class Sentinel1, class Iter2, class Sentinel2>
+      requires same_as<Sentinel1, null_sentinel_t> != same_as<Sentinel2, null_sentinel_t>
+    constexpr auto operator==(
+      const grapheme_iterator<Iter1, Sentinel1>& lhs,
+      const grapheme_iterator<Iter2, Sentinel2>& rhs) -> decltype(lhs.base() == rhs.base())
+        { return lhs.base() == rhs.base(); }
+}
+```
+
 
 TODO: formatters!
 
