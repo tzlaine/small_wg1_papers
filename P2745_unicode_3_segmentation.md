@@ -293,10 +293,10 @@ namespace std::uc {
 `grapheme` provides a type with storage to hold a grapheme.  It is mostly
 immutable; its only mutating operations are move and assignment.  Using a
 small buffer optimization is pretty important for this type, since the vast
-majority of graphemes will only be few bytes.  Also, its internal storage is a
-UTF-8 sequence of `char`, as implied by the `iterator` type.  It is expected
-that most graphemes will be processed as `grapheme_ref`s, and this type exists
-simply to provide a value-semantic alternative when that is called for.
+majority of graphemes will only be a few bytes.  Also, its internal storage is
+a UTF-8 sequence of `char`, as implied by the `iterator` type.  It is expected
+that most graphemes will be processed as `grapheme_ref`s, and `grapheme`
+exists simply to provide a value-semantic alternative when that is called for.
 
 ## Add `grapheme_iterator`
 
@@ -353,7 +353,7 @@ namespace std::uc {
 
 TODO: formatters!
 
-## The pattern of all text breaking interfaces
+## The pattern of all text breaking algorithms
 
 All the remaining text breaking interfaces follow the pattern described above
 for grapheme breaking.  Each kind of break `X` has:
@@ -367,6 +367,176 @@ for grapheme breaking.  Each kind of break `X` has:
 Tailoring is available for some of the kinds of breaking that follow, and when
 it is in play, the tailoring parameters will always come in the form of
 defaulted parameters that follow the ones for the grapheme breaking functions.
+
+## Add `grapheme_view` and `as_graphemes()`
+
+```c++
+namespace std::us {
+  template<class I, class S>
+    using @*grapheme-view-sentinel*@ = @*see below*@; // @*exposition only*@
+
+  template<code_point_iter I, sentinel_for<I> S = I>
+  struct grapheme_view : view_interface<grapheme_view<I, S>>
+  {
+    using iterator = grapheme_iterator<I, S>;
+    using sentinel = @*grapheme-view-sentinel*@<I, S>;
+
+    constexpr grapheme_view() : first_(), last_() {}
+
+    constexpr grapheme_view(iterator first, sentinel last) :
+      first_(first), last_(last) {}
+
+    constexpr grapheme_view(I first, S last)
+      : first_(first, first, last), last_(@*make-last*@<sentinel>(first, last)) {}
+
+    template<code_point_iter I2>
+      requires constructible_from<iterator, I2, I2, I2> &&
+        constructible_from<sentinel, I2, I2, I2>
+    constexpr grapheme_view(
+      I2 first, I2 view_first, I2 view_last, I2 last)
+        : first_(first, view_first, last), last_(first, view_last, last) {}
+
+    constexpr iterator begin() const { return first_; }
+    constexpr sentinel end() const { return last_; }
+
+    friend constexpr bool operator==(grapheme_view lhs, grapheme_view rhs)
+      { return lhs.begin() == rhs.begin() && lhs.end() == rhs.end(); }
+
+    template<class CharT, class Traits>
+      friend ostream<CharT, Traits>&
+        operator<<(ostream<CharT, Traits>& os, grapheme_view v);
+
+  private:
+    template<class ResultType, class I1, class I2, class S>
+      static auto @*make-last*@(I1 first, I2 it, S last) { // @*exposition only*@
+        if constexpr (requires { ResultType(first, it, last); }) {
+          return ResultType{first, it, last};
+        } else {
+          return it;
+        }
+      }
+
+    iterator first_;                      // @*exposition only*@
+    [[no_unique_address]] sentinel last_; // @*exposition only*@
+  };
+
+  template<class I, class S>
+    grapheme_view(grapheme_iterator<I, S>, grapheme_iterator<I, S>) -> grapheme_view<I, S>;
+
+  template<class I, class S>
+    grapheme_view(grapheme_iterator<I, S>, S) -> grapheme_view<I, S>;
+
+  template<class I, class S>
+    grapheme_view(I, S) -> grapheme_view<I, S>;
+
+  template<utf_iter I, std::sentinel_for<I> S>
+    constexpr @*unspecified*@ as_graphemes(I first, S last);
+
+  template<utf_range_like R>
+    constexpr @*unspecified*@ as_graphemes(R&& r);
+
+  struct @*as-graphemes-t*@ : range_adaptor_closure<@*as-graphemes-t*@> { // @*exposition only*@
+    template<utf_iter I, std::sentinel_for<I> S>
+      constexpr @*unspecified*@ operator()(I first, S last) const;
+    template<utf_range_like R>
+      constexpr @*unspecified*@ operator()(R && r) const;
+  };
+
+  inline constexpr @*as-graphemes-t*@ as_graphemes;
+}
+```
+
+`@*grapheme-view-sentinel*@<I, S>` is `grapheme_iterator<I, S>` if `is_same<I,
+S>`, and `S` otherwise.
+
+The reason for the fourth `grapheme_view` constructor (the constrained one) is
+that is is more flexible in some cases when iterators from the `grapheme_view`
+need to be compared to other iterators.  The next section explains why.
+
+`as_graphemes(/*...*/)` returns a `grapheme_view` of the appropriate type,
+except that the range overload returns `ranges::dangling{}` if
+`!is_pointer_v<remove_reference_t<R>> && !ranges::borrowed_range<R>` is
+`true`.
+
+`as_graphemes` can also be used as a range adaptor, as in `r |
+std::uc::as_graphemes`.
+
+### An important note about comparability of grapheme and transcoding iterators
+
+Often, iterators from subranges can only be compared to each other.  This
+follows directly from the fact that all transcoding and grapheme iterators
+have a built-in end point (see [P2728's explaination of
+this](https://isocpp.org/files/papers/P2728R0.html#design-notes); look at the
+last paragraph). Say you get a subrange from one iteration of a text
+segmentation algorithm:
+
+```c++
+char const * c_str = /* ... */;
+auto const lines = c_str | std::uc::as_graphemes | std::uc::lines(std::uc::allowed_breaks);
+
+int line_index = 0;
+for (auto line : lines) {
+    auto first = lines.begin()->begin();
+    std::cout << "line " << line_index++ << " offsets: "
+              << std::ranges::distance(first, line.begin())
+              << " - "
+              << std::ranges::distance(first, line.end()) // Oops.
+              << "\n";
+}
+```
+
+This code does not halt. The line marked with "Oops." will continue to count
+forever when it is executed in the second loop iteration. This happens because
+`first` is constructed from the iterators delimiting the first line,
+`*lines.begin()` (let's call that line `l` for brevity). `first`'s underlying
+iterators are:
+
+- `l.begin().base()`, `first`'s lower bound, which points to the first code
+  point in `l`;
+
+- `l.begin().base()`, which is the current position of
+  `first` within `l`; and
+
+- `l.end().base()`, `first`'s upper bound, or one past the last code point in
+  `l`.
+
+When evaluating `std::ranges::distance(first, line.end())`, `first` must be
+advanced until it is equal to `line.end()`. However, there is an upper bound
+on how far we can advance `first`. It cannot advance past its underlying
+upper-bound iterator, which is equal to `l.end().base()` (which is
+`lines.begin()->end().base()`). This upper bound will always be less than
+`line.end()`. Remember, the line in `line.end()` is the line in the *second*
+iteration of the loop, but the line `l` (`== *lines.begin()`) is the line in
+the *first* iteration of the loop.
+
+I know all of that was complicated. To keep things simple, users can follow
+this rule:
+
+When given a grapheme or transcoding subrange `s`, comparisons of `s.begin()`
+to `s.end()` are fine, and so is iteration between `s.begin()` and
+`s.end()`. However, iteration between either `s.begin()` or `s.end()` and any
+other iterator may result in undefined behavior.
+
+## An additional pattern for all non-grapheme text breaking interfaces
+
+In addition to the pattern established by grapheme breaking interfaces, each
+other kind of break `X` has:
+
+- `X()`, which returns the smallest range of code points that comprise an `X`
+  (word, line, etc.) in which it is found; and
+
+- iterator and range forms of `Xs()`, which returns a view of subranges. Each
+  subrange is an `X`.
+
+`Xs` is inovocable, but it is also a view adaptor, and can be used in pipe
+expressions -- without parameters -- as in `r | std::uc::lines`.
+
+Since all the text segmentation operations can be done in in terms of next and
+previous steps, `Xs` can be reversed, as in `r | std::uc::words |
+std::views::reverse`.
+
+As mentioned previously, the template and function parameters above may be
+altered slightly, as tailoring needs dictate.
 
 ## Add interfaces for word breaking
 
@@ -387,6 +557,10 @@ namespace std::uc {
         bool>;
 }
 ```
+
+## Add a feature test macro
+
+Add the feature test macro `__cpp_lib_unicode_text_segmentation`.
 
 # Implementation experience
 
