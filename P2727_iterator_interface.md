@@ -827,6 +827,10 @@ using proxy_iterator_interface = iterator_interface<
     DifferenceType>;
 ```
 
+## Add a feature test macro
+
+Add the feature test macro `__cpp_lib_iterator_interface`.
+
 ## Design notes
 
 The template parameter `D` for `iterator_interface` may be an incomplete type.
