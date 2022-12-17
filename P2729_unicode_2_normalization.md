@@ -42,6 +42,12 @@ that I think are important; I hope you’ll agree:
   algorithm (processing either UTF-8 or UTF-16) will be selected (as mentioned
   above).
 
+- The Unicode algorithms are low-level tools that most C++ users will not need
+  to touch, een if their code needs to be Unicode-aware.  C++ users should
+  also be provided higher-level, string-like abstractions (provisionally
+  called `std::text`) that will handle all the messy Unicode details, leaving
+  C++ users to think about their program instead of Unicode).
+
 # The shortest Unicode normalization primer I can manage
 
 You can have different strings of code points that mean the same thing.  For
@@ -87,6 +93,20 @@ current grapheme. To address this, Unicode allows a conforming implementation
 to assume that a sequence of code points contains graphemes of at most 31 code
 points. This is known as the Stream-Safe Format assumption.  All the proposed
 interfaces here and in the papers to come make this assumption.
+
+The stream-safe format is very important.  Its use prevents the Unicode
+algorithms from having to worry about unbounded-length graphemes.  This in
+turn allows the Unicode algorithms to use side buffers of a small and fixed
+size to do their operations, which obviates the need for most memory
+allocations.
+
+For more info on the strea-safe format, see the appropriate [part of
+UAX15](https://unicode.org/reports/tr15/#Stream_Safe_Text_Format).
+
+## Unicode reference
+
+See [UAX15 Unicode Normalization Forms](https://unicode.org/reports/tr15) for
+more information on Unicode normalization.
 
 # Use cases
 
@@ -184,6 +204,173 @@ I'm proposing that implemenations provide support for whatever version of
 Unicode they like, as long as they document which one is supported via
 `major_`-/`minor_`-/`patch_version`.
 
+## Add stream-safe operations
+
+As mentioned above, I consider most of the Unicode algorithms presented in
+this proposal and the proposals to come to be low-level tools that most C++
+users will not need to touch.  I would instead like to see most C++ users use
+a higher-level, string-like abstraction (provisionally called `std::text`)
+that will handle all the messy Unicode details, leaving C++ users to think
+about their program instead of Unicode).  As such, most of the interfaces in
+this proposal assume that their input is in stream-safe format, but they do
+not enforce that.  The exceptions are `normalize_insert`/-`_erase`/-`_replace`
+algorithms, which are designed to be operations with which something like
+`std::text` may be built.  These interfaces do not assume stream-safe for
+inserted text, and in fact they put inserted text *into* stream-safe format.
+
+So, if users use something like `std::uc::normalize<std::uc::fc::d>()`, they
+may know *a priori* that the input is in stream-safe format, or they may not.
+If they do not, they can use the stream-safe operations to meet the
+stream-safe precondition of the call to
+`std::uc::normalize<std::uc::fc::d>()`.
+
+### Add stream-safe algorithms
+
+```c++
+namespace std::uc {
+  template<utf_iter I, std::sentinel_for<I> S>
+    constexpr I stream_safe(I first, S last);
+
+  template<utf_range_like R>
+    constexpr @*uc-result-iterator*@<R> stream_safe(R && r);
+
+  template<utf_iter I, sentinel_for<I> S, output_iterator<uint32_t> O>
+    constexpr ranges::copy_result<I, O> stream_safe_copy(I first, S last, O out);
+
+  template<utf_range_like R, output_iterator<uint32_t> O>
+    constexpr ranges::copy_result<@*uc-result-iterator*@<R>, O>
+      stream_safe_copy(R && r, O out);
+
+  template<utf_iter I, sentinel_for<I> S>
+    constexpr bool is_stream_safe(I first, S last);
+
+  template<utf_range_like R>
+    constexpr bool is_stream_safe(R && r);
+}
+```
+
+`stream_safe()` is like `std::remove_if()` and related algorithms.  It writes
+the stream-safe subset of the given range into the beginning, and leaves junk
+at the end. It returns the iterator to the first junk element.
+
+### Add `stream_safe_iterator`
+
+```c++
+namespace std::uc {
+  constexpr int @*uc-ccc*@(uint32_t cp); // @*exposition only*@
+
+  template<code_point_iter I, sentinel_for<I> S = I>
+  struct stream_safe_iterator
+    : iterator_interface<stream_safe_iterator<I, S>, forward_iterator_tag, uint32_t, uint32_t> {
+    using iterator = I;
+    using sentinel = S;
+
+    constexpr stream_safe_iterator() = default;
+    constexpr stream_safe_iterator(iterator first, sentinel last)
+      : first_(first), it_(first), last_(last),
+        nonstarters_(it_ != last_ && @*uc-ccc*@(*it_) ? 1 : 0)
+        {}
+
+    constexpr uint32_t operator*() const;
+
+    constexpr I base() const { return it_; }
+
+    constexpr stream_safe_iterator& operator++();
+
+    friend constexpr bool operator==(stream_safe_iterator lhs, stream_safe_iterator rhs)
+      { return lhs.it_ == rhs.it_; }
+    template<class I, class S>
+      friend constexpr bool operator==(const stream_safe_iterator<I, S>& lhs, S rhs)
+        { return lhs.base() == rhs; }
+
+    using base_type =  // @*exposition only*@
+      iterator_interface<stream_safe_iterator<I, S>, forward_iterator_tag, uint32_t, uint32_t>;
+    using base_type::operator++;
+
+  private:
+    iterator first_;                      // @*exposition only*@
+    iterator it_;                         // @*exposition only*@
+    [[no_unique_address]] sentinel last_; // @*exposition only*@
+    size_t nonstarters_ = 0;              // @*exposition only*@
+  };
+}
+```
+
+`@*uc-ccc*@()` returns the [Canonical Combining
+Class](https://unicode.org/reports/tr44/#Canonical_Combining_Class_Values),
+which indicates how and whether a code point combines with other code points.
+For some code point `cp`, `@*uc-ccc*@(cp) == 0` iff `cp` is a
+"starter"/"noncombiner".  Any number of "nonstarters"/"combiners" may follow a
+starter (remember that the purpose of the stream-safe format is to limit the
+maximum number of combiners to at most 30).
+
+The behavior of this iterator should be left to the implementation, as long as
+the result meets the stream-safe format, and does not 1) change or remove any
+starters, or 2) change the first 30 nonstarters after any given starter.  The
+Unicode standard shows a technique for inserting special dummy-starters (that
+do not interact with most other text) every 30 non-starters, so that the
+original input is preserved.  I think this is silly -- the longest possible
+meaningful sequence of nonstarters is 17 code points, and that is only
+necessary for backwards compatability.  Most meaningful sequences are much
+shorter.  I think a more reasonable implementation is simply to truncate any
+sequence of nonstarters to 30 code points.
+
+### Add `stream_safe_view` and `as_stream_safe()`
+
+```c++
+namespace std::uc {
+  template<class T>
+  concept @*stream-safe-iter*@ = @*see below*@;  // @*exposition only*@
+
+  template<class I, std::sentinel_for<I> S = I>
+    requires @*stream-safe-iter*@<I>
+  struct stream_safe_view : view_interface<stream_safe_view<I, S>> {
+    using iterator = I;
+    using sentinel = S;
+
+    constexpr stream_safe_view() {}
+    constexpr stream_safe_view(iterator first, sentinel last) :
+      first_(first), last_(last)
+    {}
+
+    constexpr iterator begin() const { return first_; }
+    constexpr sentinel end() const { return last_; }
+
+    friend constexpr bool operator==(stream_safe_view lhs, stream_safe_view rhs)
+      { return lhs.first_ == rhs.first_ && lhs.last_ == rhs.last_; }
+
+  private:
+    iterator first_;                      // @*exposition only*@
+    [[no_unique_address]] sentinel last_; // @*exposition only*@
+  };
+
+  struct @*as-stream-safe-t*@ : range_adaptor_closure<@*as-stream-safe-t*@> { // @*exposition only*@
+    template<utf_iter I, std::sentinel_for<I> S>
+      constexpr @*unspecified*@ operator()(I first, S last) const;
+    template<utf_range_like R>
+      constexpr @*unspecified*@ operator()(R && r) const;
+  };
+
+  inline constexpr @*as-stream-safe-t*@ as_stream_safe;
+}
+```
+
+`@*stream-safe-iter*@<T>` is `true` iff `T` is a specialization of
+`stream_safe_iterator`.
+
+The `as_stream_safe()` overloads each return a `stream_safe_view` of the
+appropriate type.
+
+`as_stream_safe(/*...*/)` returns a `stream_safe_view` of the appropriate
+type, except that the range overload returns `ranges::dangling{}` if
+`!is_pointer_v<remove_reference_t<R>> && !ranges::borrowed_range<R>` is
+`true`.  If either overload is called with a non-common range `r`, the type of
+the second template parameter to `stream_safe_view` will be
+`decltype(ranges::end(r))`, *not* a specialization of `stream_safe_iterator`.
+
+`as_stream_safe` can also be used as a range adaptor, as in `r |
+std::uc::as_stream_safe`.
+
 ## Add concepts that describe the constraints on parameters to the normalization API
 
 ```cpp
@@ -250,6 +437,7 @@ about how to construct an iterator of type `I` that represents the final
 position of the input is already lost.
 
 ```cpp
+namespace std::uc {
   template<nf Normalization, utf_iter I, sentinel_for<I> S, output_iterator<uint32_t> O>
     O normalize(I first, S last, O out);
 
@@ -261,6 +449,7 @@ position of the input is already lost.
 
   template<nf Normalization, utf_range_like R>
     bool is_normalized(R&& r);
+}
 ```
 
 ## Add an append version of the normalization algorithm
@@ -275,6 +464,7 @@ does automatic transcoding to UTF-N, where N is implied by the size of
 `String::value_type`.
 
 ```cpp
+namespace std::uc {
   template<nf Normalization, utf_iter I, sentinel_for<I> S, utf_string String>
     void normalize_append(I first, S last, String& s);
 
@@ -283,6 +473,7 @@ does automatic transcoding to UTF-N, where N is implied by the size of
 
   template<nf Normalization, utf_string String>
     void normalize_string(String& s);
+}
 ```
 
 ## Add normalization-aware insertion, erasure, and replacement operations on strings
@@ -322,6 +513,7 @@ return an iterator of the type `I` passed to `normalize_replace()`, for the
 same reason we don't return an `in_out_result` from `normalization()`.
 
 ```cpp
+namespace std::uc {
   template<class I>
   struct replace_result : subrange<I> {
     using iterator = I;
@@ -381,6 +573,10 @@ same reason we don't return an `in_out_result` from `normalization()`.
     String& string, StringIter str_first, StringIter str_last);
 }
 ```
+
+## Add a feature test macro
+
+Add the feature test macro `__cpp_lib_unicode_normalization`.
 
 # Implementation experience
 
