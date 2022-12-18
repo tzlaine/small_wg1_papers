@@ -22,6 +22,7 @@ TODO
 
 - Importance of UTF-8
 - Importance of graphemes
+- Graphemes should not be tailorable
 
 # The shortest Unicode text segmentation primer you'll read this week
 
@@ -453,9 +454,9 @@ The reason for the fourth `grapheme_view` constructor (the constrained one) is
 that is is more flexible in some cases when iterators from the `grapheme_view`
 need to be compared to other iterators.  The next section explains why.
 
-`as_graphemes(/*...*/)` returns a `grapheme_view` of the appropriate type,
-except that the range overload returns `ranges::dangling{}` if
-`!is_pointer_v<remove_reference_t<R>> && !ranges::borrowed_range<R>` is
+`@*as-graphemes-t*@::operator()` each return a `grapheme_view` of the
+appropriate type, except that the range overload returns `ranges::dangling{}`
+if `!is_pointer_v<remove_reference_t<R>> && !ranges::borrowed_range<R>` is
 `true`.
 
 `as_graphemes` can also be used as a range adaptor, as in `r |
@@ -509,8 +510,7 @@ upper-bound iterator, which is equal to `l.end().base()` (which is
 iteration of the loop, but the line `l` (`== *lines.begin()`) is the line in
 the *first* iteration of the loop.
 
-I know all of that was complicated. To keep things simple, users can follow
-this rule:
+That was complicated; to keep things simple, users can follow this rule:
 
 When given a grapheme or transcoding subrange `s`, comparisons of `s.begin()`
 to `s.end()` are fine, and so is iteration between `s.begin()` and
@@ -535,8 +535,113 @@ Since all the text segmentation operations can be done in in terms of next and
 previous steps, `Xs` can be reversed, as in `r | std::uc::words |
 std::views::reverse`.
 
+The `Xs` interfaces all return `std::ranges::dangling{}` when given a
+`utf_range_like` `R` for which `!is_pointer_v<remove_reference_t<R>> &&
+!ranges::borrowed_range<R>` is `true`.
+
 As mentioned previously, the template and function parameters above may be
 altered slightly, as tailoring needs dictate.
+
+### Add `break_view`
+
+The view created by using `words`, `lines`, etc., is a `break_view`.
+`break_view` represents a generic text segmentation, in that it is agnostic to
+the kind of segmentation it represents; it represents whatever segmentation
+the `PrevFunc` and `NextFunc` invocables produce.
+
+```c++
+namespace std::uc {
+  template<code_point_iter I, sentinel_for<I> S, class PrevFunc, class NextFunc, class SubRange>
+  struct break_iterator
+    : proxy_iterator_interface<
+        break_iterator<I, S, PrevFunc, NextFunc, Subrange>,
+        bidirectional_iterator_tag,
+        Subrange> {
+    break_iterator() = default;
+    break_iterator(I first, S last, PrevFunc* prev_func, NextFunc* next_func);
+    break_iterator(I first, I it, S last, PrevFunc* prev_func, NextFunc* next_func)
+      : first_(first), seg_(it, it), last_(last), prev_func_(prev_func), next_func_(next_func) {}
+
+    Subrange operator*() const { return Subrange{seg_.first, seg_.second}; }
+
+    break_iterator& operator++();
+    break_iterator& operator--();
+
+    friend bool operator==(break_iterator lhs, break_iterator rhs)
+      { return lhs.seg_ == rhs.seg_; }
+
+    friend bool operator==(break_iterator lhs, S rhs)
+      requires !same_as<I, S>
+        { return lhs.seg_.first == rhs; }
+
+    using base_type = proxy_iterator_interface< // @*exposition only*@
+      break_iterator<I, S, PrevFunc, NextFunc, Subrange>,
+      bidirectional_iterator_tag,
+      Subrange>;
+    using base_type::operator++;
+    using base_type::operator--;
+
+  private:
+    I first_ = {};                      // @*exposition only*@
+    pair<I, I> seg_ = {};               // @*exposition only*@
+    [[no_unique_address]] S last_ = {}; // @*exposition only*@
+    PrevFunc* prev_func_ = nullptr;     // @*exposition only*@
+    NextFunc* next_func_ = nullptr;     // @*exposition only*@
+  };
+
+  template<
+    code_point_iter I, sentinel_for<I> S,
+    invocable<I, I, S> PrevFunc, invocable<I, S> NextFunc,
+    class Subrange = utf32_view<I>>
+  struct break_view : view_interface<break_view<I, S, PrevFunc, NextFunc, Subrange>> {
+    using iterator = break_iterator<I, S, PrevFunc, NextFunc, Subrange>;
+    using sentinel = @*see below*@;
+
+    break_view() {}
+    break_view(I first, S last, PrevFunc prev_func, NextFunc next_func);
+
+    iterator begin() const { return first_; }
+    sentinel end() const { return last_; }
+
+    PrevFunc&& prev_func() && { return std::move(prev_func_); }
+    NextFunc&& next_func() && { return std::move(next_func_); }
+
+    template<class CharT, class Traits>
+      friend ostream<CharT, Traits>&
+        operator<<(ostream<CharT, Traits>& os, break_view bv);
+
+  private:
+    iterator first_;                      // @*exposition only*@
+    [[no_unique_address]] sentinel last_; // @*exposition only*@
+    PrevFunc prev_func_;                  // @*exposition only*@
+    NextFunc next_func_;                  // @*exposition only*@
+  };
+}
+```
+
+`break_iterator` advances its subrange `seg_` forward or backward, by calling
+`(*next_func_)` and `(*prev_func_)`, respectively, and produces the current
+subrange by constructing a `Subrange` using the elements of `seg_`.
+
+`break_view<I, S, ...>::sentinel` is `break_view<I, S, ...>::iterator` if
+`is_same<I, S>`, and `S` otherwise.
+
+### Why grapheme breaking does not follow the general pattern
+
+The "additional pattern" descibed above does not apply to graphemes.
+Graphemes are more like the UTFs than words, lines, and sentences.  Sine they
+represent a single end-user perception of a "charater", graphemes are a unit
+of work when processing text, but they are not individually very semantically
+meaningful, like a word or a line.  The operation that produces the set of all
+graphemes in some range of text is therefore called `as_graphemes`, which
+matches the naming of `as_utfN`, rather than `graphemes`, which would be
+closer to the naming of `words`, `lines`, and `sentences`.
+
+In particular, finding the grapheme around a particular point in text is a
+somewhat uncommon operation, as opposed to finding the word or line that
+contains a particular point in the text.  Not following the pattern of `word`,
+`line`, etc., frees up `grapheme` to be used as the name of the value type for
+holding a grapheme.
 
 ## Add interfaces for word breaking
 
@@ -557,6 +662,242 @@ namespace std::uc {
         bool>;
 }
 ```
+
+Then we add the rest of the API:
+
+```c++
+namespace std::uc {
+  enum class word_property { @*implementation defined*@ };
+  word_property word_prop(uint32_t cp);
+
+  struct untailored_word_prop {
+    static word_property operator()(uint32_t cp)
+      { return uc::word_prop(cp); }
+  };
+
+  struct untailored_word_break {
+    static bool operator()(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t)
+      { return false; }
+  };
+
+  template<
+    utf_iter I, sentinel_for<I> S,
+    word_prop_func WordPropFunc = untailored_word_prop,
+    word_break_func WordBreakFunc = untailored_word_break>
+  I prev_word_break(
+    I first, I it, S last,
+    const WordPropFunc& word_prop = WordPropFunc{},
+    const WordBreakFunc& word_break = WordBreakFunc{});
+
+  template<
+    utf_range_like R,
+    word_prop_func WordPropFunc = untailored_word_prop,
+    word_break_func WordBreakFunc = untailored_word_break>
+  @*uc-result-iterator*@ prev_word_break(
+    R&& r,
+    @*range-like-iterator*@<R> it,
+    const WordPropFunc& word_prop = WordPropFunc{},
+    const WordBreakFunc& word_break = WordBreakFunc{});
+
+  template<
+    utf_iter I, sentinel_for<I> S,
+    word_prop_func WordPropFunc = untailored_word_prop,
+    word_break_func WordBreakFunc = untailored_word_break>
+  I next_word_break(
+    I first, S last,
+    const WordPropFunc& word_prop = WordPropFunc{},
+    const WordBreakFunc& word_break = WordBreakFunc{});
+
+  template<
+    utf_range_like R,
+    word_prop_func WordPropFunc = untailored_word_prop,
+    word_break_func WordBreakFunc = untailored_word_break>
+  @*uc-result-iterator*@ next_word_break(
+    R&& r,
+    std::ranges::iterator_t<R> it,
+    const WordPropFunc& word_prop = WordPropFunc{},
+    const WordBreakFunc& word_break = WordBreakFunc{});
+
+  template<
+    utf_iter I, sentinel_for<I> S,
+    word_prop_func WordPropFunc = untailored_word_prop,
+    word_break_func WordBreakFunc = untailored_word_break>
+  bool at_word_break(
+    I first, I it, S last,
+    const WordPropFunc& word_prop = WordPropFunc{},
+    const WordBreakFunc& word_break = WordBreakFunc{});
+
+  template<
+    utf_range_like R,
+    word_prop_func WordPropFunc = untailored_word_prop,
+    word_break_func WordBreakFunc = untailored_word_break>
+  bool at_word_break(
+    R&& r,
+    @*range-like-iterator*@<R> it,
+    const WordPropFunc& word_prop = WordPropFunc{},
+    const WordBreakFunc& word_break = WordBreakFunc{});
+
+  template<
+    utf_iter I, sentinel_for<I> S,
+    word_prop_func WordPropFunc = untailored_word_prop,
+    word_break_func WordBreakFunc = untailored_word_break>
+  utf32_view<I> word(
+    I first, I it, S last,
+    const WordPropFunc& word_prop = WordPropFunc{},
+    const WordBreakFunc& word_break = WordBreakFunc{});
+
+  template<
+    utf_range_like R,
+    word_prop_func WordPropFunc = untailored_word_prop,
+    word_break_func WordBreakFunc = untailored_word_break>
+  utf32_view<ranges::iterator_t<R>> word(
+    R&& r,
+    @*range-like-iterator*@<R> it,
+    const WordPropFunc& word_prop = WordPropFunc{},
+    const WordBreakFunc& word_break = WordBreakFunc{});
+
+  struct @*words-t*@ : range_adaptor_closure<@*words-t*@> { // @*exposition only*@
+    template<
+      utf_iter I, sentinel_for<I> S,
+      word_prop_func WordPropFunc = untailored_word_prop,
+      word_break_func WordBreakFunc = untailored_word_break>
+    @*unspecified*@ operator()(
+      I first, S last,
+      const WordPropFunc& word_prop = WordPropFunc{},
+      const WordBreakFunc& word_break = WordBreakFunc{}) const;
+
+    template<
+      utf_range_like R,
+      word_prop_func WordPropFunc = untailored_word_prop,
+      word_break_func WordBreakFunc = untailored_word_break>
+    @*unspecified*@ operator()(
+      R&& r,
+      const WordPropFunc& word_prop = WordPropFunc{},
+      const WordBreakFunc& word_break = WordBreakFunc{}) const;
+  };
+
+  inline constexpr @*words-t*@ words;
+}
+```
+
+These operations have the semantics previously described, except that the
+range overload of `@*words-t*@::operator()` returns `std::ranges::dangling{}`
+iff `!std::is_pointer_v<std::remove_reference_t<R>> &&
+!std::ranges::borrowed_range<R>` is `true`.
+
+### Tailoring word breaking
+
+There are two ways to tailor word breaking.
+
+As described above, each break algorithm is defined in terms of code point
+properties; each code point is a letter, digit, punctuation, etc. All the word
+break functions accept an optional word property lookup invocable `word_prop`
+to replace the default one.
+
+For example, here we've made a custom word property lookup function that treats
+a regular dash `'-'` as a MidLetter. MidLetter is a property that repesents
+code points that are part of a word as long as it can reach at least one
+letter on either side, before reaching a word break first:
+
+```c++
+std::string cps("out-of-the-box");
+
+// Prints "out/-/of/-/the/-/box/".
+for (auto range : std::uc::words(cps)) {
+    std::cout << range << "/";
+}
+std::cout << "\n";
+
+auto const custom_word_prop = [](uint32_t cp) {
+    if (cp == '-')
+        return std::uc::word_property::MidLetter; // '-' becomes a MidLetter
+    return std::uc::word_prop(cp);                // Otherwise, just use the default implementation.
+};
+
+// Prints "out-of-the-box/".
+for (auto range : std::uc::words(cps, custom_word_prop)) {
+    std::cout << range << "/";
+}
+std::cout << "\n";
+```
+
+Tailoring the properties for each code point works for some cases, but using
+tailorings of the meanings of MidLetter and MidNum can only add to the sizes
+of words; it cannot decrease their sizes. The word break functions take a
+second optional parameter that allows you to pick arbitrary word breaks based
+on limited context.
+
+The word break algorithm uses the current code point, plus two code points
+before and two code points after, to determine whether a word break exists at
+the current code point. Therefore, the signature of the custom word break
+function is this:
+
+```c++
+bool custom_break(uint32_t prev_prev,
+                  uint32_t prev,
+                  uint32_t curr,
+                  uint32_t next,
+                  uint32_t next_next);
+```
+
+Returning `true` indicates that [`prev`, `curr`] straddles a word break —
+`prev` is the last code point of one word, and `curr` is the first code point
+of the next. If provided, this custom break function is evaluated before any
+of the Unicode word break rules.
+
+```c++
+std::string cps("snake_case camelCase");
+
+// Prints "snake_case   camelCase ".
+for (auto range : std::uc::words(cps)) {
+    std::cout << range << " ";
+}
+std::cout << "\n";
+
+// Break up words into chunks as if they were parts of identifiers in a
+// popular programming language.
+auto const identifier_break = [](uint32_t prev_prev,
+                                 uint32_t prev,
+                                 uint32_t curr,
+                                 uint32_t next,
+                                 uint32_t next_next) {
+    if ((prev == '_') != (curr == '_'))
+        return true;
+    if (0x61 <= prev && prev <= 0x7a && 0x41 <= curr && curr <= 0x5a)
+        return true;
+    return false;
+};
+
+// Prints "snake _ case   camel Case ".
+for (auto range : std::uc::words(cps, std::uc::word_prop, identifier_break)) {
+    std::cout << range << " ";
+}
+std::cout << "\n";
+```
+
+### Limitations of the default word breaking algorithm
+
+This algorithm does not work for all languages. From [UAX29, Unicode Text
+Segmentation](https://unicode.org/reports/tr29):
+
+>  For Thai, Lao, Khmer, Myanmar, and other scripts that do not typically use
+>  spaces between words, a good implementation should not depend on the
+>  default word boundary specification. It should use a more sophisticated
+>  mechanism, as is also required for line breaking. Ideographic scripts such
+>  as Japanese and Chinese are even more complex. Where Hangul text is written
+>  without spaces, the same applies. However, in the absence of a more
+>  sophisticated mechanism, the rules specified in this annex supply a
+>  well-defined default.
+
+French and Italian words are meant to be broken after an apostrophe, but the
+default algorithm finds "l’objectif" to be a single word.
+
+Breaking on dashes is the default. For example, the default algorithm finds
+"out-of-the-box" to be seven words.
+
+There are other, rarer failure cases in that document you might want to look
+at too.  Implementations should be encouraged to cover as many of the word
+breaking cases listed in UAX29 as possible.
 
 ## Add a feature test macro
 
