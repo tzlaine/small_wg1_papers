@@ -262,11 +262,8 @@ namespace std::uc {
   template<code_point_iter I, sentinel_for<I> S = I>
   struct stream_safe_iterator
     : iterator_interface<stream_safe_iterator<I, S>, forward_iterator_tag, uint32_t, uint32_t> {
-    using iterator = I;
-    using sentinel = S;
-
     constexpr stream_safe_iterator() = default;
-    constexpr stream_safe_iterator(iterator first, sentinel last)
+    constexpr stream_safe_iterator(I first, S last)
       : first_(first), it_(first), last_(last),
         nonstarters_(it_ != last_ && @*uc-ccc*@(*it_) ? 1 : 0)
         {}
@@ -288,10 +285,10 @@ namespace std::uc {
     using base_type::operator++;
 
   private:
-    iterator first_;                      // @*exposition only*@
-    iterator it_;                         // @*exposition only*@
-    [[no_unique_address]] sentinel last_; // @*exposition only*@
-    size_t nonstarters_ = 0;              // @*exposition only*@
+    I first_;                      // @*exposition only*@
+    I it_;                         // @*exposition only*@
+    [[no_unique_address]] S last_; // @*exposition only*@
+    size_t nonstarters_ = 0;       // @*exposition only*@
   };
 }
 ```
@@ -431,10 +428,8 @@ normalization in UTF-8 or UTF-16.
 You may expect `normalize()` to return an alias of `in_out_result`, like
 `std::ranges::copy()`, or `std::uc::transcode_to_utf8()` from
 [P2728](https://isocpp.org/files/papers/P2728R0.html).  The reason it does not
-is that it may use `first` and `last`, or it may use the underlying iterators
-that `first` and/or `last` adapt.  If it uses the latter, the information
-about how to construct an iterator of type `I` that represents the final
-position of the input is already lost.
+is that to do so would interfere with using ICU to implement these algorithms.
+See the section on implementation experience for why that is important.
 
 ```cpp
 namespace std::uc {
