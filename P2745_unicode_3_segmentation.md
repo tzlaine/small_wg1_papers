@@ -1002,6 +1002,23 @@ namespace std::uc {
 
 ## Add interfaces for line breaking
 
+The Unicode line breaking algorithm differs from the other break algorithms in
+that there are multiple kinds of line breaks. Some line breaks are required,
+as after a newline (e.g. `"\n"` or `"\r\n"`). These are known as *hard* line
+breaks.
+
+The line breaking algorithm produces many more line breaks, but all non-hard
+line breaks are places where it is possible to break the line -- though it is
+not necessary to do so. These are known as *allowed* line breaks. Higher-level
+program logic must determine which of these allowed breaks is to be used, for
+example to fit in available horizontal space.
+
+The proposed interfaces only generate hard line breaks where they are
+indicated in the Unicode line breaking rules and there could be an allowed
+line break. Line breaks always occur at the beginning and end of any sequence,
+but the API below does not report those as hard breaks; the fact that they are
+hard breaks is implicit.
+
 TODO
 
 ## Add a feature test macro
