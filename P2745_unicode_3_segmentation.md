@@ -716,7 +716,7 @@ namespace std::uc {
     word_break_func WordBreakFunc = untailored_word_break>
   @*uc-result-iterator*@ next_word_break(
     R&& r,
-    std::ranges::iterator_t<R> it,
+    ranges::iterator_t<R> it,
     const WordPropFunc& word_prop = WordPropFunc{},
     const WordBreakFunc& word_break = WordBreakFunc{});
 
@@ -752,7 +752,7 @@ namespace std::uc {
     utf_range_like R,
     word_prop_func WordPropFunc = untailored_word_prop,
     word_break_func WordBreakFunc = untailored_word_break>
-  utf32_view<ranges::iterator_t<R>> word(
+  utf32_view<@*range-like-iterator*@<R>> word(
     R&& r,
     @*range-like-iterator*@<R> it,
     const WordPropFunc& word_prop = WordPropFunc{},
@@ -919,7 +919,7 @@ namespace std::uc {
   I next_sentence_break(I first, S last);
 
   template<utf_range_like R>
-  @*uc-result-iterator*@ next_sentence_break(R&& r, std::ranges::iterator_t<R> it);
+  @*uc-result-iterator*@ next_sentence_break(R&& r, ranges::iterator_t<R> it);
 
   template<utf_iter I, sentinel_for<I> S>
   bool at_sentence_break(I first, I it, S last);
@@ -931,7 +931,7 @@ namespace std::uc {
   utf32_view<I> sentence(I first, I it, S last);
 
   template<utf_range_like R>
-  utf32_view<ranges::iterator_t<R>> sentence(R&& r, @*range-like-iterator*@<R> it);
+  utf32_view<@*range-like-iterator*@<R>> sentence(R&& r, @*range-like-iterator*@<R> it);
 
   struct @*sentences-t*@ : range_adaptor_closure<@*sentences-t*@> { // @*exposition only*@
     template<utf_iter I, sentinel_for<I> S>
@@ -974,7 +974,7 @@ namespace std::uc {
   I next_paragraph_break(I first, S last);
 
   template<utf_range_like R>
-  @*uc-result-iterator*@ next_paragraph_break(R&& r, std::ranges::iterator_t<R> it);
+  @*uc-result-iterator*@ next_paragraph_break(R&& r, ranges::iterator_t<R> it);
 
   template<utf_iter I, sentinel_for<I> S>
   bool at_paragraph_break(I first, I it, S last);
@@ -986,7 +986,7 @@ namespace std::uc {
   utf32_view<I> paragraph(I first, I it, S last);
 
   template<utf_range_like R>
-  utf32_view<ranges::iterator_t<R>> paragraph(R&& r, @*range-like-iterator*@<R> it);
+  utf32_view<@*range-like-iterator*@<R>> paragraph(R&& r, @*range-like-iterator*@<R> it);
 
   struct @*paragraphs-t*@ : range_adaptor_closure<@*paragraphs-t*@> { // @*exposition only*@
     template<utf_iter I, sentinel_for<I> S>
