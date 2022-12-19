@@ -535,7 +535,7 @@ Since all the text segmentation operations can be done in in terms of next and
 previous steps, `Xs` can be reversed, as in `r | std::uc::words |
 std::views::reverse`.
 
-The `Xs` interfaces all return `std::ranges::dangling{}` when given a
+`X` and the `Xs` all return `std::ranges::dangling{}` when given a
 `utf_range_like` `R` for which `!is_pointer_v<remove_reference_t<R>> &&
 !ranges::borrowed_range<R>` is `true`.
 
@@ -644,6 +644,8 @@ contains a particular point in the text.  Not following the pattern of `word`,
 holding a grapheme.
 
 ## Add interfaces for word breaking
+
+These interfaces implement the Unicode word-breaking algorithm.
 
 First, we need a couple of concepts to constrain the invocables that may be
 used to tailor word breaking:
@@ -780,10 +782,7 @@ namespace std::uc {
 }
 ```
 
-These operations have the semantics previously described, except that the
-range overload of `@*words-t*@::operator()` returns `std::ranges::dangling{}`
-iff `!std::is_pointer_v<std::remove_reference_t<R>> &&
-!std::ranges::borrowed_range<R>` is `true`.
+These operations have the semantics previously described.
 
 ### Tailoring word breaking
 
@@ -898,6 +897,112 @@ Breaking on dashes is the default. For example, the default algorithm finds
 There are other, rarer failure cases in that document you might want to look
 at too.  Implementations should be encouraged to cover as many of the word
 breaking cases listed in UAX29 as possible.
+
+## Add interfaces for sentence breaking
+
+This API implements the Unicode sentence-breaking algorithm.  It is very similar
+to the one for word breaks, but without the additional parameters to support
+tailoring.
+
+```c++
+namespace std::uc {
+  enum class sentence_property { @*implementation defined*@ };
+  sentence_property sentence_prop(uint32_t cp);
+
+  template<utf_iter I, sentinel_for<I> S>
+  I prev_sentence_break(I first, I it, S last);
+
+  template<utf_range_like R>
+  @*uc-result-iterator*@ prev_sentence_break(R&& r, @*range-like-iterator*@<R> it);
+
+  template<utf_iter I, sentinel_for<I> S>
+  I next_sentence_break(I first, S last);
+
+  template<utf_range_like R>
+  @*uc-result-iterator*@ next_sentence_break(R&& r, std::ranges::iterator_t<R> it);
+
+  template<utf_iter I, sentinel_for<I> S>
+  bool at_sentence_break(I first, I it, S last);
+
+  template<utf_range_like R>
+  bool at_sentence_break(R&& r, @*range-like-iterator*@<R> it);
+
+  template<utf_iter I, sentinel_for<I> S>
+  utf32_view<I> sentence(I first, I it, S last);
+
+  template<utf_range_like R>
+  utf32_view<ranges::iterator_t<R>> sentence(R&& r, @*range-like-iterator*@<R> it);
+
+  struct @*sentences-t*@ : range_adaptor_closure<@*sentences-t*@> { // @*exposition only*@
+    template<utf_iter I, sentinel_for<I> S>
+    @*unspecified*@ operator()(I first, S last) const;
+
+    template<utf_range_like R>
+    @*unspecified*@ operator()(R&& r) const;
+  };
+
+  inline constexpr @*sentences-t*@ sentences;
+}
+```
+
+These operations have the semantics previously described.
+
+## Add interfaces for paragraph breaking
+
+The paragraph breaking API is the same as the sentence and word breaking APIs
+(again, without the extra tailoring parameters).
+
+Unicode does not list paragraph breaks as a specific kind of text
+segmentation, but it can be useful in some cases. In particular, paragraph
+detection is part of the Unicode bidirectional algorithm. One way of tailoring
+the behavior of the bidirectional algorithm is to process some paragraphs
+separately from others; having an API for detecting paragraph breaks makes
+that simpler.
+
+Since this is a useful but unofficial kind of text segmentation, there is no
+`paragraph_prop`, nor `paragraph_property`.
+
+```c++
+namespace std::uc {
+  template<utf_iter I, sentinel_for<I> S>
+  I prev_paragraph_break(I first, I it, S last);
+
+  template<utf_range_like R>
+  @*uc-result-iterator*@ prev_paragraph_break(R&& r, @*range-like-iterator*@<R> it);
+
+  template<utf_iter I, sentinel_for<I> S>
+  I next_paragraph_break(I first, S last);
+
+  template<utf_range_like R>
+  @*uc-result-iterator*@ next_paragraph_break(R&& r, std::ranges::iterator_t<R> it);
+
+  template<utf_iter I, sentinel_for<I> S>
+  bool at_paragraph_break(I first, I it, S last);
+
+  template<utf_range_like R>
+  bool at_paragraph_break(R&& r, @*range-like-iterator*@<R> it);
+
+  template<utf_iter I, sentinel_for<I> S>
+  utf32_view<I> paragraph(I first, I it, S last);
+
+  template<utf_range_like R>
+  utf32_view<ranges::iterator_t<R>> paragraph(R&& r, @*range-like-iterator*@<R> it);
+
+  struct @*paragraphs-t*@ : range_adaptor_closure<@*paragraphs-t*@> { // @*exposition only*@
+    template<utf_iter I, sentinel_for<I> S>
+    @*unspecified*@ operator()(I first, S last) const;
+
+    template<utf_range_like R>
+    @*unspecified*@ operator()(R&& r) const;
+  };
+
+  inline constexpr @*paragraphs-t*@ paragraphs;
+}
+```
+
+## Add interfaces for line breaking
+
+TODO
 
 ## Add a feature test macro
 
