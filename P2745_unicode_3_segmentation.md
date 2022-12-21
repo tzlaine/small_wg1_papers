@@ -381,7 +381,7 @@ namespace std::us {
   struct grapheme_view : view_interface<grapheme_view<I, S>>
   {
     using iterator = grapheme_iterator<I, S>;
-    using sentinel = @*adapting-iter-or-sentinel*@<grapheme_iterator<I, S>, I, S>;
+    using sentinel = @*adapting-iter-or-sentinel*@<iterator, I, S>;
 
     constexpr grapheme_view() : first_(), last_() {}
 
@@ -1054,7 +1054,7 @@ namespace std::uc {
 ```
 
 These should look pretty familiar by now.  They're just like the other
-segmentation algorithms, except that the ones below apply to hard line breaks;
+segmentation algorithms, except that the ones above apply to hard line breaks;
 the ones for allowed line breaks are introduced next.
 
 Note that there are no hard- and allowed-break variations of `line()`.  This
@@ -1074,7 +1074,7 @@ returns the previous and next *hard* break positions.
     bool hard_break;
 
     template<class S>
-    freidn bool operator==(line_break_result<I> result, S s)
+    friend bool operator==(line_break_result<I> result, S s)
       requires requires { result.iter == s; }
         { return result.iter == s; }
   };
@@ -1114,11 +1114,11 @@ of room for the line to fit, say because the place where the text must fit is
 a certain width in columns, pixels, or some other distance measure.  For this
 case, we need a distance function to tell us how wide the line is so far, and
 we also need to restrict the algorithm to forward-only.  There's no way to
-efficiently do the algorithm in reverse, since each line break that is made
+efficiently do the algorithm in reverse, since each line break that is made is
 based on available space may depend on where all the previous space-dependent
 line breaks have been made.
 
-Fisrt, we need a couple of concepts.  First, one that describes the
+First, we need a couple of concepts.  First, one that describes the
 extent-measuring invocable that the algorithms below use to determine how long
 a given sequence of code points is.  Second, one that describes types suitable
 for accumulating and comparing widths of text.
@@ -1161,7 +1161,7 @@ namespace std::uc {
 }
 ```
 
-We also need a replacement for `break_view` that uses `line_break_utf32_view`
+We also need an alternative to `break_view` that uses `line_break_utf32_view`
 as its subrange:
 
 ```c++
@@ -1207,7 +1207,7 @@ namespace std::uc {
   struct line_break_view : view_interface<line_break_view<I, S, Subrange>>
   {
     using iterator = allowed_break_iterator<I, S, Subrange>;
-    using sentinel = @*adapting-iter-or-sentinel*@<allowed_break<I, S, Subrange>, I, S>;
+    using sentinel = @*adapting-iter-or-sentinel*@<iterator, I, S>;
 
     line_break_view() {}
     line_break_view(I first, S last);
@@ -1222,26 +1222,21 @@ namespace std::uc {
 }
 ```
 
-These are virtually identical to `break_view` abd its iterator, except that
+These are virtually identical to `break_view` and its iterator, except that
 they need to handle the extra information about whether a given break is a
 hard line break.
 
 ```c++
 namespace std::uc {
-  template<code_point_iter I, sentinel_for<I> S, class NextFunc, class Subrange>
+  template<code_point_iter I, sentinel_for<I> S, class ExtentFunc, class Subrange>
   struct forward_allowed_break_iterator
     : proxy_iterator_interface<
-        forward_allowed_break_iterator<I, S, NextFunc, Subrange>,
+        forward_allowed_break_iterator<I, S, ExtentFunc, Subrange>,
         forward_iterator_tag,
         Subrange>
   {
     forward_allowed_break_iterator() = default;
-
-    forward_allowed_break_iterator(I first, S last, NextFunc * next_func) :
-      seg_({first, false}, {first, false}),
-      last_(last),
-      next_func_(next_func)
-        { seg_.second = (*next_func_)(seg_.first, last_); }
+    forward_allowed_break_iterator(I first, S last, ExtentFunc measure_extent);
 
     Subrange operator*() const { return Subrange{seg_.first, seg_.second}; }
 
@@ -1255,7 +1250,7 @@ namespace std::uc {
         { return lhs.seg_.first == rhs; }
 
     using base_type = proxy_iterator_interface< // @*exposition only*@
-      forward_allowed_break_iterator<I, S, NextFunc, Subrange>,
+      forward_allowed_break_iterator<I, S, ExtentFunc, Subrange>,
       forward_iterator_tag,
       Subrange>;
     using base_type::operator++;
@@ -1263,27 +1258,7 @@ namespace std::uc {
   private:
     pair<line_break_result<I>, line_break_result<I>> seg_ = {}; // @*exposition only*@
     S last_ = {};                                               // @*exposition only*@
-    NextFunc * next_func_ = nullptr;                            // @*exposition only*@
-  };
-
-  template<class Extent, class ExtentFunc>
-  struct @*next-allowed-line-break-within-extent*@ { // @*exposition only*@
-    @*next-allowed-line-break-within-extent*@() = default;
-
-    @*next-allowed-line-break-within-extent*@(
-      Extent extent, ExtentFunc measure_extent, bool break_overlong_lines) :
-      extent_(extent), measure_extent_(std::move(measure_extent)),
-      break_overlong_lines_(break_overlong_lines) {}
-
-    template<class BreakResult, class S>
-    BreakResult operator()(BreakResult result, S last) const;
-
-    ExtentFunc extent_func()&& { return std::move(*measure_extent_); }
-
-  private:
-    Extent extent_;                                   // @*exposition only*@
-    optional_extent_func<ExtentFunc> measure_extent_; // @*exposition only*@
-    bool break_overlong_lines_;                       // @*exposition only*@
+    ExtentFunc measure_extent_;                                 // @*exposition only*@
   };
 
   template<
@@ -1295,10 +1270,7 @@ namespace std::uc {
   struct forward_line_break_view
     : view_interface<forward_line_break_view<I, S, Extent, ExtentFunc, Subrange>>
   {
-    using iterator = forward_allowed_break_iterator<
-      I, S,
-      @*next-allowed-line-break-within-extent*@<Extent, ExtentFunc>,
-      Subrange>;
+    using iterator = forward_allowed_break_iterator<I, S, measure_extent_, Subrange>;
     using sentinel = @*adapting-iter-or-sentinel*@<iterator, I, S>;
 
     forward_line_break_view() {}
@@ -1308,21 +1280,17 @@ namespace std::uc {
     iterator begin() const { return first_; }
     sentinel end() const { return last_; }
 
-    ExtentFunc extent_func()&& { return std::move(next_).extent_func(); }
-
   private:
-    @*next-allowed-line-break-within-extent*@<Extent, ExtentFunc> next_; // @*exposition only*@
-    iterator first_;                                                     // @*exposition only*@
-    [[no_unique_address]] sentinel last_;                                // @*exposition only*@
+    ExtentFunc measure_extent_;           // @*exposition only*@
+    iterator first_;                      // @*exposition only*@
+    [[no_unique_address]] sentinel last_; // @*exposition only*@
   };
 }
 ```
 
 Like `line_break_view` and its iterator, `forward_line_break_view` and its
-iterator keep track of whether a break is a hard line break.  Additionally,
-`forward_line_break_view` and is itereator are forward-only, and
-`forward_line_break_view` provides access to the `ExtentFunc` invocable, so
-that users can use stateful invocables.
+iterator keep track of whether a break is a hard line break.  However,
+`forward_line_break_view` and is itereator are forward-only.
 
 Finally, we can add the `lines` object.  Since there are a lot of overloads,
 we've broken the definition up into chunks, with a description after each
