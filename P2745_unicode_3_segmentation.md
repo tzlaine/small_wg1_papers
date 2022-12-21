@@ -1302,20 +1302,21 @@ namespace std::uc {
 `@*utf32-iter-for*@<I>` is `I` if `uc::utf32_iter<I>` is `true`, and
 `decltype(uc::as_utf32(declval<I>(), declval<S>()).begin())` otherwise.
 
-The last thing we need is the `closure` template from [@P2387]:
+The last thing we need is a simple template that adpats a single function as a
+view adaptor:
 
 ```c++
-namespace std::ranges {
+namespace std::uc {
   template <class F>
-  class closure : public ranges::range_adaptor_closure<closure<F>> {
-    F f;
-  public:
-    constexpr closure(F f) : f(std::move(f)) { }
+  struct @*function-closure*@ : ranges::range_adaptor_closure<@*function-closure*@<F>> { // @*exposition only*@
+    constexpr @*function-closure*@(F f) : f(std::move(f)) { }
   
     template <ranges::viewable_range R>
       requires invocable<const F&, R>
         constexpr operator()(R&& r) const
           { return f(forward<R>(r)); }
+
+    F f;
   };
 }
 ```
@@ -1337,10 +1338,11 @@ namespace std::uc {
     @*unspecified*@ operator()(R&& r) const;
 ```
 
-These each return a `break_view`, a lazy range of `utf32_view` subranges.
-Each subrange indicates a line ending in a hard line break.  The range one
-returns `ranges::dangling{}` if `!is_pointer_v<remove_reference_t<R>> &&
-!ranges::borrowed_range<R>` is `true`.
+These each return a `break_view`, a bidirectional lazy range of `utf32_view`
+subranges.  Each subrange indicates a line ending in a hard line break.  The
+range one returns `ranges::dangling{}` if
+`!is_pointer_v<remove_reference_t<R>> && !ranges::borrowed_range<R>` is
+`true`.
 
 ```c++
     template<
@@ -1372,15 +1374,15 @@ returns `ranges::dangling{}` if `!is_pointer_v<remove_reference_t<R>> &&
       @*unspecified*@ operator()(
         Extent max_extent, ExtentFunc measure_extent, bool break_overlong_lines = true) const
           {
-            return ranges::closure(bind_back(
-              *this, std::move(max_extent), std::move(measure_extent), break_overlong_lines));
+            return @*function-closure*@(bind_back(
+              *this, max_extent, std::move(measure_extent), break_overlong_lines));
           }
 ```
 
-The first two of these each return a `forward_line_break_view`, a lazy range
-of `line_break_utf32_view` subranges.  A line that does not end in a hard
-break will end in an allowed break that does not exceed `max_extent`, using
-the code point extents derived from `measure_extent`. When a line has no
+The first two of these each return a `forward_line_break_view`, a forward-only
+lazy range of `line_break_utf32_view` subranges.  A line that does not end in
+a hard break will end in an allowed break that does not exceed `max_extent`,
+using the code point extents derived from `measure_extent`. When a line has no
 allowed breaks before it would exceed `max_extent`, it will be broken iff
 `break_overlong_lines` is `true`.  Note that this means that if
 `break_overlong_lines` is `false`, such an unbreakable line will exceed
@@ -1399,15 +1401,15 @@ like the second (range) overload.
       @*unspecified*@ operator()(R&& r, allowed_breaks_t) const;
 
     @*unspecified*@ operator()(allowed_breaks_t ab) const
-      { return ranges::closure(bind_back(*this, ab)); }
+      { return @*function-closure*@(bind_back(*this, ab)); }
   };
 
   inline constexpr @*lines-t*@ lines;
 }
 ```
 
-The first two of these each return a `line_break_view`, a lazy range of
-`line_break_utf32_view` subranges.  The range overload returns
+The first two of these each return a `line_break_view`, a bidirectional lazy
+range of `line_break_utf32_view` subranges.  The range overload returns
 `ranges::dangling{}` if `!is_pointer_v<remove_reference_t<R>> &&
 !ranges::borrowed_range<R>` is `true`.
 
