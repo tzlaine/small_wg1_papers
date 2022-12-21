@@ -232,13 +232,13 @@ namespace std::uc {
     constexpr I stream_safe(I first, S last);
 
   template<utf_range_like R>
-    constexpr @*uc-result-iterator*@<R> stream_safe(R && r);
+    constexpr @*range-like-result-iterator*@<R> stream_safe(R && r);
 
   template<utf_iter I, sentinel_for<I> S, output_iterator<uint32_t> O>
     constexpr ranges::copy_result<I, O> stream_safe_copy(I first, S last, O out);
 
   template<utf_range_like R, output_iterator<uint32_t> O>
-    constexpr ranges::copy_result<@*uc-result-iterator*@<R>, O>
+    constexpr ranges::copy_result<@*range-like-result-iterator*@<R>, O>
       stream_safe_copy(R && r, O out);
 
   template<utf_iter I, sentinel_for<I> S>
@@ -252,6 +252,10 @@ namespace std::uc {
 `stream_safe()` is like `std::remove_if()` and related algorithms.  It writes
 the stream-safe subset of the given range into the beginning, and leaves junk
 at the end. It returns the iterator to the first junk element.
+
+Note that `@*range-like-result-iterator*@<R>` comes from
+[P2728](https://isocpp.org/files/papers/P2728R0.html).  It provides a
+`ranges::borrowed_iterator_t<R>` or just a pointer, as appropriate, based `R`.
 
 ### Add `stream_safe_iterator`
 

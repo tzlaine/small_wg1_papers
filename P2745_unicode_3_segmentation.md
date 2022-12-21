@@ -169,14 +169,14 @@ namespace std::uc {
     I prev_grapheme_break(I first, I it, S last);
 
   template<utf_range_like R>
-  @*uc-result-iterator*@<R>
+  @*range-like-result-iterator*@<R>
     prev_grapheme_break(R && r, @*range-like-iterator*@<R> it);
 
   template<utf_iter I, sentinel_for<I> S>
   I next_grapheme_break(I first, S last);
 
   template<utf_range_like R>
-    @*uc-result-iterator*@<R>
+    @*range-like-result-iterator*@<R>
       next_grapheme_break(R && r, @*range-like-iterator*@<R> it);
 
   template<utf_iter I, sentinel_for<I> S>
@@ -187,7 +187,7 @@ namespace std::uc {
 }
 ```
 
-Note that `@*uc-result-iterator*@<R>` comes from
+Note that `@*range-like-result-iterator*@<R>` comes from
 [P2728](https://isocpp.org/files/papers/P2728R0.html).  It provides a
 `ranges::borrowed_iterator_t<R>` or just a pointer, as appropriate, based `R`.
 
@@ -353,6 +353,7 @@ namespace std::uc {
 
 
 TODO: formatters!
+TODO: borrowed_range!
 
 ## The pattern of all text breaking algorithms
 
@@ -695,7 +696,7 @@ namespace std::uc {
     utf_range_like R,
     word_prop_func WordPropFunc = untailored_word_prop,
     word_break_func WordBreakFunc = untailored_word_break>
-  @*uc-result-iterator*@ prev_word_break(
+  @*range-like-result-iterator*@<R> prev_word_break(
     R&& r,
     @*range-like-iterator*@<R> it,
     const WordPropFunc& word_prop = WordPropFunc{},
@@ -714,7 +715,7 @@ namespace std::uc {
     utf_range_like R,
     word_prop_func WordPropFunc = untailored_word_prop,
     word_break_func WordBreakFunc = untailored_word_break>
-  @*uc-result-iterator*@ next_word_break(
+  @*range-like-result-iterator*@<R> next_word_break(
     R&& r,
     ranges::iterator_t<R> it,
     const WordPropFunc& word_prop = WordPropFunc{},
@@ -913,13 +914,13 @@ namespace std::uc {
   I prev_sentence_break(I first, I it, S last);
 
   template<utf_range_like R>
-  @*uc-result-iterator*@ prev_sentence_break(R&& r, @*range-like-iterator*@<R> it);
+  @*range-like-result-iterator*@<R> prev_sentence_break(R&& r, @*range-like-iterator*@<R> it);
 
   template<utf_iter I, sentinel_for<I> S>
   I next_sentence_break(I first, S last);
 
   template<utf_range_like R>
-  @*uc-result-iterator*@ next_sentence_break(R&& r, ranges::iterator_t<R> it);
+  @*range-like-result-iterator*@<R> next_sentence_break(R&& r, ranges::iterator_t<R> it);
 
   template<utf_iter I, sentinel_for<I> S>
   bool at_sentence_break(I first, I it, S last);
@@ -968,13 +969,13 @@ namespace std::uc {
   I prev_paragraph_break(I first, I it, S last);
 
   template<utf_range_like R>
-  @*uc-result-iterator*@ prev_paragraph_break(R&& r, @*range-like-iterator*@<R> it);
+  @*range-like-result-iterator*@<R> prev_paragraph_break(R&& r, @*range-like-iterator*@<R> it);
 
   template<utf_iter I, sentinel_for<I> S>
   I next_paragraph_break(I first, S last);
 
   template<utf_range_like R>
-  @*uc-result-iterator*@ next_paragraph_break(R&& r, ranges::iterator_t<R> it);
+  @*range-like-result-iterator*@<R> next_paragraph_break(R&& r, ranges::iterator_t<R> it);
 
   template<utf_iter I, sentinel_for<I> S>
   bool at_paragraph_break(I first, I it, S last);
@@ -1019,11 +1020,426 @@ line break. Line breaks always occur at the beginning and end of any sequence,
 but the API below does not report those as hard breaks; the fact that they are
 hard breaks is implicit.
 
-TODO
+### Add the property enum and function, and the hard line break algorithms
+
+```c++
+namespace std::uc {
+  enum class line_property { @*implementation defined*@ };
+  line_property line_prop(uint32_t cp);
+
+  template<utf_iter I, sentinel_for<I> S>
+  I prev_hard_line_break(I first, I it, S last);
+
+  template<utf_range_like R>
+  @*range-like-result-iterator*@<R> prev_hard_line_break(R&& r, @*range-like-iterator*@<R> it);
+
+  template<utf_iter I, sentinel_for<I> S>
+  I next_hard_line_break(I first, S last);
+
+  template<utf_range_like R>
+  @*range-like-result-iterator*@<R> next_hard_line_break(R&& r, ranges::iterator_t<R> it);
+
+  template<utf_iter I, sentinel_for<I> S>
+  bool at_hard_line_break(I first, I it, S last);
+
+  template<utf_range_like R>
+  bool at_hard_line_break(R&& r, @*range-like-iterator*@<R> it);
+
+  template<utf_iter I, sentinel_for<I> S>
+  utf32_view<I> line(I first, I it, S last);
+
+  template<utf_range_like R>
+  utf32_view<@*range-like-iterator*@<R>> line(R&& r, @*range-like-iterator*@<R> it);
+}
+```
+
+These should look pretty familiar by now.  They're just like the other
+segmentation algorithms, except that the ones below apply to hard line breaks;
+the ones for allowed line breaks are introduced next.
+
+Note that there are no hard- and allowed-break variations of `line()`.  This
+is because allowed line breaks are only useful in some extrinsic context, like
+deciding where to break a line from among multiple allowed breaks.  There are
+so many places where line breaks are allowed, that a function like
+`allowed_line()` would not provide useful information.  Therefore, `line()`
+returns the previous and next *hard* break positions.
+
+### Add the allowed line break algorithms
+
+```c++
+  template<class I>
+  struct line_break_result
+  {
+    I iter;
+    bool hard_break;
+
+    template<class S>
+    freidn bool operator==(line_break_result<I> result, S s)
+      requires requires { result.iter == s; }
+        { return result.iter == s; }
+  };
+
+  template<utf_iter I, sentinel_for<I> S>
+  line_break_result<I> prev_allowed_line_break(I first, I it, S last);
+
+  template<utf_range_like R>
+  line_break_result<@*range-like-result-iterator*@<R>> prev_allowed_line_break(R&& r, @*range-like-iterator*@<R> it);
+
+  template<utf_iter I, sentinel_for<I> S>
+  line_break_result<I> next_allowed_line_break(I first, S last);
+
+  template<utf_range_like R>
+  line_break_result<@*range-like-result-iterator*@<R>> next_allowed_line_break(R&& r, ranges::iterator_t<R> it);
+
+  template<utf_iter I, sentinel_for<I> S>
+  bool at_allowed_line_break(I first, I it, S last);
+
+  template<utf_range_like R>
+  bool at_allowed_line_break(R&& r, @*range-like-iterator*@<R> it);
+}
+```
+
+These are just like the ones above, but for allowed line breaks.  Since an
+allowed line break may occur at a hard line break location, we return
+`line_break_result<I>` instead of `I` from these functions.  Whether the
+allowed break is also a hard break is provided by the `hard_break` member.
+`line_break_result<I>` is comparable to whatever `I` is comparable to,
+allowing it to be used much as plain iterator would be.
+
+### Add `lines()` invocables and view adaptor
+
+An important use case is choosing each line break `B` where the line may be
+broken (because `B` is an allowed and/or hard break), but before running out
+of room for the line to fit, say because the place where the text must fit is
+a certain width in columns, pixels, or some other distance measure.  For this
+case, we need a distance function to tell us how wide the line is so far, and
+we also need to restrict the algorithm to forward-only.  There's no way to
+efficiently do the algorithm in reverse, since each line break that is made
+based on available space may depend on where all the previous space-dependent
+line breaks have been made.
+
+Fisrt, we need a couple of concepts.  First, one that describes the
+extent-measuring invocable that the algorithms below use to determine how long
+a given sequence of code points is.  Second, one that describes types suitable
+for accumulating and comparing widths of text.
+
+```c++
+namespace std::uc {
+  template<class T, class I, class Extent>
+  concept line_break_text_extent_func =
+    code_point_iter<I> && invocable<T, I, I> && convertible_to<invoke_result_t<T, I, I>, Extent>;
+
+  template<class T>
+  concept text_extent = same_as<remove_cvref_t<T>, T> && regular<T> && requires(T t) {
+    {t += t} -> same_as<T &>;
+    {t + t} -> convertible_to<T>;
+    {t < t} -> convertible_to<bool>;
+  };
+}
+```
+
+Next, we need a different subrange type.  The subrange used in most of the
+other breaking APIs is `utf32_view<CPI>`, where `CPI` is some
+`code_point_iter`.  That does not work for the allowed line break API, which
+must also communicate whether the end of a subrange is a hard line break;
+`line_break_utf32_view` addresses that:
+
+```c++
+namespace std::uc {
+  template<code_point_iter I>
+  struct line_break_utf32_view : utf32_view<I>
+  {
+    line_break_utf32_view() : utf32_view<I>(), hard_break_() {}
+    line_break_utf32_view(line_break_result<I> first, line_break_result<I> last)
+      : utf32_view<I>(first.iter, last.iter), hard_break_(last.hard_break) {}
+
+    bool hard_break() const { return hard_break_; }
+
+  private:
+    bool hard_break_; // @*exposition only*@
+  };
+}
+```
+
+We also need a replacement for `break_view` that uses `line_break_utf32_view`
+as its subrange:
+
+```c++
+namespace std::uc {
+    template<typename CPIter, typename CPSentinel, typename Subrange>
+    struct allowed_break_iterator
+        : stl_interfaces::proxy_iterator_interface<
+              allowed_break_iterator<CPIter, CPSentinel, Subrange>,
+              std::bidirectional_iterator_tag,
+              Subrange>
+    {
+        allowed_break_iterator() = default;
+
+        // begin
+        allowed_break_iterator(CPIter first, CPSentinel last) :
+            first_(first), seg_({first, false}, {first, false}), last_(last)
+        {
+            seg_.second = detail::next_allowed_line_break_impl(
+                seg_.second.iter, last_);
+        }
+
+        // end
+        allowed_break_iterator(
+            CPIter first, CPIter it, CPSentinel last) :
+            first_(first), seg_({it, false}, {it, false}), last_(last)
+        {}
+
+        Subrange operator*() const
+        {
+            return Subrange{seg_.first, seg_.second};
+        }
+
+        allowed_break_iterator & operator++()
+        {
+            auto const next_it = detail::next_allowed_line_break_impl(
+                seg_.second.iter, last_);
+            seg_.first = seg_.second;
+            seg_.second = next_it;
+            return *this;
+        }
+
+        allowed_break_iterator & operator--()
+        {
+            if (seg_.first == first_) {
+                seg_.second.iter = first_;
+                return *this;
+            }
+
+            bool const at_end = seg_.first == seg_.second;
+
+            auto const prev_it = detail::prev_line_break_impl(
+                first_, std::prev(seg_.first.iter), last_, false);
+            seg_.second = seg_.first;
+            seg_.first = prev_it;
+
+            if (at_end) {
+                seg_.second = detail::next_allowed_line_break_impl(
+                    seg_.first.iter, seg_.second.iter);
+            }
+
+            return *this;
+        }
+
+        friend bool operator==(
+            allowed_break_iterator lhs, allowed_break_iterator rhs)
+        {
+            return lhs.seg_ == rhs.seg_;
+        }
+
+        template<typename Sentinel>
+        friend std::enable_if_t<
+            !std::is_same<CPIter, CPSentinel>::value &&
+                std::is_same<Sentinel, CPSentinel>::value,
+            bool>
+        operator==(allowed_break_iterator lhs, Sentinel rhs)
+        {
+            return lhs.seg_.first == rhs;
+        }
+
+        using base_type = stl_interfaces::proxy_iterator_interface<
+            allowed_break_iterator<CPIter, CPSentinel, Subrange>,
+            std::bidirectional_iterator_tag,
+            Subrange>;
+        using base_type::operator++;
+        using base_type::operator--;
+
+    private:
+        CPIter first_ = {};
+        std::pair<line_break_result<CPIter>, line_break_result<CPIter>>
+            seg_ = {};
+        CPSentinel last_ = {};
+    };
+
+    template<
+        typename CPIter,
+        typename CPSentinel,
+        typename Subrange = line_break_cp_view<CPIter>>
+    struct line_break_view : stl_interfaces::view_interface<
+                                 line_break_view<CPIter, CPSentinel, Subrange>>
+    {
+        using iterator =
+            detail::allowed_break_iterator<CPIter, CPSentinel, Subrange>;
+        using sentinel = typename detail::
+            make_allowed_break_iter_last<iterator, CPIter, CPSentinel>::type;
+
+        line_break_view() {}
+        line_break_view(CPIter first, CPSentinel last) :
+            first_(first, last)
+        {
+            last_ = detail::make_allowed_break_iter_last<
+                iterator,
+                CPIter,
+                CPSentinel>::call(first, last);
+        }
+
+        iterator begin() const { return first_; }
+        sentinel end() const { return last_; }
+
+    private:
+        iterator first_;
+        [[no_unique_address]] sentinel last_;
+    };
+}
+```
+
+TODO Add forward_line_break_view and forward_allowed_break_iterator
+
+
+Now we need a way to name the UTF-32 transcoding iterator for a given iterator `I`:
+
+```c++
+namespace std::uc {
+  template<utf_iter I, sentinel_for<I> S>
+  using @*utf32-iter-for*@ = @*see below*@; // @*exposition only*@
+}
+```
+
+`@*utf32-iter-for*@<I>` is `I` if `uc::utf32_iter<I>` is `true`, and
+`decltype(uc::as_utf32(declval<I>(), declval<S>()).begin())` otherwise.
+
+The last thing we need is the `closure` template from [@P2387]:
+
+```c++
+namespace std::ranges {
+  template <class F>
+  class closure : public ranges::range_adaptor_closure<closure<F>> {
+    F f;
+  public:
+    constexpr closure(F f) : f(std::move(f)) { }
+  
+    template <ranges::viewable_range R>
+      requires invocable<const F&, R>
+        constexpr operator()(R&& r) const
+          { return f(forward<R>(r)); }
+  };
+}
+```
+
+Finally, we can add the `lines` object.  Since there are a lot of overloads,
+we've broken the definition up into chunks, with a description after each
+chunk.
+
+```c++
+namespace std::uc {
+  struct allowed_breaks_t {};
+  inline constexpr allowed_breaks_t allowed_breaks;
+
+  struct @*lines-t*@ : range_adaptor_closure<@*lines-t*@> { // @*exposition only*@
+    template<utf_iter I, sentinel_for<I> S>
+    @*unspecified*@ operator()(I first, S last) const;
+
+    template<utf_range_like R>
+    @*unspecified*@ operator()(R&& r) const;
+```
+
+These each return a `break_view`, a lazy range of `utf32_view` subranges.
+Each subrange indicates a line ending in a hard line break.  The range one
+returns `ranges::dangling{}` if `!is_pointer_v<remove_reference_t<R>> &&
+!ranges::borrowed_range<R>` is `true`.
+
+```c++
+    template<
+      utf_iter I, sentinel_for<I> S,
+      text_extent Extent, line_break_text_extent_func<@*utf32-iter-for*@<I, S>, Extent> ExtentFunc>
+    @*unspecified*@ operator()(
+      I first, S last,
+      Extent max_extent, ExtentFunc measure_extent, bool break_overlong_lines = true) const;
+
+    template<
+      code_point_range R,
+      text_extent Extent, line_break_text_extent_func<ranges::iterator_t<R>, Extent> ExtentFunc>
+    @*unspecified*@ operator()(
+      R&& r,
+      Extent max_extent, ExtentFunc measure_extent, bool break_overlong_lines = true) const
+    {
+      if constexpr (ranges::borrowed_range<R>) {
+        return detail::lines_cr_impl(
+          r,
+          max_extent,
+          std::move(measure_extent),
+          break_overlong_lines);
+      } else {
+        return ranges::dangling{};
+      }
+    }
+
+    template<text_extent Extent, class ExtentFunc>
+      @*unspecified*@ operator()(
+        Extent max_extent, ExtentFunc measure_extent, bool break_overlong_lines = true) const
+          {
+            return ranges::closure(bind_back(
+              *this, std::move(max_extent), std::move(measure_extent), break_overlong_lines));
+          }
+```
+
+The first two of these each return a `forward_line_break_view`, a lazy range
+of `line_break_utf32_view` subranges.  A line that does not end in a hard
+break will end in an allowed break that does not exceed `max_extent`, using
+the code point extents derived from `measure_extent`. When a line has no
+allowed breaks before it would exceed `max_extent`, it will be broken iff
+`break_overlong_lines` is `true`.  Note that this means that if
+`break_overlong_lines` is `false`, such an unbreakable line will exceed
+`max_extent`.  The range overload returns `ranges::dangling{}` if
+`!is_pointer_v<remove_reference_t<R>> && !ranges::borrowed_range<R>` is
+`true`.
+
+The third one returns a new adaptor that, when called with a range, behaves
+like the second (range) overload.
+
+```c++
+    template<code_point_iter I, sentinel_for<I> S>
+      @*unspecified*@ operator()(I first, S last, allowed_breaks_t) const;
+
+    template<code_point_range R>
+      @*unspecified*@ operator()(R&& r, allowed_breaks_t) const;
+
+    @*unspecified*@ operator()(allowed_breaks_t ab) const
+      { return ranges::closure(bind_back(*this, ab)); }
+  };
+
+  inline constexpr @*lines-t*@ lines;
+}
+```
+
+The first two of these each return a `line_break_view`, a lazy range of
+`line_break_utf32_view` subranges.  The range overload returns
+`ranges::dangling{}` if `!is_pointer_v<remove_reference_t<R>> &&
+!ranges::borrowed_range<R>` is `true`.
+
+The third one returns a new adaptor that, when called with a range, behaves
+like the second (range) overload.
+
+And one more thing!  Since the standard library already has a width-estimation
+function that is used in `std::format` and `std::print`, we should expose
+that, so that users can use it in their `line_break_text_extent_func`
+functions:
+
+```c++
+namespace std::uc {
+  template<utf_iter I, std::sentinel_for<I> S>
+  std::size_t estimated_width(I first, S last);
+
+  template<utf_range_like R>
+  std::size_t estimated_width(R && r);
+}
+```
 
 ## Add a feature test macro
 
 Add the feature test macro `__cpp_lib_unicode_text_segmentation`.
+
+## Design notes
+
+- why subranges are always done in terms of CPs
+
+- .base()/.base().base()
+
+TODO
 
 # Implementation experience
 
