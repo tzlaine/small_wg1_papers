@@ -374,14 +374,14 @@ defaulted parameters that follow the ones for the grapheme breaking functions.
 
 ```c++
 namespace std::us {
-  template<class I, class S>
-    using @*grapheme-view-sentinel*@ = @*see below*@; // @*exposition only*@
+  template<class T, class I, class S>
+    using @*adapting-iter-or-sentinel*@ = @*see below*@; // @*exposition only*@
 
   template<code_point_iter I, sentinel_for<I> S = I>
   struct grapheme_view : view_interface<grapheme_view<I, S>>
   {
     using iterator = grapheme_iterator<I, S>;
-    using sentinel = @*grapheme-view-sentinel*@<I, S>;
+    using sentinel = @*adapting-iter-or-sentinel*@<grapheme_iterator<I, S>, I, S>;
 
     constexpr grapheme_view() : first_(), last_() {}
 
@@ -448,8 +448,8 @@ namespace std::us {
 }
 ```
 
-`@*grapheme-view-sentinel*@<I, S>` is `grapheme_iterator<I, S>` if `is_same<I,
-S>`, and `S` otherwise.
+`@*adapting-iter-or-sentinel*@<T, I, S>` is `T` if `is_same<I, S>`, and `S`
+otherwise.
 
 The reason for the fourth `grapheme_view` constructor (the constrained one) is
 that is is more flexible in some cases when iterators from the `grapheme_view`
@@ -1166,147 +1166,80 @@ as its subrange:
 
 ```c++
 namespace std::uc {
-    template<typename CPIter, typename CPSentinel, typename Subrange>
-    struct allowed_break_iterator
-        : stl_interfaces::proxy_iterator_interface<
-              allowed_break_iterator<CPIter, CPSentinel, Subrange>,
-              std::bidirectional_iterator_tag,
-              Subrange>
-    {
-        allowed_break_iterator() = default;
+  template<class I, class S, class Subrange>
+  struct allowed_break_iterator
+    : proxy_iterator_interface<
+        allowed_break_iterator<I, S, Subrange>,
+        bidirectional_iterator_tag,
+        Subrange>
+  {
+    allowed_break_iterator() = default;
 
-        // begin
-        allowed_break_iterator(CPIter first, CPSentinel last) :
-            first_(first), seg_({first, false}, {first, false}), last_(last)
-        {
-            seg_.second = detail::next_allowed_line_break_impl(
-                seg_.second.iter, last_);
-        }
+    allowed_break_iterator(I first, S last);
+    allowed_break_iterator(I first, I it, S last);
 
-        // end
-        allowed_break_iterator(
-            CPIter first, CPIter it, CPSentinel last) :
-            first_(first), seg_({it, false}, {it, false}), last_(last)
-        {}
+    Subrange operator*() const { return Subrange{seg_.first, seg_.second}; }
 
-        Subrange operator*() const
-        {
-            return Subrange{seg_.first, seg_.second};
-        }
+    allowed_break_iterator& operator++();
+    allowed_break_iterator& operator--();
 
-        allowed_break_iterator & operator++()
-        {
-            auto const next_it = detail::next_allowed_line_break_impl(
-                seg_.second.iter, last_);
-            seg_.first = seg_.second;
-            seg_.second = next_it;
-            return *this;
-        }
+    friend bool operator==(allowed_break_iterator lhs, allowed_break_iterator rhs)
+      { return lhs.seg_ == rhs.seg_; }
 
-        allowed_break_iterator & operator--()
-        {
-            if (seg_.first == first_) {
-                seg_.second.iter = first_;
-                return *this;
-            }
+    friend bool operator==(allowed_break_iterator lhs, S rhs)
+      requires (!same_as<I, S>)
+        { return lhs.seg_.first == rhs; }
 
-            bool const at_end = seg_.first == seg_.second;
+    using base_type = proxy_iterator_interface< // @*exposition only*@
+      allowed_break_iterator<I, S, Subrange>,
+      bidirectional_iterator_tag,
+      Subrange>;
+    using base_type::operator++;
+    using base_type::operator--;
 
-            auto const prev_it = detail::prev_line_break_impl(
-                first_, std::prev(seg_.first.iter), last_, false);
-            seg_.second = seg_.first;
-            seg_.first = prev_it;
+  private:
+    I first_ = {};                                              // @*exposition only*@
+    pair<line_break_result<I>, line_break_result<I>> seg_ = {}; // @*exposition only*@
+    S last_ = {};                                               // @*exposition only*@
+  };
 
-            if (at_end) {
-                seg_.second = detail::next_allowed_line_break_impl(
-                    seg_.first.iter, seg_.second.iter);
-            }
+  template<class I, class S, class Subrange = line_break_cp_view<I>>
+  struct line_break_view : view_interface<line_break_view<I, S, Subrange>>
+  {
+    using iterator = allowed_break_iterator<I, S, Subrange>;
+    using sentinel = @*adapting-iter-or-sentinel*@<allowed_break<I, S, Subrange>, I, S>;
 
-            return *this;
-        }
+    line_break_view() {}
+    line_break_view(I first, S last);
 
-        friend bool operator==(
-            allowed_break_iterator lhs, allowed_break_iterator rhs)
-        {
-            return lhs.seg_ == rhs.seg_;
-        }
+    iterator begin() const { return first_; }
+    sentinel end() const { return last_; }
 
-        template<typename Sentinel>
-        friend std::enable_if_t<
-            !std::is_same<CPIter, CPSentinel>::value &&
-                std::is_same<Sentinel, CPSentinel>::value,
-            bool>
-        operator==(allowed_break_iterator lhs, Sentinel rhs)
-        {
-            return lhs.seg_.first == rhs;
-        }
-
-        using base_type = stl_interfaces::proxy_iterator_interface<
-            allowed_break_iterator<CPIter, CPSentinel, Subrange>,
-            std::bidirectional_iterator_tag,
-            Subrange>;
-        using base_type::operator++;
-        using base_type::operator--;
-
-    private:
-        CPIter first_ = {};
-        std::pair<line_break_result<CPIter>, line_break_result<CPIter>>
-            seg_ = {};
-        CPSentinel last_ = {};
-    };
-
-    template<
-        typename CPIter,
-        typename CPSentinel,
-        typename Subrange = line_break_cp_view<CPIter>>
-    struct line_break_view : stl_interfaces::view_interface<
-                                 line_break_view<CPIter, CPSentinel, Subrange>>
-    {
-        using iterator =
-            detail::allowed_break_iterator<CPIter, CPSentinel, Subrange>;
-        using sentinel = typename detail::
-            make_allowed_break_iter_last<iterator, CPIter, CPSentinel>::type;
-
-        line_break_view() {}
-        line_break_view(CPIter first, CPSentinel last) :
-            first_(first, last)
-        {
-            last_ = detail::make_allowed_break_iter_last<
-                iterator,
-                CPIter,
-                CPSentinel>::call(first, last);
-        }
-
-        iterator begin() const { return first_; }
-        sentinel end() const { return last_; }
-
-    private:
-        iterator first_;
-        [[no_unique_address]] sentinel last_;
-    };
+  private:
+    iterator first_;                      // @*exposition only*@
+    [[no_unique_address]] sentinel last_; // @*exposition only*@
+  };
 }
 ```
+
+These are virtually identical to `break_view` abd its iterator, except that
+they need to handle the extra information about whether a given break is a
+hard line break.
 
 TODO Add forward_line_break_view and forward_allowed_break_iterator
 
-
-Now we need a way to name the UTF-32 transcoding iterator for a given iterator `I`:
+Finally, we can add the `lines` object.  Since there are a lot of overloads,
+we've broken the definition up into chunks, with a description after each
+chunk.
 
 ```c++
 namespace std::uc {
+  struct allowed_breaks_t {};
+  inline constexpr allowed_breaks_t allowed_breaks;
+
   template<utf_iter I, sentinel_for<I> S>
   using @*utf32-iter-for*@ = @*see below*@; // @*exposition only*@
-}
-```
 
-`@*utf32-iter-for*@<I>` is `I` if `uc::utf32_iter<I>` is `true`, and
-`decltype(uc::as_utf32(declval<I>(), declval<S>()).begin())` otherwise.
-
-The last thing we need is a simple template that adpats a single function as a
-view adaptor:
-
-```c++
-namespace std::uc {
   template <class F>
   struct @*function-closure*@ : ranges::range_adaptor_closure<@*function-closure*@<F>> { // @*exposition only*@
     constexpr @*function-closure*@(F f) : f(std::move(f)) { }
@@ -1318,17 +1251,6 @@ namespace std::uc {
 
     F f;
   };
-}
-```
-
-Finally, we can add the `lines` object.  Since there are a lot of overloads,
-we've broken the definition up into chunks, with a description after each
-chunk.
-
-```c++
-namespace std::uc {
-  struct allowed_breaks_t {};
-  inline constexpr allowed_breaks_t allowed_breaks;
 
   struct @*lines-t*@ : range_adaptor_closure<@*lines-t*@> { // @*exposition only*@
     template<utf_iter I, sentinel_for<I> S>
@@ -1338,9 +1260,14 @@ namespace std::uc {
     @*unspecified*@ operator()(R&& r) const;
 ```
 
-These each return a `break_view`, a bidirectional lazy range of `utf32_view`
-subranges.  Each subrange indicates a line ending in a hard line break.  The
-range one returns `ranges::dangling{}` if
+`@*utf32-iter-for*@<I>` is `I` if `uc::utf32_iter<I>` is `true`, and
+`decltype(uc::as_utf32(declval<I>(), declval<S>()).begin())` otherwise.
+
+`@*function-closure*@` adapts a single function as a view adaptor.
+
+The `operator()` overloads each return a `break_view`, a bidirectional lazy
+range of `utf32_view` subranges.  Each subrange indicates a line ending in a
+hard line break.  The range one returns `ranges::dangling{}` if
 `!is_pointer_v<remove_reference_t<R>> && !ranges::borrowed_range<R>` is
 `true`.
 
@@ -1352,6 +1279,7 @@ range one returns `ranges::dangling{}` if
       I first, S last,
       Extent max_extent, ExtentFunc measure_extent, bool break_overlong_lines = true) const;
 
+    TODO
     template<
       code_point_range R,
       text_extent Extent, line_break_text_extent_func<ranges::iterator_t<R>, Extent> ExtentFunc>
@@ -1372,8 +1300,7 @@ range one returns `ranges::dangling{}` if
 
     template<text_extent Extent, class ExtentFunc>
       @*unspecified*@ operator()(
-        Extent max_extent, ExtentFunc measure_extent, bool break_overlong_lines = true) const
-          {
+        Extent max_extent, ExtentFunc measure_extent, bool break_overlong_lines = true) const {
             return @*function-closure*@(bind_back(
               *this, max_extent, std::move(measure_extent), break_overlong_lines));
           }
