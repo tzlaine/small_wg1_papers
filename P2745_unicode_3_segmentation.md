@@ -1226,7 +1226,103 @@ These are virtually identical to `break_view` abd its iterator, except that
 they need to handle the extra information about whether a given break is a
 hard line break.
 
-TODO Add forward_line_break_view and forward_allowed_break_iterator
+```c++
+namespace std::uc {
+  template<code_point_iter I, sentinel_for<I> S, class NextFunc, class Subrange>
+  struct forward_allowed_break_iterator
+    : proxy_iterator_interface<
+        forward_allowed_break_iterator<I, S, NextFunc, Subrange>,
+        forward_iterator_tag,
+        Subrange>
+  {
+    forward_allowed_break_iterator() = default;
+
+    forward_allowed_break_iterator(I first, S last, NextFunc * next_func) :
+      seg_({first, false}, {first, false}),
+      last_(last),
+      next_func_(next_func)
+        { seg_.second = (*next_func_)(seg_.first, last_); }
+
+    Subrange operator*() const { return Subrange{seg_.first, seg_.second}; }
+
+    forward_allowed_break_iterator & operator++();
+
+    friend bool operator==(forward_allowed_break_iterator lhs, forward_allowed_break_iterator rhs)
+      { return lhs.seg_ == rhs.seg_; }
+
+    friend bool operator==(forward_allowed_break_iterator lhs, Sentinel rhs)
+      requires (!same_as<I, S>)
+        { return lhs.seg_.first == rhs; }
+
+    using base_type = proxy_iterator_interface< // @*exposition only*@
+      forward_allowed_break_iterator<I, S, NextFunc, Subrange>,
+      forward_iterator_tag,
+      Subrange>;
+    using base_type::operator++;
+
+  private:
+    pair<line_break_result<I>, line_break_result<I>> seg_ = {}; // @*exposition only*@
+    S last_ = {};                                               // @*exposition only*@
+    NextFunc * next_func_ = nullptr;                            // @*exposition only*@
+  };
+
+  template<class Extent, class ExtentFunc>
+  struct @*next-allowed-line-break-within-extent*@ { // @*exposition only*@
+    @*next-allowed-line-break-within-extent*@() = default;
+
+    @*next-allowed-line-break-within-extent*@(
+      Extent extent, ExtentFunc measure_extent, bool break_overlong_lines) :
+      extent_(extent), measure_extent_(std::move(measure_extent)),
+      break_overlong_lines_(break_overlong_lines) {}
+
+    template<class BreakResult, class S>
+    BreakResult operator()(BreakResult result, S last) const;
+
+    ExtentFunc extent_func()&& { return std::move(*measure_extent_); }
+
+  private:
+    Extent extent_;                                   // @*exposition only*@
+    optional_extent_func<ExtentFunc> measure_extent_; // @*exposition only*@
+    bool break_overlong_lines_;                       // @*exposition only*@
+  };
+
+  template<
+    code_point_iter I,
+    sentinel_for S,
+    text_extent Extent,
+    line_break_text_extent_func<I, Extent> ExtentFunc,
+    class Subrange = line_break_cp_view<I>>
+  struct forward_line_break_view
+    : view_interface<forward_line_break_view<I, S, Extent, ExtentFunc, Subrange>>
+  {
+    using iterator = forward_allowed_break_iterator<
+      I, S,
+      @*next-allowed-line-break-within-extent*@<Extent, ExtentFunc>,
+      Subrange>;
+    using sentinel = @*adapting-iter-or-sentinel*@<iterator, I, S>;
+
+    forward_line_break_view() {}
+    forward_line_break_view(
+      I first, S last, Extent max_extent, ExtentFunc measure_extent, bool break_overlong_lines);
+
+    iterator begin() const { return first_; }
+    sentinel end() const { return last_; }
+
+    ExtentFunc extent_func()&& { return std::move(next_).extent_func(); }
+
+  private:
+    @*next-allowed-line-break-within-extent*@<Extent, ExtentFunc> next_; // @*exposition only*@
+    iterator first_;                                                     // @*exposition only*@
+    [[no_unique_address]] sentinel last_;                                // @*exposition only*@
+  };
+}
+```
+
+Like `line_break_view` and its iterator, `forward_line_break_view` and its
+iterator keep track of whether a break is a hard line break.  Additionally,
+`forward_line_break_view` and is itereator are forward-only, and
+`forward_line_break_view` provides access to the `ExtentFunc` invocable, so
+that users can use stateful invocables.
 
 Finally, we can add the `lines` object.  Since there are a lot of overloads,
 we've broken the definition up into chunks, with a description after each
