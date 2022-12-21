@@ -1331,7 +1331,7 @@ namespace std::uc {
 
 The `operator()` overloads each return a `break_view`, a bidirectional lazy
 range of `utf32_view` subranges.  Each subrange indicates a line ending in a
-hard line break.  The range one returns `ranges::dangling{}` if
+hard line break.  The range overload returns `ranges::dangling{}` if
 `!is_pointer_v<remove_reference_t<R>> && !ranges::borrowed_range<R>` is
 `true`.
 
@@ -1376,13 +1376,13 @@ a hard break will end in an allowed break that does not exceed `max_extent`,
 using the code point extents derived from `measure_extent`. When a line has no
 allowed breaks before it would exceed `max_extent`, it will be broken iff
 `break_overlong_lines` is `true`.  Note that this means that if
-`break_overlong_lines` is `false`, such an unbreakable line will exceed
-`max_extent`.  The range overload returns `ranges::dangling{}` if
+`break_overlong_lines` is `false`, it is possible to encounter lines that
+exceed `max_extent`.  The range overload returns `ranges::dangling{}` if
 `!is_pointer_v<remove_reference_t<R>> && !ranges::borrowed_range<R>` is
 `true`.
 
-The third one returns a new adaptor that, when called with a range, behaves
-like the second (range) overload.
+The third overload returns a new adaptor that, when called with a range,
+behaves like the second (range) overload.
 
 ```c++
     template<code_point_iter I, sentinel_for<I> S>
