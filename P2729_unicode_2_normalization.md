@@ -43,7 +43,7 @@ that I think are important; I hope you’ll agree:
   above).
 
 - The Unicode algorithms are low-level tools that most C++ users will not need
-  to touch, een if their code needs to be Unicode-aware.  C++ users should
+  to touch, even if their code needs to be Unicode-aware.  C++ users should
   also be provided higher-level, string-like abstractions (provisionally
   called `std::text`) that will handle all the messy Unicode details, leaving
   C++ users to think about their program instead of Unicode).
