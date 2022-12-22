@@ -169,21 +169,21 @@ namespace std::uc {
     I prev_grapheme_break(I first, I it, S last);
 
   template<utf_range_like R>
-  @*range-like-result-iterator*@<R>
-    prev_grapheme_break(R && r, @*range-like-iterator*@<R> it);
+    @*range-like-result-iterator*@<R>
+      prev_grapheme_break(R&& r, @*range-like-iterator*@<R> it);
 
   template<utf_iter I, sentinel_for<I> S>
-  I next_grapheme_break(I first, S last);
+    I next_grapheme_break(I first, S last);
 
   template<utf_range_like R>
     @*range-like-result-iterator*@<R>
-      next_grapheme_break(R && r, @*range-like-iterator*@<R> it);
+      next_grapheme_break(R&& r, @*range-like-iterator*@<R> it);
 
   template<utf_iter I, sentinel_for<I> S>
     bool at_grapheme_break(I first, I it, S last);
 
   template<utf_range_like R>
-    bool at_grapheme_break(R && r, @*range-like-iterator*@<R> it);
+    bool at_grapheme_break(R&& r, @*range-like-iterator*@<R> it);
 }
 ```
 
@@ -215,32 +215,31 @@ has a precondition that the given iterator is already at a grapheme break.
 ```c++
 namespace std::uc {
   template<code_point_iter I>
-  struct grapheme_ref : utf32_view<I>
-  {
-    constexpr grapheme_ref() = default;
-    constexpr grapheme_ref(I first, I last)
-      : utf32_view<I>(first, last) {}
-    constexpr grapheme_ref(utf32_view<I> r)
-      : grapheme_ref(r.begin(), r.end()) {}
-    constexpr grapheme_ref(const grapheme& g)
-      requires same_as<I, grapheme::iterator>
-        : utf32_view<I>(g.begin(), g.end()) {}
-
-    friend constexpr bool operator==(grapheme_ref lhs, grapheme_ref rhs)
-      { return ranges::equal(lhs, rhs); }
-  };
-
-  template<class I>
-   grapheme_ref(I, I) -> grapheme_ref<I>;
+    struct grapheme_ref : utf32_view<I> {
+      constexpr grapheme_ref() = default;
+      constexpr grapheme_ref(I first, I last)
+        : utf32_view<I>(first, last) {}
+      constexpr grapheme_ref(utf32_view<I> r)
+        : grapheme_ref(r.begin(), r.end()) {}
+      constexpr grapheme_ref(const grapheme& g)
+        requires same_as<I, grapheme::iterator>
+          : utf32_view<I>(g.begin(), g.end()) {}
+  
+      friend constexpr bool operator==(grapheme_ref lhs, grapheme_ref rhs)
+        { return ranges::equal(lhs, rhs); }
+    };
 
   template<class I>
-   grapheme_ref(utf32_view<I>) -> grapheme_ref<I>;
+    grapheme_ref(I, I) -> grapheme_ref<I>;
+
+  template<class I>
+    grapheme_ref(utf32_view<I>) -> grapheme_ref<I>;
 
   grapheme_ref(grapheme) -> grapheme_ref<grapheme::const_iterator>;
 
   template<code_point_iter I1, code_point_iter I2>
-   constexpr bool operator==(grapheme_ref<I1> lhs, grapheme_ref<I2> rhs)
-    { return ranges::equal(lhs, rhs); }
+    constexpr bool operator==(grapheme_ref<I1> lhs, grapheme_ref<I2> rhs)
+      { return ranges::equal(lhs, rhs); }
 }
 
 namespace std::ranges {
@@ -264,8 +263,7 @@ implicit.
 
 ```c++
 namespace std::uc {
-  struct grapheme
-  {
+  struct grapheme {
     using iterator = utf_8_to_32_iterator<const char*>;
     using const_iterator = iterator;
 
@@ -304,43 +302,41 @@ exists simply to provide a value-semantic alternative when that is called for.
 ```c++
 namespace std::uc {
     template<code_point_iter I, sentinel_for<I> S = I>
-    struct grapheme_iterator
-    {
-        using value_type = grapheme_ref<I>;
-        using difference_type = ptrdiff_t;
-        using pointer = proxy_arrow_result<value_type>;
-        using reference = value_type;
-        using iterator_category = bidirectional_iterator_tag;
-
-        using iterator = I;
-        using sentinel = S;
-
-        constexpr grapheme_iterator() = default;
-        constexpr grapheme_iterator(iterator first, iterator it, sentinel last);
-        template<code_point_iter I2, sentinel_for<I2> S2>
-          requires convertible_to<I2, I> && convertible_to<S2, S>
-            constexpr grapheme_iterator(grapheme_iterator<I2, S2> const & other);
-
-        constexpr reference operator*() const;
-        constexpr pointer operator->() const;
-
-        constexpr iterator base() const;
-
-        constexpr grapheme_iterator & operator++();
-        constexpr grapheme_iterator operator++(int);
-
-        constexpr grapheme_iterator & operator--();
-        constexpr grapheme_iterator operator--(int);
-
-        friend constexpr bool operator==(grapheme_iterator lhs, grapheme_iterator rhs)
-          { return lhs.base() == rhs.base(); }
-        friend constexpr bool operator==(grapheme_iterator lhs, sentinel rhs)
-          { lhs.base() == rhs; }
-
-    private:
-        template<code_point_iter I2, sentinel_for<I2> S2>
-          friend struct grapheme_iterator;
-    };
+      struct grapheme_iterator {
+          using value_type = grapheme_ref<I>;
+          using difference_type = ptrdiff_t;
+          using pointer = proxy_arrow_result<value_type>;
+          using reference = value_type;
+          using iterator_category = bidirectional_iterator_tag;
+  
+          using iterator = I;
+          using sentinel = S;
+  
+          constexpr grapheme_iterator() = default;
+          constexpr grapheme_iterator(iterator first, iterator it, sentinel last);
+          template<code_point_iter I2, sentinel_for<I2> S2>
+            requires convertible_to<I2, I> && convertible_to<S2, S>
+              constexpr grapheme_iterator(const grapheme_iterator<I2, S2>& other);
+  
+          constexpr reference operator*() const;
+          constexpr pointer operator->() const;
+  
+          constexpr iterator base() const;
+  
+          constexpr grapheme_iterator& operator++();
+          constexpr grapheme_iterator operator++(int);
+          constexpr grapheme_iterator& operator--();
+          constexpr grapheme_iterator operator--(int);
+  
+          friend constexpr bool operator==(grapheme_iterator lhs, grapheme_iterator rhs)
+            { return lhs.base() == rhs.base(); }
+          friend constexpr bool operator==(grapheme_iterator lhs, sentinel rhs)
+            { lhs.base() == rhs; }
+  
+      private:
+          template<code_point_iter I2, sentinel_for<I2> S2>
+            friend struct grapheme_iterator;
+      };
 
     template<class Iter1, class Sentinel1, class Iter2, class Sentinel2>
       requires same_as<Sentinel1, null_sentinel_t> != same_as<Sentinel2, null_sentinel_t>
@@ -373,54 +369,53 @@ defaulted parameters that follow the ones for the grapheme breaking functions.
 ## Add `grapheme_view` and `as_graphemes()`
 
 ```c++
-namespace std::us {
+namespace std::uc {
   template<class T, class I, class S>
     using @*adapting-iter-or-sentinel*@ = @*see below*@; // @*exposition only*@
 
   template<code_point_iter I, sentinel_for<I> S = I>
-  struct grapheme_view : view_interface<grapheme_view<I, S>>
-  {
-    using iterator = grapheme_iterator<I, S>;
-    using sentinel = @*adapting-iter-or-sentinel*@<iterator, I, S>;
-
-    constexpr grapheme_view() : first_(), last_() {}
-
-    constexpr grapheme_view(iterator first, sentinel last) :
-      first_(first), last_(last) {}
-
-    constexpr grapheme_view(I first, S last)
-      : first_(first, first, last), last_(@*make-last*@<sentinel>(first, last)) {}
-
-    template<code_point_iter I2>
-      requires constructible_from<iterator, I2, I2, I2> &&
-        constructible_from<sentinel, I2, I2, I2>
-    constexpr grapheme_view(
-      I2 first, I2 view_first, I2 view_last, I2 last)
-        : first_(first, view_first, last), last_(first, view_last, last) {}
-
-    constexpr iterator begin() const { return first_; }
-    constexpr sentinel end() const { return last_; }
-
-    friend constexpr bool operator==(grapheme_view lhs, grapheme_view rhs)
-      { return lhs.begin() == rhs.begin() && lhs.end() == rhs.end(); }
-
-    template<class CharT, class Traits>
-      friend ostream<CharT, Traits>&
-        operator<<(ostream<CharT, Traits>& os, grapheme_view v);
-
-  private:
-    template<class ResultType, class I1, class I2, class S>
-      static auto @*make-last*@(I1 first, I2 it, S last) { // @*exposition only*@
-        if constexpr (requires { ResultType(first, it, last); }) {
-          return ResultType{first, it, last};
-        } else {
-          return it;
+    struct grapheme_view : view_interface<grapheme_view<I, S>> {
+      using iterator = grapheme_iterator<I, S>;
+      using sentinel = @*adapting-iter-or-sentinel*@<iterator, I, S>;
+  
+      constexpr grapheme_view() : first_(), last_() {}
+  
+      constexpr grapheme_view(iterator first, sentinel last) :
+        first_(first), last_(last) {}
+  
+      constexpr grapheme_view(I first, S last)
+        : first_(first, first, last), last_(@*make-last*@<sentinel>(first, last)) {}
+  
+      template<code_point_iter I2>
+        requires constructible_from<iterator, I2, I2, I2> &&
+          constructible_from<sentinel, I2, I2, I2>
+      constexpr grapheme_view(
+        I2 first, I2 view_first, I2 view_last, I2 last)
+          : first_(first, view_first, last), last_(first, view_last, last) {}
+  
+      constexpr iterator begin() const { return first_; }
+      constexpr sentinel end() const { return last_; }
+  
+      friend constexpr bool operator==(grapheme_view lhs, grapheme_view rhs)
+        { return lhs.begin() == rhs.begin() && lhs.end() == rhs.end(); }
+  
+      template<class CharT, class Traits>
+        friend ostream<CharT, Traits>&
+          operator<<(ostream<CharT, Traits>& os, grapheme_view v);
+  
+    private:
+      template<class ResultType, class I1, class I2, class S>
+        static auto @*make-last*@(I1 first, I2 it, S last) { // @*exposition only*@
+          if constexpr (requires { ResultType(first, it, last); }) {
+            return ResultType{first, it, last};
+          } else {
+            return it;
+          }
         }
-      }
-
-    iterator first_;                      // @*exposition only*@
-    [[no_unique_address]] sentinel last_; // @*exposition only*@
-  };
+  
+      iterator first_;                      // @*exposition only*@
+      [[no_unique_address]] sentinel last_; // @*exposition only*@
+    };
 
   template<class I, class S>
     grapheme_view(grapheme_iterator<I, S>, grapheme_iterator<I, S>) -> grapheme_view<I, S>;
@@ -431,17 +426,17 @@ namespace std::us {
   template<class I, class S>
     grapheme_view(I, S) -> grapheme_view<I, S>;
 
-  template<utf_iter I, std::sentinel_for<I> S>
+  template<utf_iter I, sentinel_for<I> S>
     constexpr @*unspecified*@ as_graphemes(I first, S last);
 
   template<utf_range_like R>
     constexpr @*unspecified*@ as_graphemes(R&& r);
 
   struct @*as-graphemes-t*@ : range_adaptor_closure<@*as-graphemes-t*@> { // @*exposition only*@
-    template<utf_iter I, std::sentinel_for<I> S>
+    template<utf_iter I, sentinel_for<I> S>
       constexpr @*unspecified*@ operator()(I first, S last) const;
     template<utf_range_like R>
-      constexpr @*unspecified*@ operator()(R && r) const;
+      constexpr @*unspecified*@ operator()(R&& r) const;
   };
 
   inline constexpr @*as-graphemes-t*@ as_graphemes;
@@ -604,8 +599,8 @@ namespace std::uc {
     iterator begin() const { return first_; }
     sentinel end() const { return last_; }
 
-    PrevFunc&& prev_func() && { return std::move(prev_func_); }
-    NextFunc&& next_func() && { return std::move(next_func_); }
+    PrevFunc&& prev_func()&& { return std::move(prev_func_); }
+    NextFunc&& next_func()&& { return std::move(next_func_); }
 
     template<class CharT, class Traits>
       friend ostream<CharT, Traits>&
@@ -654,15 +649,15 @@ used to tailor word breaking:
 ```c++
 namespace std::uc {
   template<class T>
-  concept word_prop_func = invocable<T, uint32_t> &&
-    convertible_to<invoke_result_t<T, uint32_t>, word_property>;
+    concept word_prop_func = invocable<T, uint32_t> &&
+      convertible_to<invoke_result_t<T, uint32_t>, word_property>;
 
   template<class T>
-  concept word_break_func =
-    invocable<T, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t> &&
-      convertible_to<
-        invoke_result_t<T, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t>,
-        bool>;
+    concept word_break_func =
+      invocable<T, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t> &&
+        convertible_to<
+          invoke_result_t<T, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t>,
+          bool>;
 }
 ```
 
@@ -911,28 +906,28 @@ namespace std::uc {
   sentence_property sentence_prop(uint32_t cp);
 
   template<utf_iter I, sentinel_for<I> S>
-  I prev_sentence_break(I first, I it, S last);
+    I prev_sentence_break(I first, I it, S last);
 
   template<utf_range_like R>
-  @*range-like-result-iterator*@<R> prev_sentence_break(R&& r, @*range-like-iterator*@<R> it);
+    @*range-like-result-iterator*@<R> prev_sentence_break(R&& r, @*range-like-iterator*@<R> it);
 
   template<utf_iter I, sentinel_for<I> S>
-  I next_sentence_break(I first, S last);
+    I next_sentence_break(I first, S last);
 
   template<utf_range_like R>
-  @*range-like-result-iterator*@<R> next_sentence_break(R&& r, ranges::iterator_t<R> it);
+    @*range-like-result-iterator*@<R> next_sentence_break(R&& r, ranges::iterator_t<R> it);
 
   template<utf_iter I, sentinel_for<I> S>
-  bool at_sentence_break(I first, I it, S last);
+    bool at_sentence_break(I first, I it, S last);
 
   template<utf_range_like R>
-  bool at_sentence_break(R&& r, @*range-like-iterator*@<R> it);
+    bool at_sentence_break(R&& r, @*range-like-iterator*@<R> it);
 
   template<utf_iter I, sentinel_for<I> S>
-  utf32_view<I> sentence(I first, I it, S last);
+    utf32_view<I> sentence(I first, I it, S last);
 
   template<utf_range_like R>
-  utf32_view<@*range-like-iterator*@<R>> sentence(R&& r, @*range-like-iterator*@<R> it);
+    utf32_view<@*range-like-iterator*@<R>> sentence(R&& r, @*range-like-iterator*@<R> it);
 
   struct @*sentences-t*@ : range_adaptor_closure<@*sentences-t*@> { // @*exposition only*@
     template<utf_iter I, sentinel_for<I> S>
@@ -966,35 +961,35 @@ Since this is a useful but unofficial kind of text segmentation, there is no
 ```c++
 namespace std::uc {
   template<utf_iter I, sentinel_for<I> S>
-  I prev_paragraph_break(I first, I it, S last);
+    I prev_paragraph_break(I first, I it, S last);
 
   template<utf_range_like R>
-  @*range-like-result-iterator*@<R> prev_paragraph_break(R&& r, @*range-like-iterator*@<R> it);
+    @*range-like-result-iterator*@<R> prev_paragraph_break(R&& r, @*range-like-iterator*@<R> it);
 
   template<utf_iter I, sentinel_for<I> S>
-  I next_paragraph_break(I first, S last);
+    I next_paragraph_break(I first, S last);
 
   template<utf_range_like R>
-  @*range-like-result-iterator*@<R> next_paragraph_break(R&& r, ranges::iterator_t<R> it);
+    @*range-like-result-iterator*@<R> next_paragraph_break(R&& r, ranges::iterator_t<R> it);
 
   template<utf_iter I, sentinel_for<I> S>
-  bool at_paragraph_break(I first, I it, S last);
+    bool at_paragraph_break(I first, I it, S last);
 
   template<utf_range_like R>
-  bool at_paragraph_break(R&& r, @*range-like-iterator*@<R> it);
+    bool at_paragraph_break(R&& r, @*range-like-iterator*@<R> it);
 
   template<utf_iter I, sentinel_for<I> S>
-  utf32_view<I> paragraph(I first, I it, S last);
+    utf32_view<I> paragraph(I first, I it, S last);
 
   template<utf_range_like R>
-  utf32_view<@*range-like-iterator*@<R>> paragraph(R&& r, @*range-like-iterator*@<R> it);
+    utf32_view<@*range-like-iterator*@<R>> paragraph(R&& r, @*range-like-iterator*@<R> it);
 
   struct @*paragraphs-t*@ : range_adaptor_closure<@*paragraphs-t*@> { // @*exposition only*@
     template<utf_iter I, sentinel_for<I> S>
-    @*unspecified*@ operator()(I first, S last) const;
+      @*unspecified*@ operator()(I first, S last) const;
 
     template<utf_range_like R>
-    @*unspecified*@ operator()(R&& r) const;
+      @*unspecified*@ operator()(R&& r) const;
   };
 
   inline constexpr @*paragraphs-t*@ paragraphs;
@@ -1028,28 +1023,28 @@ namespace std::uc {
   line_property line_prop(uint32_t cp);
 
   template<utf_iter I, sentinel_for<I> S>
-  I prev_hard_line_break(I first, I it, S last);
+    I prev_hard_line_break(I first, I it, S last);
 
   template<utf_range_like R>
-  @*range-like-result-iterator*@<R> prev_hard_line_break(R&& r, @*range-like-iterator*@<R> it);
+    @*range-like-result-iterator*@<R> prev_hard_line_break(R&& r, @*range-like-iterator*@<R> it);
 
   template<utf_iter I, sentinel_for<I> S>
-  I next_hard_line_break(I first, S last);
+    I next_hard_line_break(I first, S last);
 
   template<utf_range_like R>
-  @*range-like-result-iterator*@<R> next_hard_line_break(R&& r, ranges::iterator_t<R> it);
+    @*range-like-result-iterator*@<R> next_hard_line_break(R&& r, ranges::iterator_t<R> it);
 
   template<utf_iter I, sentinel_for<I> S>
-  bool at_hard_line_break(I first, I it, S last);
+    bool at_hard_line_break(I first, I it, S last);
 
   template<utf_range_like R>
-  bool at_hard_line_break(R&& r, @*range-like-iterator*@<R> it);
+    bool at_hard_line_break(R&& r, @*range-like-iterator*@<R> it);
 
   template<utf_iter I, sentinel_for<I> S>
-  utf32_view<I> line(I first, I it, S last);
+    utf32_view<I> line(I first, I it, S last);
 
   template<utf_range_like R>
-  utf32_view<@*range-like-iterator*@<R>> line(R&& r, @*range-like-iterator*@<R> it);
+    utf32_view<@*range-like-iterator*@<R>> line(R&& r, @*range-like-iterator*@<R> it);
 }
 ```
 
@@ -1068,34 +1063,33 @@ returns the previous and next *hard* break positions.
 
 ```c++
   template<class I>
-  struct line_break_result
-  {
-    I iter;
-    bool hard_break;
-
-    template<class S>
-    friend bool operator==(line_break_result<I> result, S s)
-      requires requires { result.iter == s; }
-        { return result.iter == s; }
-  };
-
-  template<utf_iter I, sentinel_for<I> S>
-  line_break_result<I> prev_allowed_line_break(I first, I it, S last);
-
-  template<utf_range_like R>
-  line_break_result<@*range-like-result-iterator*@<R>> prev_allowed_line_break(R&& r, @*range-like-iterator*@<R> it);
+    struct line_break_result {
+      I iter;
+      bool hard_break;
+  
+      template<class S>
+        friend bool operator==(line_break_result<I> result, S s)
+          requires requires { result.iter == s; }
+            { return result.iter == s; }
+    };
 
   template<utf_iter I, sentinel_for<I> S>
-  line_break_result<I> next_allowed_line_break(I first, S last);
+    line_break_result<I> prev_allowed_line_break(I first, I it, S last);
 
   template<utf_range_like R>
-  line_break_result<@*range-like-result-iterator*@<R>> next_allowed_line_break(R&& r, ranges::iterator_t<R> it);
+    line_break_result<@*range-like-result-iterator*@<R>> prev_allowed_line_break(R&& r, @*range-like-iterator*@<R> it);
 
   template<utf_iter I, sentinel_for<I> S>
-  bool at_allowed_line_break(I first, I it, S last);
+    line_break_result<I> next_allowed_line_break(I first, S last);
 
   template<utf_range_like R>
-  bool at_allowed_line_break(R&& r, @*range-like-iterator*@<R> it);
+    line_break_result<@*range-like-result-iterator*@<R>> next_allowed_line_break(R&& r, ranges::iterator_t<R> it);
+
+  template<utf_iter I, sentinel_for<I> S>
+    bool at_allowed_line_break(I first, I it, S last);
+
+  template<utf_range_like R>
+    bool at_allowed_line_break(R&& r, @*range-like-iterator*@<R> it);
 }
 ```
 
@@ -1126,15 +1120,15 @@ for accumulating and comparing widths of text.
 ```c++
 namespace std::uc {
   template<class T, class I, class Extent>
-  concept line_break_text_extent_func =
-    code_point_iter<I> && invocable<T, I, I> && convertible_to<invoke_result_t<T, I, I>, Extent>;
+    concept line_break_text_extent_func =
+      code_point_iter<I> && invocable<T, I, I> && convertible_to<invoke_result_t<T, I, I>, Extent>;
 
   template<class T>
-  concept text_extent = same_as<remove_cvref_t<T>, T> && regular<T> && requires(T t) {
-    {t += t} -> same_as<T &>;
-    {t + t} -> convertible_to<T>;
-    {t < t} -> convertible_to<bool>;
-  };
+    concept text_extent = same_as<remove_cvref_t<T>, T> && regular<T> && requires(T t) {
+      {t += t} -> same_as<T&>;
+      {t + t} -> convertible_to<T>;
+      {t < t} -> convertible_to<bool>;
+    };
 }
 ```
 
@@ -1147,17 +1141,16 @@ must also communicate whether the end of a subrange is a hard line break;
 ```c++
 namespace std::uc {
   template<code_point_iter I>
-  struct line_break_utf32_view : utf32_view<I>
-  {
-    line_break_utf32_view() : utf32_view<I>(), hard_break_() {}
-    line_break_utf32_view(line_break_result<I> first, line_break_result<I> last)
-      : utf32_view<I>(first.iter, last.iter), hard_break_(last.hard_break) {}
-
-    bool hard_break() const { return hard_break_; }
-
-  private:
-    bool hard_break_; // @*exposition only*@
-  };
+    struct line_break_utf32_view : utf32_view<I> {
+      line_break_utf32_view() : utf32_view<I>(), hard_break_() {}
+      line_break_utf32_view(line_break_result<I> first, line_break_result<I> last)
+        : utf32_view<I>(first.iter, last.iter), hard_break_(last.hard_break) {}
+  
+      bool hard_break() const { return hard_break_; }
+  
+    private:
+      bool hard_break_; // @*exposition only*@
+    };
 }
 ```
 
@@ -1167,58 +1160,60 @@ as its subrange:
 ```c++
 namespace std::uc {
   template<class I, class S, class Subrange>
-  struct allowed_break_iterator
-    : proxy_iterator_interface<
+    struct allowed_break_iterator
+      : proxy_iterator_interface<
+          allowed_break_iterator<I, S, Subrange>,
+          bidirectional_iterator_tag,
+          Subrange> {
+      allowed_break_iterator() = default;
+  
+      allowed_break_iterator(I first, S last);
+      allowed_break_iterator(I first, I it, S last);
+  
+      Subrange operator*() const { return Subrange{seg_.first, seg_.second}; }
+  
+      allowed_break_iterator& operator++();
+      allowed_break_iterator& operator--();
+  
+      friend bool operator==(allowed_break_iterator lhs, allowed_break_iterator rhs)
+        { return lhs.seg_ == rhs.seg_; }
+  
+      friend bool operator==(allowed_break_iterator lhs, S rhs)
+        requires (!same_as<I, S>)
+          { return lhs.seg_.first == rhs; }
+  
+      using base_type = proxy_iterator_interface< // @*exposition only*@
         allowed_break_iterator<I, S, Subrange>,
         bidirectional_iterator_tag,
-        Subrange>
-  {
-    allowed_break_iterator() = default;
+        Subrange>;
+      using base_type::operator++;
+      using base_type::operator--;
+  
+    private:
+      I first_ = {};                                              // @*exposition only*@
+      pair<line_break_result<I>, line_break_result<I>> seg_ = {}; // @*exposition only*@
+      S last_ = {};                                               // @*exposition only*@
+    };
 
-    allowed_break_iterator(I first, S last);
-    allowed_break_iterator(I first, I it, S last);
-
-    Subrange operator*() const { return Subrange{seg_.first, seg_.second}; }
-
-    allowed_break_iterator& operator++();
-    allowed_break_iterator& operator--();
-
-    friend bool operator==(allowed_break_iterator lhs, allowed_break_iterator rhs)
-      { return lhs.seg_ == rhs.seg_; }
-
-    friend bool operator==(allowed_break_iterator lhs, S rhs)
-      requires (!same_as<I, S>)
-        { return lhs.seg_.first == rhs; }
-
-    using base_type = proxy_iterator_interface< // @*exposition only*@
-      allowed_break_iterator<I, S, Subrange>,
-      bidirectional_iterator_tag,
-      Subrange>;
-    using base_type::operator++;
-    using base_type::operator--;
-
-  private:
-    I first_ = {};                                              // @*exposition only*@
-    pair<line_break_result<I>, line_break_result<I>> seg_ = {}; // @*exposition only*@
-    S last_ = {};                                               // @*exposition only*@
-  };
-
-  template<class I, class S, class Subrange = line_break_cp_view<I>>
-  struct line_break_view : view_interface<line_break_view<I, S, Subrange>>
-  {
-    using iterator = allowed_break_iterator<I, S, Subrange>;
-    using sentinel = @*adapting-iter-or-sentinel*@<iterator, I, S>;
-
-    line_break_view() {}
-    line_break_view(I first, S last);
-
-    iterator begin() const { return first_; }
-    sentinel end() const { return last_; }
-
-  private:
-    iterator first_;                      // @*exposition only*@
-    [[no_unique_address]] sentinel last_; // @*exposition only*@
-  };
+  template<class I, class S, class Subrange = line_break_utf32_view<I>>
+    struct line_break_view : view_interface<line_break_view<I, S, Subrange>> {
+      using iterator = allowed_break_iterator<I, S, Subrange>;
+      using sentinel = @*adapting-iter-or-sentinel*@<iterator, I, S>;
+  
+      line_break_view() {}
+      line_break_view(I first, S last);
+  
+      iterator begin() const { return first_; }
+      sentinel end() const { return last_; }
+  
+      template<class CharT, class Traits>
+        friend ostream<CharT, Traits>&
+          operator<<(ostream<CharT, Traits>& os, line_break_view bv);
+  
+    private:
+      iterator first_;                      // @*exposition only*@
+      [[no_unique_address]] sentinel last_; // @*exposition only*@
+    };
 }
 ```
 
@@ -1229,68 +1224,70 @@ hard line break.
 ```c++
 namespace std::uc {
   template<code_point_iter I, sentinel_for<I> S, class ExtentFunc, class Subrange>
-  struct forward_allowed_break_iterator
-    : proxy_iterator_interface<
+    struct forward_allowed_break_iterator
+      : proxy_iterator_interface<
+          forward_allowed_break_iterator<I, S, ExtentFunc, Subrange>,
+          forward_iterator_tag,
+          Subrange> {
+      forward_allowed_break_iterator() = default;
+      forward_allowed_break_iterator(I first, S last, ExtentFunc measure_extent);
+  
+      Subrange operator*() const { return Subrange{seg_.first, seg_.second}; }
+  
+      forward_allowed_break_iterator& operator++();
+  
+      friend bool operator==(forward_allowed_break_iterator lhs, forward_allowed_break_iterator rhs)
+        { return lhs.seg_ == rhs.seg_; }
+  
+      friend bool operator==(forward_allowed_break_iterator lhs, Sentinel rhs)
+        requires (!same_as<I, S>)
+          { return lhs.seg_.first == rhs; }
+  
+      using base_type = proxy_iterator_interface< // @*exposition only*@
         forward_allowed_break_iterator<I, S, ExtentFunc, Subrange>,
         forward_iterator_tag,
-        Subrange>
-  {
-    forward_allowed_break_iterator() = default;
-    forward_allowed_break_iterator(I first, S last, ExtentFunc measure_extent);
-
-    Subrange operator*() const { return Subrange{seg_.first, seg_.second}; }
-
-    forward_allowed_break_iterator & operator++();
-
-    friend bool operator==(forward_allowed_break_iterator lhs, forward_allowed_break_iterator rhs)
-      { return lhs.seg_ == rhs.seg_; }
-
-    friend bool operator==(forward_allowed_break_iterator lhs, Sentinel rhs)
-      requires (!same_as<I, S>)
-        { return lhs.seg_.first == rhs; }
-
-    using base_type = proxy_iterator_interface< // @*exposition only*@
-      forward_allowed_break_iterator<I, S, ExtentFunc, Subrange>,
-      forward_iterator_tag,
-      Subrange>;
-    using base_type::operator++;
-
-  private:
-    pair<line_break_result<I>, line_break_result<I>> seg_ = {}; // @*exposition only*@
-    S last_ = {};                                               // @*exposition only*@
-    ExtentFunc measure_extent_;                                 // @*exposition only*@
-  };
+        Subrange>;
+      using base_type::operator++;
+  
+    private:
+      pair<line_break_result<I>, line_break_result<I>> seg_ = {}; // @*exposition only*@
+      S last_ = {};                                               // @*exposition only*@
+      ExtentFunc measure_extent_;                                 // @*exposition only*@
+    };
 
   template<
     code_point_iter I,
     sentinel_for S,
     text_extent Extent,
     line_break_text_extent_func<I, Extent> ExtentFunc,
-    class Subrange = line_break_cp_view<I>>
-  struct forward_line_break_view
-    : view_interface<forward_line_break_view<I, S, Extent, ExtentFunc, Subrange>>
-  {
-    using iterator = forward_allowed_break_iterator<I, S, measure_extent_, Subrange>;
-    using sentinel = @*adapting-iter-or-sentinel*@<iterator, I, S>;
-
-    forward_line_break_view() {}
-    forward_line_break_view(
-      I first, S last, Extent max_extent, ExtentFunc measure_extent, bool break_overlong_lines);
-
-    iterator begin() const { return first_; }
-    sentinel end() const { return last_; }
-
-  private:
-    ExtentFunc measure_extent_;           // @*exposition only*@
-    iterator first_;                      // @*exposition only*@
-    [[no_unique_address]] sentinel last_; // @*exposition only*@
-  };
+    class Subrange = line_break_utf32_view<I>>
+    struct forward_line_break_view
+      : view_interface<forward_line_break_view<I, S, Extent, ExtentFunc, Subrange>> {
+      using iterator = forward_allowed_break_iterator<I, S, measure_extent_, Subrange>;
+      using sentinel = @*adapting-iter-or-sentinel*@<iterator, I, S>;
+  
+      forward_line_break_view() {}
+      forward_line_break_view(
+        I first, S last, Extent max_extent, ExtentFunc measure_extent, bool break_overlong_lines);
+  
+      iterator begin() const { return first_; }
+      sentinel end() const { return last_; }
+  
+      template<class CharT, class Traits>
+        friend ostream<CharT, Traits>&
+          operator<<(ostream<CharT, Traits>& os, forward_line_break_view bv);
+  
+    private:
+      ExtentFunc measure_extent_;           // @*exposition only*@
+      iterator first_;                      // @*exposition only*@
+      [[no_unique_address]] sentinel last_; // @*exposition only*@
+    };
 }
 ```
 
 Like `line_break_view` and its iterator, `forward_line_break_view` and its
 iterator keep track of whether a break is a hard line break.  However,
-`forward_line_break_view` and is itereator are forward-only.
+`forward_line_break_view` and is iterator are forward-only.
 
 Finally, we can add the `lines` object.  Since there are a lot of overloads,
 we've broken the definition up into chunks, with a description after each
@@ -1301,31 +1298,45 @@ namespace std::uc {
   struct allowed_breaks_t {};
   inline constexpr allowed_breaks_t allowed_breaks;
 
-  template<utf_iter I, sentinel_for<I> S>
-  using @*utf32-iter-for*@ = @*see below*@; // @*exposition only*@
+  template<class I, class S = I>
+    requires (utf_iter<I> && sentinel_for<I, S> || utf_range_like<I> && same_as<I, S>)
+      using @*utf32-iter-for*@ = @*see below*@; // @*exposition only*@
 
   template <class F>
-  struct @*function-closure*@ : ranges::range_adaptor_closure<@*function-closure*@<F>> { // @*exposition only*@
-    constexpr @*function-closure*@(F f) : f(std::move(f)) { }
+    struct @*function-closure*@ : ranges::range_adaptor_closure<@*function-closure*@<F>> { // @*exposition only*@
+      constexpr @*function-closure*@(F f) : f(std::move(f)) { }
+    
+      template <ranges::viewable_range R>
+        requires invocable<const F&, R>
+          constexpr operator()(R&& r) const
+            { return f(forward<R>(r)); }
   
-    template <ranges::viewable_range R>
-      requires invocable<const F&, R>
-        constexpr operator()(R&& r) const
-          { return f(forward<R>(r)); }
-
-    F f;
-  };
+      F f;
+    };
 
   struct @*lines-t*@ : range_adaptor_closure<@*lines-t*@> { // @*exposition only*@
     template<utf_iter I, sentinel_for<I> S>
-    @*unspecified*@ operator()(I first, S last) const;
+      @*unspecified*@ operator()(I first, S last) const;
 
     template<utf_range_like R>
-    @*unspecified*@ operator()(R&& r) const;
+      @*unspecified*@ operator()(R&& r) const;
 ```
 
-`@*utf32-iter-for*@<I>` is `I` if `uc::utf32_iter<I>` is `true`, and
-`decltype(uc::as_utf32(declval<I>(), declval<S>()).begin())` otherwise.
+`@*utf32-iter-for*@<I, S>` is defined as follows:
+
+Let `i` be an object of type `I` and `s` be an object of type `S`.  Then:
+
+- If `uc::utf32_iter<I>` is `true`, `@*utf32-iter-for*@<I, S>` is `I`.
+
+- Otherwise, if `is_pointer_v<remove_reference_t<I>>` is `true`,
+  `@*utf32-iter-for*@<I, S>` is `decltype(uc::as_utf32(i,
+  uc::null_sentinel).begin()`.
+
+- Otherwise, if `ranges::range<I>` is `true`, `@*utf32-iter-for*@<I, S>` is
+  `decltype(ranges::begin(i))`.
+
+- Otherwise, `@*utf32-iter-for*@<I, S>` is
+  `decltype(ranges::begin(uc::as_utf32(i, s)))`.
 
 `@*function-closure*@` adapts a single function as a view adaptor.
 
@@ -1343,24 +1354,12 @@ hard line break.  The range overload returns `ranges::dangling{}` if
       I first, S last,
       Extent max_extent, ExtentFunc measure_extent, bool break_overlong_lines = true) const;
 
-    TODO
     template<
       code_point_range R,
-      text_extent Extent, line_break_text_extent_func<ranges::iterator_t<R>, Extent> ExtentFunc>
+      text_extent Extent, line_break_text_extent_func<@*utf32-iter-for*@<R>, Extent> ExtentFunc>
     @*unspecified*@ operator()(
       R&& r,
-      Extent max_extent, ExtentFunc measure_extent, bool break_overlong_lines = true) const
-    {
-      if constexpr (ranges::borrowed_range<R>) {
-        return detail::lines_cr_impl(
-          r,
-          max_extent,
-          std::move(measure_extent),
-          break_overlong_lines);
-      } else {
-        return ranges::dangling{};
-      }
-    }
+      Extent max_extent, ExtentFunc measure_extent, bool break_overlong_lines = true) const;
 
     template<text_extent Extent, class ExtentFunc>
       @*unspecified*@ operator()(
@@ -1414,11 +1413,11 @@ functions:
 
 ```c++
 namespace std::uc {
-  template<utf_iter I, std::sentinel_for<I> S>
-  std::size_t estimated_width(I first, S last);
+  template<utf_iter I, sentinel_for<I> S>
+    size_t estimated_width(I first, S last);
 
   template<utf_range_like R>
-  std::size_t estimated_width(R && r);
+    size_t estimated_width(R&& r);
 }
 ```
 
