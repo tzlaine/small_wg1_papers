@@ -347,8 +347,6 @@ namespace std::uc {
 }
 ```
 
-
-TODO: formatters!
 TODO: borrowed_range!
 
 ## The pattern of all text breaking algorithms
@@ -1256,10 +1254,8 @@ namespace std::uc {
     };
 
   template<
-    code_point_iter I,
-    sentinel_for S,
-    text_extent Extent,
-    line_break_text_extent_func<I, Extent> ExtentFunc,
+    code_point_iter I, sentinel_for S,
+    text_extent Extent, line_break_text_extent_func<I, Extent> ExtentFunc,
     class Subrange = line_break_utf32_view<I>>
     struct forward_line_break_view
       : view_interface<forward_line_break_view<I, S, Extent, ExtentFunc, Subrange>> {
@@ -1419,6 +1415,28 @@ namespace std::uc {
   template<utf_range_like R>
     size_t estimated_width(R&& r);
 }
+```
+
+## Add specializations of `formatter`
+
+These should be added to the list of "the debug-enabled string type
+specializations" in [format.formatter.spec].  This allows all the kinds of
+views introduced in this proposal to be used in `std::format()` and
+`std::print()`.  The intention is that each one will transcode to UTF-8 if the
+formatter's `charT` is `char`, or to UTF-16 if the formatter's `charT` is
+`wchar_t` -- if transcoding is necessary at all.
+
+```cpp
+template<class I, class S>
+  struct formatter<grapheme, charT>;
+template<class I, class S>
+  struct formatter<uc::grapheme_view<I, S>, charT>;
+template<class I, class S, class PrevFunc, class NextFunc, class Subrange>
+  struct formatter<uc::break_view<I, S, PrevFunc, NextFunc, Subrange>, charT>;
+template<class I, class S, class Subrange>
+  struct formatter<uc::line_break_view<I, S, Subrange>, charT>;
+template<class I, class S, class Extent, class ExtentFunc, class Subrange>
+  struct formatter<uc::forward_line_break_view<I, S, Subrange>, charT>;
 ```
 
 ## Add a feature test macro
