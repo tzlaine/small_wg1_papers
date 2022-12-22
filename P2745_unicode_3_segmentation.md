@@ -347,8 +347,6 @@ namespace std::uc {
 }
 ```
 
-TODO: borrowed_range!
-
 ## The pattern of all text breaking algorithms
 
 All the remaining text breaking interfaces follow the pattern described above
@@ -438,6 +436,11 @@ namespace std::uc {
   };
 
   inline constexpr @*as-graphemes-t*@ as_graphemes;
+}
+
+namespace std::ranges {
+  template<class I, class S>
+    inline constexpr bool enable_borrowed_range<uc::grapheme_view<I, S>> = true;
 }
 ```
 
@@ -610,6 +613,12 @@ namespace std::uc {
     PrevFunc prev_func_;                  // @*exposition only*@
     NextFunc next_func_;                  // @*exposition only*@
   };
+}
+
+namespace std::ranges {
+  template<class I, class S, class PrevFunc, class NextFunc, class Subrange>
+    inline constexpr bool enable_borrowed_range<
+      uc::break_view<I, S, PrevFunc, NextFunc, Subrange>> = true;
 }
 ```
 
@@ -1150,6 +1159,11 @@ namespace std::uc {
       bool hard_break_; // @*exposition only*@
     };
 }
+
+namespace std::ranges {
+  template<class I>
+    inline constexpr bool enable_borrowed_range<uc::line_break_utf32_view<I>> = true;
+}
 ```
 
 We also need an alternative to `break_view` that uses `line_break_utf32_view`
@@ -1212,6 +1226,11 @@ namespace std::uc {
       iterator first_;                      // @*exposition only*@
       [[no_unique_address]] sentinel last_; // @*exposition only*@
     };
+}
+
+namespace std::ranges {
+  template<class I, class S, class Subrange>
+    inline constexpr bool enable_borrowed_range<uc::line_break_view<I, S, Subrange>> = true;
 }
 ```
 
@@ -1278,6 +1297,11 @@ namespace std::uc {
       iterator first_;                      // @*exposition only*@
       [[no_unique_address]] sentinel last_; // @*exposition only*@
     };
+}
+
+namespace std::ranges {
+  template<class I, class S, class Extent, class ExtentFunc, class Subrange>
+    inline constexpr bool enable_borrowed_range<uc::forward_line_break_view<I, S, Extent, ExtentFunc, Subrange>> = true;
 }
 ```
 
