@@ -52,7 +52,7 @@ that I think are important; I hope you’ll agree:
 
 You can have different strings of code points that mean the same thing.  For
 example, you could have the code point "ä" (U+00E4 Latin Small Letter A with
-Diaeresis), or you could have the two codepoints "a" (U+0061 Latin Small
+Diaeresis), or you could have the two code points "a" (U+0061 Latin Small
 Letter A) and "¨̈" (U+0308 Combining Diaeresis).  The former represents "ä" as
 a single code point, the latter as two.  Unicode rules state that both strings
 must be treated as identical.
@@ -100,7 +100,7 @@ turn allows the Unicode algorithms to use side buffers of a small and fixed
 size to do their operations, which obviates the need for most memory
 allocations.
 
-For more info on the strea-safe format, see the appropriate [part of
+For more info on the stream-safe format, see the appropriate [part of
 UAX15](https://unicode.org/reports/tr15/#Stream_Safe_Text_Format).
 
 ## Unicode reference
@@ -150,7 +150,7 @@ assert(std::uc::is_normalized(std::uc::as_utf32(nfc_s)));
 You cannot modify arbitrary text that is already normalized without risking
 breaking the normalization.  For instance, let's say I have some
 NFC-normalized text.  That means that all the combining code points that could
-combine with one or more preceeding code points have already done so.  For
+combine with one or more preceding code points have already done so.  For
 instance, if I see "ä" in the NFC text, then I know it's code point U+00E4
 "Latin Small Letter A with Diaeresis", *not* some combination of "a" and a
 combining two dots.
@@ -158,7 +158,7 @@ combining two dots.
 Now, forget about the "ä" I just gave as an example.  Let's say that I want to
 insert a single code point, "¨̈" (U+0308 Combining Diaeresis) into NFC text.
 Let's also say that the insertion position is right after a letter "o".  If I
-do the insertion and then walk away, I would have broken the NFC normaliztion,
+do the insertion and then walk away, I would have broken the NFC normalization,
 because "o" followed by "¨" is supposed to combine to form "ö" (U+00F6 Latin
 Small Letter O with Diaeresis).
 
@@ -195,12 +195,12 @@ namespace std::uc {
 
 Unlike [P2728](https://isocpp.org/files/papers/P2728R0.html) (Unicode Part 1),
 the interfaces in this proposal refer to parts of the Unicode standard that
-are allowed to change over time.  The normalization of code points is inlikely
+are allowed to change over time.  The normalization of code points is unlikely
 to change in Unicode N from what it was for those same code points in Unicode
 N-1, but since new code points are introduced with each new Unicode release,
 the normalization algorithms must be updated to keep up.
 
-I'm proposing that implemenations provide support for whatever version of
+I'm proposing that implementations provide support for whatever version of
 Unicode they like, as long as they document which one is supported via
 `major_`-/`minor_`-/`patch_version`.
 
@@ -312,7 +312,7 @@ Unicode standard shows a technique for inserting special dummy-starters (that
 do not interact with most other text) every 30 non-starters, so that the
 original input is preserved.  I think this is silly -- the longest possible
 meaningful sequence of nonstarters is 17 code points, and that is only
-necessary for backwards compatability.  Most meaningful sequences are much
+necessary for backwards comparability.  Most meaningful sequences are much
 shorter.  I think a more reasonable implementation is simply to truncate any
 sequence of nonstarters to 30 code points.
 
@@ -458,7 +458,7 @@ in one go was substantially faster than the more generic `normalize()`
 algorithm, which appends to the output one code point at a time.  So, we
 should provide support for that as well, in the form of `normalize_append()`.
 
-If transocding is necessary when the result is appended, `normalize_append()`
+If transcoding is necessary when the result is appended, `normalize_append()`
 does automatic transcoding to UTF-N, where N is implied by the size of
 `String::value_type`.
 
@@ -586,7 +586,7 @@ full-coverage tests, and by other parts of Boost.Text that use normalization.
 
 The first attempt at implementing the normalization algorithms was fairly
 straightforward.  I wrote code following the algorithms as described in the
-Unicode standard and its acompanying Annexes, and got all the
+Unicode standard and its accompanying Annexes, and got all the
 Unicode-published tests to pass.  However, comparing the performance of the
 naive implementation to the performance of the equivalent ICU normalization
 API showed that the naive implementation was a *lot* slower -- around a factor
@@ -615,7 +615,7 @@ header-only code, the reimplementation optimizes better, and I managed about a
 20% speedup over the ICU implementation.
 
 However, this reimplementation of ICU was a lot of work, and there's no
-guaranteee that it will work for more than just the current version of Unicode
+guarantee that it will work for more than just the current version of Unicode
 supported by Boost.Text.  Since ICU and Unicode evolve in lockstep, any
 reimplementation needs to track changes to the ICU implementation when the
 Unicode version is updated, and the equivalent change needs to be applied to
@@ -627,6 +627,6 @@ Standard library implementers will probably want to just use ICU to implement
 the normalization algorithms.  Since ICU only implements the normalization
 algorithms for UTF-16 and UTF-8, and since it only implements the algorithms
 for the exact types `icu::UnicodeString` (for UTF-16) and `icu::StringPiece`
-(for UTF-8), copyng may need to occur.  There are implementation-detail
+(for UTF-8), copying may need to occur.  There are implementation-detail
 interfaces within ICU that more intrepid implementers may wish to use; these
 interfaces can be made to work with iterators and pointers more directly.
