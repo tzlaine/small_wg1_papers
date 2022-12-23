@@ -1490,7 +1490,7 @@ template<class I, class S, class PrevFunc, class NextFunc, class Subrange>
 template<class I, class S, class Subrange>
   struct formatter<uc::line_break_view<I, S, Subrange>, charT>;
 template<class I, class S, class Extent, class ExtentFunc, class Subrange>
-  struct formatter<uc::forward_line_break_view<I, S, Subrange>, charT>;
+  struct formatter<uc::forward_line_break_view<I, S, Extent, ExtentFunc, Subrange>, charT>;
 ```
 
 ## Add a feature test macro
@@ -1499,9 +1499,9 @@ Add the feature test macro `__cpp_lib_unicode_text_segmentation`.
 
 ## Design notes
 
-- why subranges are always done in terms of CPs
-
 - .base()/.base().base()
+
+- why subranges are always done in terms of CPs
 
 TODO
 
