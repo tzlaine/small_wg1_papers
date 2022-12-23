@@ -308,7 +308,7 @@ containers `A a` and `B b`, where `A::iterator::reference` and
 reference, but `A::value_type` and `B::value_type` were similar enough that I
 could just call a function (analogous to `as_int()` above) that could project
 both of them to a single type.  To make matters worse, I could not even break
-`S` up into the `a`-part and the `b`-part, because `S` could not consier
+`S` up into the `a`-part and the `b`-part, because `S` could not consider
 elements in isolation; it required examining adjacent elements in the
 concatenation of `a` and `b`.
 
@@ -555,7 +555,7 @@ in the same way that `std::view_interface` eases the writing of views today.
 
 ## Add `iterator_interface_access`
 
-Before looking at the main `iterator_interface` template, we neeed to look at
+Before looking at the main `iterator_interface` template, we need to look at
 some of the bits that allow that template to function.  First,
 `iterator_interface_access`.  `iterator_interface_access` is used by the
 adaptation logic to get access to the underlying iterator being adapted, which
@@ -768,7 +768,7 @@ interoperable types (like `std::vector<int>::const_iterator` and
 convertible to the other (in either direction), and either: 1) their adapted
 bases are comparable; or 2) a `D2` is subtractable from a `D1`.
 
-I know those contraints look oddly specific; here's why they are the way they
+I know those constraints look oddly specific; here's why they are the way they
 are:
 
 Every category of iterator besides output need to define `operator==`.  For
@@ -859,7 +859,7 @@ can't automate everything.
 Here is a handy table listing all the user-provided operations necessary to
 implement all the various iterator concepts.  This is every user-defined
 operation, even though no one iterator requires all of them.  A following
-table wth indicate which operations are needed when implementing which
+table with indicate which operations are needed when implementing which
 iterator concept.  In the table, `Iter` is a user-defined type derived from
 `iterator_interface`; `i` and `i2` are objects of type `Iter`; `reference` is
 the type passed as the `Reference` template parameter to `iterator_interface`;
@@ -909,7 +909,7 @@ same meaning here as they do in the previous table.
 |                                                 | `++i` \                   |
 |                                                 | `--i`                     |
 +-------------------------------------------------+---------------------------+
-| `random_access_iterator`/`continguous_iterator` | `*i` \                    |
+| `random_access_iterator`/`contiguous_iterator` | `*i` \                    |
 |                                                 | `i - i2` \                |
 |                                                 | `i += n`                  |
 +-------------------------------------------------+---------------------------+

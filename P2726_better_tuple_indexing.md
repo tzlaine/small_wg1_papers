@@ -60,7 +60,7 @@ tuples work.  It's been around a long time, and people really seem to like it.
 
 In more indexing-heavy code, Boost.Hana-style concision really helps.  Say you
 have a context object `ctx` that contains a large number of tuples used to
-capture configury and transient state, and multple accessors `_foo()` that
+capture configury and transient state, and multiple accessors `_foo()` that
 return references to tuples in `ctx`:
 
 ::: tonytable
