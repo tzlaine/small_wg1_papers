@@ -23,17 +23,14 @@ monofont: "DejaVu Sans Mono"
 - Iterators are the present.  We should support generic programming, whether
   it is done in terms of pointers, a particular iterator, or an iterator type
   specified as a template parameter.
-- Pointers are important.  The fastest transcoding will always be done in
-  terms of pointers (due to the speed of SIMD operations in particular).  We
-  should support all-pointer-interface transcoding.
 - A null-terminated string should not be treated as a special case.  The
   ubiquity of such strings means that they should be treated as first-class
   strings.
-- It is common to want to view the same text as code points and code units at
-  different times.  It is therefore important that users have a convenient way
-  to access the underlying sequence of code points from a given sequence of
-  graphemes, and that they be able to access the code units underlying a given
-  sequence of code points.
+- It is common to want to view the same text as graphemes, code points, and
+  code units at different times.  It is therefore important that users have a
+  convenient way to access the underlying sequence of code points from a given
+  sequence of graphemes, and that they be able to access the code units
+  underlying a given sequence of code points.
 - Input may come from UTF-8, UTF-16, or UTF-32 strings (though UTF-32 is
   extremely uncommon in practice).  There should be a single overload of each
   function, so that the user does not need to change code when the input is
