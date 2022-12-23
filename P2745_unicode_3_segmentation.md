@@ -18,11 +18,41 @@ monofont: "DejaVu Sans Mono"
 
 # Motivation
 
-TODO
-
-- Importance of UTF-8
-- Importance of graphemes
-- Graphemes should not be tailorable
+- Ranges are the future.  We should have range-friendly ways of doing
+  transcoding.  This includes support for sentinels and lazy views.
+- Iterators are the present.  We should support generic programming, whether
+  it is done in terms of pointers, a particular iterator, or an iterator type
+  specified as a template parameter.
+- Pointers are important.  The fastest transcoding will always be done in
+  terms of pointers (due to the speed of SIMD operations in particular).  We
+  should support all-pointer-interface transcoding.
+- A null-terminated string should not be treated as a special case.  The
+  ubiquity of such strings means that they should be treated as first-class
+  strings.
+- It is common to want to view the same text as code points and code units at
+  different times.  It is therefore important that users have a convenient way
+  to access the underlying sequence of code points from a given sequence of
+  graphemes, and that they be able to access the code units underlying a given
+  sequence of code points.
+- Input may come from UTF-8, UTF-16, or UTF-32 strings (though UTF-32 is
+  extremely uncommon in practice).  There should be a single overload of each
+  function, so that the user does not need to change code when the input is
+  changed from UTF-N to UTF-M.
+- The Unicode algorithms are low-level tools that most C++ users will not need
+  to touch, even if their code needs to be Unicode-aware.  C++ users should
+  also be provided higher-level, string-like abstractions (provisionally
+  called `std::text`) that will handle all the messy Unicode details, leaving
+  C++ users to think about their program instead of Unicode).
+- UTF-8 is very important.  We expect that the vast majority of users will
+  keep their text data in UTF-8 the vast majority of the time.  It is compact,
+  it is a superset of ASCII, and it is in widespread use.
+- Graphemes are also very important.  By having C++ users operate on text
+  using graphemes as their unit of work (as opposed to code points or code
+  units), they are less likely to mutate text in such a way that
+  reader-perceived text appears broken.
+- Since graphemes should be the primary unit of work for most C++ code, all
+  parts of the code must agree on what a grapheme is.  Therefore, graphemes
+  should not be tailorable.
 
 # The shortest Unicode text segmentation primer you'll read this week
 
