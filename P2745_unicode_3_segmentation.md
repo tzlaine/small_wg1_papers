@@ -87,7 +87,7 @@ fox"`, and would produce this sequence of segments:
 
 Notice that those are not all what we normally think of as words.  In
 particular, sequences of whitespace in between what we normally think of as
-words are also counted as words.
+words, are also counted as words.
 
 Each segmentation/breaking algorithm works by looking up the
 algorithm-specific property for each code point that is processed, and then
@@ -103,7 +103,7 @@ input code points to properties.
 ## Tailoring
 
 Some of the test segmentation algorithms are tailorable.  This means that they
-allow the user to adjust how aspects of the segmentation is performed.  For
+allow the user to adjust how aspects of the segmentation are performed.  For
 instance, some languages use a space instead of `'.'` or `','` as a
 thousands-separator, as in `"1 234,56"`.  For the word break algorithm to
 treat that string as a single word, you would need to tailor the word break
@@ -276,8 +276,8 @@ namespace std::ranges {
 ```
 
 `grapheme_ref` is a non-owning reference to a sequence of code units that
-comprisse a single grapheme; each the constructors has a precondition that the
-sequence of code points it is constructed with comprise a single grapheme.
+comprise a single grapheme; each of the constructors has a precondition that
+the sequence of code points it is constructed with comprise a single grapheme.
 `grapheme_ref` is comparable with a `grapheme` (see below), and
 `grapheme_ref`s instantiated with different `I` template parameters.
 
@@ -478,10 +478,10 @@ The reason for the fourth `grapheme_view` constructor (the constrained one) is
 that is is more flexible in some cases when iterators from the `grapheme_view`
 need to be compared to other iterators.  The next section explains why.
 
-`@*as-graphemes-t*@::operator()` each return a `grapheme_view` of the
-appropriate type, except that the range overload returns `ranges::dangling{}`
-if `!is_pointer_v<remove_reference_t<R>> && !ranges::borrowed_range<R>` is
-`true`.
+The `@*as-graphemes-t*@::operator()` overloads each return a `grapheme_view`
+of the appropriate type, except that the range overload returns
+`ranges::dangling{}` if `!is_pointer_v<remove_reference_t<R>> &&
+!ranges::borrowed_range<R>` is `true`.
 
 `as_graphemes` can also be used as a range adaptor, as in `r |
 std::uc::as_graphemes`.
@@ -566,7 +566,24 @@ std::views::reverse`.
 As mentioned previously, the template and function parameters above may be
 altered slightly, as tailoring needs dictate.
 
-### Add `break_view`
+### Why grapheme breaking does not follow the general pattern
+
+The "additional pattern" descibed above does not apply to graphemes.
+Graphemes are more like the UTFs than words, lines, and sentences.  Sine they
+represent a single end-user perception of a "charater", graphemes are a unit
+of work when processing text, but they are not individually very semantically
+meaningful, like a word or a line.  The operation that produces the set of all
+graphemes in some range of text is therefore called `as_graphemes`, which
+matches the naming of `as_utfN`, rather than `graphemes`, which would be
+closer to the naming of `words`, `lines`, and `sentences`.
+
+In particular, finding the grapheme around a particular point in text is an
+uncommon operation, as opposed to finding the word or line that contains a
+particular point in the text.  Not following the pattern of `word`, `line`,
+etc., frees up `grapheme` to be used as the name of the value type for holding
+a grapheme.
+
+## Add `break_view`
 
 The view created by using `words`, `lines`, etc., is a `break_view`.
 `break_view` represents a generic text segmentation, in that it is agnostic to
@@ -655,23 +672,6 @@ subrange by constructing a `Subrange` using the elements of `seg_`.
 
 `break_view<I, S, ...>::sentinel` is `break_view<I, S, ...>::iterator` if
 `is_same<I, S>`, and `S` otherwise.
-
-### Why grapheme breaking does not follow the general pattern
-
-The "additional pattern" descibed above does not apply to graphemes.
-Graphemes are more like the UTFs than words, lines, and sentences.  Sine they
-represent a single end-user perception of a "charater", graphemes are a unit
-of work when processing text, but they are not individually very semantically
-meaningful, like a word or a line.  The operation that produces the set of all
-graphemes in some range of text is therefore called `as_graphemes`, which
-matches the naming of `as_utfN`, rather than `graphemes`, which would be
-closer to the naming of `words`, `lines`, and `sentences`.
-
-In particular, finding the grapheme around a particular point in text is a
-somewhat uncommon operation, as opposed to finding the word or line that
-contains a particular point in the text.  Not following the pattern of `word`,
-`line`, etc., frees up `grapheme` to be used as the name of the value type for
-holding a grapheme.
 
 ## Add interfaces for word breaking
 
@@ -812,7 +812,8 @@ namespace std::uc {
 }
 ```
 
-These operations have the semantics previously described.
+Except for tailoring, these operations have the semantics previously
+described.
 
 ### Tailoring word breaking
 
@@ -831,9 +832,9 @@ letter on either side, before reaching a word break first:
 ```c++
 std::string cps("out-of-the-box");
 
-// Prints "out/-/of/-/the/-/box/".
+// Prints "out|-|of|-|the|-|box|".
 for (auto range : std::uc::words(cps)) {
-    std::cout << range << "/";
+    std::cout << range << "|";
 }
 std::cout << "\n";
 
@@ -843,9 +844,9 @@ auto const custom_word_prop = [](uint32_t cp) {
     return std::uc::word_prop(cp);                // Otherwise, just use the default implementation.
 };
 
-// Prints "out-of-the-box/".
+// Prints "out-of-the-box|".
 for (auto range : std::uc::words(cps, custom_word_prop)) {
-    std::cout << range << "/";
+    std::cout << range << "|";
 }
 std::cout << "\n";
 ```
@@ -877,9 +878,9 @@ of the Unicode word break rules.
 ```c++
 std::string cps("snake_case camelCase");
 
-// Prints "snake_case   camelCase ".
+// Prints "snake_case| |camelCase|".
 for (auto range : std::uc::words(cps)) {
-    std::cout << range << " ";
+    std::cout << range << "|";
 }
 std::cout << "\n";
 
@@ -897,9 +898,9 @@ auto const identifier_break = [](uint32_t prev_prev,
     return false;
 };
 
-// Prints "snake _ case   camel Case ".
+// Prints "snake|_|case| |camel|Case|".
 for (auto range : std::uc::words(cps, std::uc::word_prop, identifier_break)) {
-    std::cout << range << " ";
+    std::cout << range << "|";
 }
 std::cout << "\n";
 ```
@@ -1143,8 +1144,8 @@ a certain width in columns, pixels, or some other distance measure.  For this
 case, we need a distance function to tell us how wide the line is so far, and
 we also need to restrict the algorithm to forward-only.  There's no way to
 efficiently do the algorithm in reverse, since each line break that is made is
-based on available space may depend on where all the previous space-dependent
-line breaks have been made.
+based on available space, and may depend on where all the previous
+space-dependent line breaks have been made.
 
 First, we need a couple of concepts.  First, one that describes the
 extent-measuring invocable that the algorithms below use to determine how long
