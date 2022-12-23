@@ -78,7 +78,7 @@ auto y = submdspan(x, sir);
 
 :::
 
-The absence of syntatcic noise when using literals is dramatic in this case.
+The absence of syntactic noise when using literals is dramatic in this case.
 With the advent of `std::mdspan` and `std::submdspan()`, longer expressions
 involving more `std::integral_constant`s are more likely to occur for more
 users.
@@ -149,7 +149,7 @@ into ill-formed code.  This is almost certainly an improvement, since it
 happens at compile time (UB is highly problematic at compile time).
 
 Since a UDL will never include a sign character, in order to be able to write
-natural-looking literals like `-42ic`, we also ned to add a unary `operator-`
+natural-looking literals like `-42ic`, we also need to add a unary `operator-`
 for `std::integral_constant`.
 
 ## A minor limitation
@@ -466,6 +466,6 @@ Add subsequent new section [meta.help.literals] after new section [meta.help.op]
 
 Add a new feature macro, `__cpp_lib_integral_constant_literals`.
 
-# Acknowledgements
+# Acknowledgments
 
 Thanks to Matthias Kretz for his thoughtful comments on this paper.
