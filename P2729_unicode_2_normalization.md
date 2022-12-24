@@ -438,16 +438,16 @@ See the section on implementation experience for why that is important.
 ```cpp
 namespace std::uc {
   template<nf Normalization, utf_iter I, sentinel_for<I> S, output_iterator<uint32_t> O>
-    O normalize(I first, S last, O out);
+    constexpr O normalize(I first, S last, O out);
 
   template<nf Normalization, utf_range_like R, output_iterator<uint32_t> O>
-    O normalize(R&& r, O out);
+    constexpr O normalize(R&& r, O out);
 
   template<nf Normalization, utf_iter I, sentinel_for<I> S>
-    bool is_normalized(I first, S last);
+    constexpr bool is_normalized(I first, S last);
 
   template<nf Normalization, utf_range_like R>
-    bool is_normalized(R&& r);
+    constexpr bool is_normalized(R&& r);
 }
 ```
 
@@ -465,13 +465,13 @@ does automatic transcoding to UTF-N, where N is implied by the size of
 ```cpp
 namespace std::uc {
   template<nf Normalization, utf_iter I, sentinel_for<I> S, utf_string String>
-    void normalize_append(I first, S last, String& s);
+    constexpr void normalize_append(I first, S last, String& s);
 
   template<nf Normalization, utf_range_like R, utf_string String>
-    void normalize_append(R&& r, String& s);
+    constexpr void normalize_append(R&& r, String& s);
 
   template<nf Normalization, utf_string String>
-    void normalize_string(String& s);
+    constexpr void normalize_string(String& s);
 }
 ```
 
@@ -517,10 +517,10 @@ namespace std::uc {
   struct replace_result : subrange<I> {
     using iterator = I;
 
-    replace_result() = default;
-    replace_result(iterator first, iterator last) : subrange<I>(first, last) {}
+    constexpr replace_result() = default;
+    constexpr replace_result(iterator first, iterator last) : subrange<I>(first, last) {}
 
-    operator iterator() const { return this->begin(); }
+    constexpr operator iterator() const { return this->begin(); }
   };
 
   enum insertion_normalization {
@@ -533,7 +533,7 @@ namespace std::uc {
     utf_string String,
     code_point_iter I,
     class StringIter = ranges::iterator_t<String>>
-  replace_result<StringIter> normalize_replace(
+  constexpr replace_result<StringIter> normalize_replace(
     String& string,
     StringIter str_first,
     StringIter str_last,
@@ -546,7 +546,7 @@ namespace std::uc {
     utf_string String,
     code_point_iter I,
     class StringIter = ranges::iterator_t<String>>
-  replace_result<StringIter> normalize_insert(
+  constexpr replace_result<StringIter> normalize_insert(
     String& string,
     StringIter at,
     I first,
@@ -558,7 +558,7 @@ namespace std::uc {
     utf_string String,
     code_point_range R,
     class StringIter = ranges::iterator_t<String>>
-  replace_result<StringIter> normalize_insert(
+  constexpr replace_result<StringIter> normalize_insert(
     String& string,
     StringIter at,
     R&& r,
@@ -568,7 +568,7 @@ namespace std::uc {
     nf Normalization,
     utf_string String,
     class StringIter = ranges::iterator_t<String>>
-  replace_result<StringIter> normalize_erase(
+  constexpr replace_result<StringIter> normalize_erase(
     String& string, StringIter str_first, StringIter str_last);
 }
 ```
