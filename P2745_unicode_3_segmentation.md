@@ -122,9 +122,205 @@ more information.
 
 # Use cases
 
-## Case 1: TODO
+## Case 1: View a UTF-N sequence as a range of graphemes
 
-TODO
+`as_graphemes()` can take input in any UTF format, just like the `as_utfN()`
+transcoding views.  Here it takes input in UTF-32, then in UTF-8.
+
+```c++
+// U+0308 COMBINING ACUTE ACCENT
+std::array<uint32_t, 3> cps = {{'a', 0x0308, 'b'}};
+
+// Prints "[0, 2) [2, 3) ".
+for (auto range : std::uc::as_graphemes(cps)) {
+    std::cout << '[' << (range.begin() - first) << ", " << (range.end() - first)
+              << ") ";
+}
+std::cout << "\n";
+
+// Prints "[2, 3) [0, 2) ".
+for (auto range : std::uc::as_graphemes(cps) | std::views::reverse) {
+    std::cout << '[' << (range.begin() - first) << ", " << (range.end() - first)
+              << ") ";
+}
+std::cout << "\n";
+
+// Equivalent to cps above, but in UTF-8.
+std::string cus = {'a', '\xcc', '\x88', 'b'};
+// Prints "[0, 3) [3, 4) ".
+for (auto range : std::uc::as_graphemes(cus)) {
+    std::cout << '[' << (range.begin() - first) << ", " << (range.end() - first)
+              << ") ";
+}
+std::cout << "\n";
+```
+
+## Case 2: Given a sequence of graphemes, get the underlying code points and code units
+
+Just as all the transcoding iterators expose their underlying iterators,
+`grapheme_iterator` exposes its underlying code point iterators.  As long as
+`grapheme_iterator`'s underlying code point iterators are transcoding
+iterators, a range of graphemes `G` provided by `std::uc` offers the code
+point representation of `G` as `[G.begin().base(), G.end().base())`, and the
+underlying code units (which will often be UTF-8) as
+`[G.begin().base().base(), G.end().base().base())`.  This is true whether or
+not `G` is a `std::ranges::common_range`.
+
+```c++
+auto graphemes = std::uc::as_graphemes(/* ... */);
+
+// [graphemes_first, graphemes_last) is a range of graphemes.
+auto graphemes_first = graphemes.begin();
+auto graphemes_last = graphemes.end();
+
+// [cps_first, cps_last) is a range of code points; they are the same code points
+// that comprise the graphemes in [graphemes_first, graphemes_last)
+auto cps_first = graphemes_first.base();
+auto cps_last = graphemes_last.base();
+
+// [cus_first, cus_last) is a range of code units; they are the same code units
+// that comprise the graphemes in [graphemes_first, graphemes_last)
+auto cus_first = cps_first.base(); // or graphemes.begin().base().base()
+auto cus_last = cps_last.base();   // or graphemes.end().base().base()
+```
+
+## Case 3: Get a reference to a particular grapheme
+
+```c++
+template<typename I, typename S>
+std::uc::grapheme_ref<I> find_foo(std::uc::grapheme_view<I, S> graphemes)
+{
+    for (auto grapheme : graphemes) {
+        if (is_foo(grapheme)) {
+            return grapheme;
+        }
+    }
+    return {};
+}
+
+/* ... */ some_text() { /* ... */ }
+
+void somewhere_else()
+{
+    // This is safe to do; if std::uc::as_graphemes() is passed a temporary, it returns
+    // std::ranges::dangling, rendering the code in find_foo() ill-formed.
+    auto grapheme = find_foo(std::uc::as_graphemes(some_text()));
+
+    // Use grapheme here....
+}
+```
+
+## Case 4: Save the bytes in a `grapheme_ref` off for later use
+
+Getting a reference to a grapheme is useful in cases like searching, but what
+if you want to save a grapheme's bytes for later examination?  `grapheme_ref`
+is unsuitable for this, since it's a reference-semantic type.  `grapheme` acts
+as a simple type for holding just enought bytes to form a grapheme.
+
+```c++
+// Using the definition above.
+template<typename I, typename S>
+std::uc::grapheme_ref<I> find_foo(std::uc::grapheme_view<I, S> graphemes);
+
+/* ... */ some_text() { /* ... */ }
+
+void append_first_foo(std::vector<std::uc::grapheme> foos)
+{
+    auto grapheme = find_foo(std::uc::as_graphemes(some_text()));
+    if (!grapheme.empty())
+        foos.push_back(grapheme);
+}
+```
+
+## Case 5: Print the second-to-last word in some text
+
+All the text segmentation algorithms come in view-adaptor flavors, and are
+reversible.
+
+```c++
+std::string str("The quick (\"brown\") fox can’t jump 32.3 feet, right?");
+
+// Prints "right".
+int count = 0;
+for (auto word : str | std::uc::words | std::views::reverse) {
+    if (count++ == 1)
+        std::print(word);
+}
+```
+
+## Case 6: Print the third sentence in some text
+
+```c++
+int count = 0;
+for (auto sentence : some_text | std::uc::sentences) {
+    if (count++ == 3)
+        std::print(sentence);
+}
+```
+
+## Case 7: Print the third line in some text, where lines are delimited by newlines
+
+If you want to know where lines are in some text, and you only care about
+newlines as line boundaries, you can do this:
+
+```c++
+int count = 0;
+for (auto line : some_text | std::uc::lines) {
+    if (count++ == 3)
+        std::print(line);
+}
+```
+
+## Case 8: Print the third line in some text, based on "word wrapping"
+
+To find candidate locations for breaking lines at places other than after
+newlines, you need something more than `std::uc::lines`.  There are overloads
+that make it convenient to write simple code that selects an allowed break
+based on available space. The available space, and the amount of space taken
+up by each chunk of code points, is user-configurable. There is an overload of
+lines() that takes the amount of space and a callable that determines the
+space used by some sequence of code points. Each chunk contains the code
+points between allowed breaks. If a chunk would exceed available space, the
+allowed break immediately before that chunk is used:
+
+```c++
+std::string const str =
+    "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod "
+    "tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim "
+    "veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea "
+    "commodo consequat. Duis aute irure dolor in reprehenderit in voluptate "
+    "velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint "
+    "occaecat cupidatat non proident, sunt in culpa qui officia deserunt "
+    "mollit anim id est laborum.";
+
+/* Prints:
+************************************************************
+Lorem ipsum dolor sit amet, consectetur adipiscing elit,
+sed do eiusmod tempor incididunt ut labore et dolore magna
+aliqua. Ut enim ad minim veniam, quis nostrud exercitation
+ullamco laboris nisi ut aliquip ex ea commodo consequat.
+Duis aute irure dolor in reprehenderit in voluptate velit
+esse cillum dolore eu fugiat nulla pariatur. Excepteur sint
+occaecat cupidatat non proident, sunt in culpa qui officia
+deserunt mollit anim id est laborum.
+************************************************************
+*/
+std::cout << "************************************************************\n";
+for (auto line : std::uc::lines(
+         str,
+         60,
+         [](std::string::iterator first, std::string::iterator last) -> std::ptrdiff_t {
+             // std::uc::estimated_width() is the width determination logic
+             // std::format() uses.  However, users can use anything here,
+             // even the width of individual code points in a particular font.
+             return std::uc::estimated_width(first, last);
+         })) {
+    std::cout << line;
+    if (!line.hard_break())
+        std::cout << "\n";
+}
+std::cout << "************************************************************\n";
+```
 
 # Proposed design
 
@@ -1505,4 +1701,7 @@ TODO
 
 # Implementation experience
 
-TODO
+All the interfaces proposed here have been implemented over the last 5 years
+or so.  They are part of a proposed (but not yet accepted!) Boost library,
+[Boost.Text](https://github.com/tzlaine/text).  All of the implementations of
+the interfaces in this paper were straightforward.
