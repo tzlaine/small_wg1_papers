@@ -1693,11 +1693,59 @@ Add the feature test macro `__cpp_lib_unicode_text_segmentation`.
 
 ## Design notes
 
-- .base()/.base().base()
+The use of `base()` is an important pattern.  The fact that all the
+transcoding iterators and `grapheme_iterator` have `base()` members means that
+you can always get from grapheme-level iteration to code-point-level
+iteration, and from code-point-level iteration to code-unit-level iteration
+(almost).  The "almost" is there becasue of one case: if you start from
+UTF-32, your `grapheme_iterator` will still have a valid `base()`, but the
+resulting iterator probably will not.  For example, `int *` -- a UTF-32
+iteator -- has no `base()` member, of course.  However, UTF-32 inputs are rare
+in practice.  More than 99% of strings in real code will be UTF-8 or UTF-16.
+Most code can reliably depend on the `.base().base()` pattern of access.
 
-- why subranges are always done in terms of CPs
+The use of `.base()` and/or `.base().base()` means that users can deal with
+graphemes most or all of the time in their code, while still retaining the
+ability to look at code points or code units as necessary.  As a concrete
+example, the user may want to remove the first "character" from a string,
+ensuring that she does not chop a grapheme.  In order to do this, all she
+needs to do is:
 
-TODO
+```c++
+std::string str = /* ... */;
+auto graphemes = std::uc::as_graphemes(str);
+assert(!graphemes.empty());
+auto const first = graphemes.begin();
+str.erase(first.base().base(), std::next(first).base().base());
+
+#if 0 // or, equivalently:
+auto const front = graphemes.front();
+str.erase(front.begin().base(), front.end().base());
+#endif
+```
+
+This code works whether the end of the sequence is `std::uc::null_sentinel` or
+not.
+
+Best of all, `.base().base()` is often extremely cheap -- in the example
+above, it boils down to getting a `std::string::iterator` data member out of
+the `grapheme_iterator`.
+
+The functions that return subranges all produce subranges of code point
+iterators (e.g. `std::uc::as_graphemes()`, which returns a `grapheme_view`).
+This may seem a bit odd, given that other functions return the `utf_iter` that
+was given to the function as input (e.g. `std::uc::prev_grapheme_break<I, S>()`,
+which returns an `I`).  This is done as a matter of convenience.  If you
+search for a point within some text with an iterator of type `I`, you should
+get a search result that is also an `I`.  However, subranges are always done
+in terms of code points.
+
+Things are done this way because all the breaking algorithms operate on code
+points, so the resulting subranges are subranges of code points.  For each
+subrange `sr`, you can always get the underlying code unit iterators by
+calling `sr.begin().base()` and `sr.end().base()`.  If we returned some range
+of code unit iterators, getting back to a code point view would be a lot more
+work.
 
 # Implementation experience
 
