@@ -174,7 +174,7 @@ void g(X<T> x)
 ```
 
 `constexpr_t` and `c` solve all the same problems as are solved by
-`integral_type` (with slightly different spelling), plus more -- the last two
+`integral_type` (with slightly different spelling), plus more -- the last four
 calls to `X::f()` don't work with the literals alone.
 
 ## Options for writing `std::integral_constant` literals
