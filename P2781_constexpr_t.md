@@ -140,12 +140,12 @@ Now we can write this.
 template<typename T>
 void g(X<T> x)
 {
-    x.f(std::constexpr_t<1>{});
-    x.f(std::constexpr_t<2uz>{});
-    x.f(std::constexpr_t<3.0>{});
-    x.f(std::constexpr_t<4.f>{});
-    x.f(std::constexpr_t<foo>{});
-    x.f(std::constexpr_t<my_complex(1.f, 1.f)>{});
+    x.f(std::constexpr_t<int, 1>{});
+    x.f(std::constexpr_t<std::size_t, 2uz>{});
+    x.f(std::constexpr_t<double, 3.0>{});
+    x.f(std::constexpr_t<float, 4.f>{});
+    x.f(std::constexpr_t<short, foo>{});
+    x.f(std::constexpr_t<my_complex, my_complex(1.f, 1.f)>{});
 }
 ```
 
