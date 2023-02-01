@@ -1,6 +1,6 @@
 ---
 title: "`std::iterator_interface`"
-document: P2727R0
+document: P2727R1
 date: 2022-11-20
 audience:
   - LEWG-I
@@ -12,6 +12,15 @@ toc: true
 monofont: "DejaVu Sans Mono"
 
 ---
+
+# Changelog
+
+## Changes since R0
+
+- Added discussion about nested typedefs in dependent-base cases.
+- Added an alternate name.
+- Added discussion about performance.
+- Typos.
 
 # Motivation
 
@@ -909,7 +918,93 @@ same meaning here as they do in the previous table.
 |                                                 | `++i` \                   |
 |                                                 | `--i`                     |
 +-------------------------------------------------+---------------------------+
-| `random_access_iterator`/`contiguous_iterator` | `*i` \                    |
+| `random_access_iterator`/`contiguous_iterator`  | `*i` \                    |
 |                                                 | `i - i2` \                |
 |                                                 | `i += n`                  |
 +-------------------------------------------------+---------------------------+
+
+### Nested typedefs in the dependent-base case
+
+During the 2023-01-17 Library Evolution telecon, a question was raised about
+whether the nested typedefs provided by `iterator_interface`
+(`iterator_category`, etc.) would be defined in the derived iterator type, if
+the `iterator_interface` base class depended on a template parameter.  It
+turns out they do, as far as I can tell.  I already had at least one such
+dependent-base-class type in my unit tests for Boost.STLInterfaces, and I
+added another.  Here is the code:
+
+```c++
+template<typename ValueType>
+struct basic_random_access_iter_dependent
+    : boost::stl_interfaces::iterator_interface<
+          basic_random_access_iter_dependent<ValueType>,
+          std::random_access_iterator_tag,
+          ValueType>
+{
+    basic_random_access_iter_dependent() {}
+    basic_random_access_iter_dependent(ValueType * it) : it_(it) {}
+
+    ValueType & operator*() const { return *it_; }
+    basic_random_access_iter_dependent & operator+=(std::ptrdiff_t i)
+    {
+        it_ += i;
+        return *this;
+    }
+    friend std::ptrdiff_t operator-(
+        basic_random_access_iter_dependent lhs,
+        basic_random_access_iter_dependent rhs) noexcept
+    {
+        return lhs.it_ - rhs.it_;
+    }
+
+private:
+    ValueType * it_;
+};
+
+using basic_random_access_iter_dependent_category =
+    basic_random_access_iter_dependent<int>::iterator_category;
+
+BOOST_STL_INTERFACES_STATIC_ASSERT_CONCEPT(
+    basic_random_access_iter_dependent<int>, std::random_access_iterator)
+BOOST_STL_INTERFACES_STATIC_ASSERT_ITERATOR_TRAITS(
+    basic_random_access_iter_dependent<int>,
+    std::random_access_iterator_tag,
+    std::random_access_iterator_tag,
+    int,
+    int &,
+    int *,
+    std::ptrdiff_t)
+```
+
+This code is well-formed when built with GCC 12 in C++20 mode.  The `using
+basic_random_access_iter_dependent_category` line indicates explicitly that
+the `iterator_category` is visible.  The following macro lines do so
+implicitly -- those are peace-of-mind macros that check that your iterator
+meets the requirements expected by the STL.
+
+### The name `iterator_interface`
+
+Also during the 2023-01-17 Library Evolution telecon, someone suggested the
+alternate name `iterator_facade`.  I have received no other recommendations
+for alternate names.  LEWG may want to poll on which of these two names it
+prefers.
+
+# Performance
+
+This library's goal is not to provide high performance, so much as it is to
+provide convenience -- to make iterators easy to write.
+
+However, this library is unlikely to have much impact on performance, since
+`iterator_interface`'s operations are all short inline functions that simply
+forward to a provided operation.  Optimizers are pretty good at optimizing
+away function calls like that.
+
+As with any performance claim, this should be verified via measurement.  Since
+the provided operations come from outside `iterator_interface`, measuring any
+one (or N) specializations of `iterator_interface` will not give the full
+story of all possible performance scenarios.  So, I have not tried to
+characterize the performance cost of using `iterator_interface` here.
+
+Users that require maximum performance should of course measure the
+performance of their code that uses `iterator_interface`, and, if it is found
+wanting, reimplement their code without using `iterator_interface`.
