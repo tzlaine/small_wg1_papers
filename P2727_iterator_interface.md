@@ -982,6 +982,33 @@ the `iterator_category` is visible.  The following macro lines do so
 implicitly -- those are peace-of-mind macros that check that your iterator
 meets the requirements expected by the STL.
 
+However, the names of typedefs like `iterator_category` is unavailable
+*inside* the definition of an iterator like
+`basic_random_access_iter_dependent`.  So, If I had used `iterator_category`
+directly when writing it, like this:
+
+```c++
+template<typename ValueType>
+struct basic_random_access_iter_dependent
+    : boost::stl_interfaces::iterator_interface<
+          basic_random_access_iter_dependent<ValueType>,
+          std::random_access_iterator_tag,
+          ValueType>
+{
+    static_assert(iterator_category == std::random_access_iterator_tag);
+
+    basic_random_access_iter_dependent() {}
+    // etc.
+};
+```
+
+... the `static_assert` would have been ill-formed.
+
+This is less-than-ideal ergonomically, but it cannot be helped by changing the
+definition of `iterator_interface`.  You can work around this shortcoming by
+repeating the typedefs in your derived iterator type's definition, or by
+avoiding the use of those typedefs directly.
+
 ### The name `iterator_interface`
 
 Also during the 2023-01-17 Library Evolution telecon, someone suggested the
