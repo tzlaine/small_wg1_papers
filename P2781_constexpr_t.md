@@ -470,6 +470,15 @@ character.  Without this, you could not write natural-looking literals like
 namespace std {
   template<class T, T X>
     requires same_as<remove_cvref_t<T>, T>
+      struct constexpr_t;
+
+  template<class T>
+    constexpr bool @*not-constexpr-t*@ = true;                      // @*exposition only*@
+  template<class T, T X>
+    constexpr bool @*not-constexpr-t*@<constexpr_t<T, X>> = false;  // @*exposition only*@
+
+  template<class T, T X>
+    requires same_as<remove_cvref_t<T>, T>
   struct constexpr_t
   {
     static constexpr T value = X;
@@ -502,49 +511,49 @@ namespace std {
       friend constexpr constexpr_t<decltype(X << U::value), (X << U::value)>
         operator<<(constexpr_t, U) { return {}; }
     template<class U>
-      requires not_constexpr_t<U>
+      requires @*not-constexpr-t*@<U>
         friend constexpr constexpr_t<decltype(U::value << X), (U::value << X)>
           operator<<(U, constexpr_t) { return {}; }
     template<class U>
       friend constexpr constexpr_t<decltype(X >> U::value), (X >> U::value)>
         operator>>(constexpr_t, U) { return {}; }
     template<class U>
-      requires not_constexpr_t<U>
+      requires @*not-constexpr-t*@<U>
         friend constexpr constexpr_t<decltype(U::value >> X), (U::value >> X)>
           operator>>(U, constexpr_t) { return {}; }
     template<class U>
       friend constexpr constexpr_t<decltype(X * U::value), (X * U::value)>
         operator*(constexpr_t, U) { return {}; }
     template<class U>
-      requires not_constexpr_t<U>
+      requires @*not-constexpr-t*@<U>
         friend constexpr constexpr_t<decltype(U::value * X), (U::value * X)>
           operator*(U, constexpr_t) { return {}; }
     template<class U>
       friend constexpr constexpr_t<decltype(X / U::value), (X / U::value)>
         operator/(constexpr_t, U) { return {}; }
     template<class U>
-      requires not_constexpr_t<U>
+      requires @*not-constexpr-t*@<U>
         friend constexpr constexpr_t<decltype(U::value / X), (U::value / X)>
           operator/(U, constexpr_t) { return {}; }
     template<class U>
       friend constexpr constexpr_t<decltype(X % U::value), (X % U::value)>
         operator%(constexpr_t, U) { return {}; }
     template<class U>
-      requires not_constexpr_t<U>
+      requires @*not-constexpr-t*@<U>
         friend constexpr constexpr_t<decltype(U::value % X), (U::value % X)>
           operator%(U, constexpr_t) { return {}; }
     template<class U>
       friend constexpr constexpr_t<decltype(X + U::value), (X + U::value)>
         operator+(constexpr_t, U) { return {}; }
     template<class U>
-      requires not_constexpr_t<U>
+      requires @*not-constexpr-t*@<U>
         friend constexpr constexpr_t<decltype(U::value + X), (U::value + X)>
           operator+(U, constexpr_t) { return {}; }
     template<class U>
       friend constexpr constexpr_t<decltype(X - U::value), (X - U::value)>
         operator-(constexpr_t, U) { return {}; }
     template<class U>
-      requires not_constexpr_t<U>
+      requires @*not-constexpr-t*@<U>
         friend constexpr constexpr_t<decltype(U::value - X), (U::value - X)>
           operator-(U, constexpr_t) { return {}; }
 
@@ -552,49 +561,49 @@ namespace std {
       friend constexpr constexpr_t<decltype(X < U::value), (X < U::value)>
         operator<(constexpr_t, U) { return {}; }
     template<class U>
-      requires not_constexpr_t<U>
+      requires @*not-constexpr-t*@<U>
         friend constexpr constexpr_t<decltype(U::value < X), (U::value < X)>
           operator<(U, constexpr_t) { return {}; }
     template<class U>
       friend constexpr constexpr_t<decltype(X > U::value), (X > U::value)>
         operator>(constexpr_t, U) { return {}; }
     template<class U>
-      requires not_constexpr_t<U>
+      requires @*not-constexpr-t*@<U>
         friend constexpr constexpr_t<decltype(U::value > X), (U::value > X)>
           operator>(U, constexpr_t) { return {}; }
     template<class U>
       friend constexpr constexpr_t<decltype(X <= U::value), (X <= U::value)>
         operator<=(constexpr_t, U) { return {}; }
     template<class U>
-      requires not_constexpr_t<U>
+      requires @*not-constexpr-t*@<U>
         friend constexpr constexpr_t<decltype(U::value <= X), (U::value <= X)>
           operator<=(U, constexpr_t) { return {}; }
     template<class U>
       friend constexpr constexpr_t<decltype(X >= U::value), (X >= U::value)>
         operator>=(constexpr_t, U) { return {}; }
     template<class U>
-      requires not_constexpr_t<U>
+      requires @*not-constexpr-t*@<U>
         friend constexpr constexpr_t<decltype(U::value >= X), (U::value >= X)>
           operator>=(U, constexpr_t) { return {}; }
     template<class U>
       friend constexpr constexpr_t<decltype(X == U::value), (X == U::value)>
         operator==(constexpr_t, U) { return {}; }
     template<class U>
-      requires not_constexpr_t<U>
+      requires @*not-constexpr-t*@<U>
         friend constexpr constexpr_t<decltype(U::value == X), (U::value == X)>
           operator==(U, constexpr_t) { return {}; }
     template<class U>
       friend constexpr constexpr_t<decltype(X != U::value), (X != U::value)>
         operator!=(constexpr_t, U) { return {}; }
     template<class U>
-      requires not_constexpr_t<U>
+      requires @*not-constexpr-t*@<U>
         friend constexpr constexpr_t<decltype(U::value != X), (U::value != X)>
           operator!=(U, constexpr_t) { return {}; }
     template<class U>
       friend constexpr constexpr_t<decltype(X <=> U::value), (X <=> U::value)>
         operator<=>(constexpr_t, U) { return {}; }
     template<class U>
-      requires not_constexpr_t<U>
+      requires @*not-constexpr-t*@<U>
         friend constexpr constexpr_t<decltype(U::value <=> X), (U::value <=> X)>
           operator<=>(U, constexpr_t) { return {}; }
 
@@ -602,35 +611,35 @@ namespace std {
       friend constexpr constexpr_t<decltype(X && U::value), (X && U::value)>
         operator&&(constexpr_t, U) { return {}; }
     template<class U>
-      requires not_constexpr_t<U>
+      requires @*not-constexpr-t*@<U>
         friend constexpr constexpr_t<decltype(U::value && X), (U::value && X)>
           operator&&(U, constexpr_t) { return {}; }
     template<class U>
       friend constexpr constexpr_t<decltype(X || U::value), (X || U::value)>
         operator||(constexpr_t, U) { return {}; }
     template<class U>
-      requires not_constexpr_t<U>
+      requires @*not-constexpr-t*@<U>
         friend constexpr constexpr_t<decltype(U::value || X), (U::value || X)>
           operator||(U, constexpr_t) { return {}; }
     template<class U>
       friend constexpr constexpr_t<decltype(X & U::value), (X & U::value)>
         operator&(constexpr_t, U) { return {}; }
     template<class U>
-      requires not_constexpr_t<U>
+      requires @*not-constexpr-t*@<U>
         friend constexpr constexpr_t<decltype(U::value & X), (U::value & X)>
           operator&(U, constexpr_t) { return {}; }
     template<class U>
       friend constexpr constexpr_t<decltype(X | U::value), (X | U::value)>
         operator|(constexpr_t, U) { return {}; }
     template<class U>
-      requires not_constexpr_t<U>
+      requires @*not-constexpr-t*@<U>
         friend constexpr constexpr_t<decltype(U::value | X), (U::value | X)>
           operator|(U, constexpr_t) { return {}; }
     template<class U>
       friend constexpr constexpr_t<decltype(X ^ U::value), (X ^ U::value)>
         operator^(constexpr_t, U) { return {}; }
     template<class U>
-      requires not_constexpr_t<U>
+      requires @*not-constexpr-t*@<U>
         friend constexpr constexpr_t<decltype(U::value ^ X), (U::value ^ X)>
           operator^(U, constexpr_t) { return {}; }
 
@@ -638,14 +647,14 @@ namespace std {
       friend constexpr constexpr_t<decltype(X , U::value), (X , U::value)>
         operator,(constexpr_t, U) { return {}; }
     template<class U>
-      requires not_constexpr_t<U>
+      requires @*not-constexpr-t*@<U>
         friend constexpr constexpr_t<decltype(U::value , X), (U::value , X)>
           operator,(U, constexpr_t) { return {}; }
     template<class U>
       friend constexpr constexpr_t<decltype(X ->* U::value), (X ->* U::value)>
         operator->*(constexpr_t, U) { return {}; }
     template<class U>
-      requires not_constexpr_t<U>
+      requires @*not-constexpr-t*@<U>
         friend constexpr constexpr_t<decltype(U::value ->* X), (U::value ->* X)>
           operator->*(U, constexpr_t) { return {}; }
 
