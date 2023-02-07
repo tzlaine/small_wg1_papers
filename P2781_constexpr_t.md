@@ -1,6 +1,6 @@
 ---
 title: "`std::integral_constant` Literals and `std::constexpr_t`"
-document: D2781R0
+document: P2781R0
 date: 2023-01-28
 audience:
   - LEWG-I
