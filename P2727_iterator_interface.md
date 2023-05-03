@@ -1,6 +1,6 @@
 ---
 title: "`std::iterator_interface`"
-document: P2727R1
+document: P2727R2
 date: 2022-11-20
 audience:
   - LEWG-I
@@ -21,6 +21,17 @@ monofont: "DejaVu Sans Mono"
 - Added an alternate name.
 - Added discussion about performance.
 - Typos.
+
+## Changes since R1
+
+Changes recommended by the 2023-03-21 LEWG telecon review, and the subsequent
+reflector discussion:
+
+- Change how (and whether) `iterator_category` is defined.
+- Disable `operator->` when the user specifies `void` for `Pointer`, or when
+  `Reference` is not a language reference.
+- Add support for `operator<=>`.
+- Return `void` from `operator++(int)` for input iterators.
 
 # Motivation
 
@@ -625,12 +636,21 @@ template<typename D, typename DifferenceType>
   concept @*has-plus-eq*@ =                             // @*exposition only*@
     requires (D d) { d += DifferenceType(1); };
 
-template<typename Pointer, typename T>
+template<typename D>
+  concept @*base-3way*@ =                               // @*exposition only*@
+    requires (D d) { iterator_interface_access::base(d) <=> iterator_interface_access::base(d); };
+
+template<typename D, typename DifferenceType>
+  concept @*iter-sub*@ = requires (D d) {               // @*exposition only*@
+    {d - d} -> convertible_to<DifferenceType>;
+  };
+
+template<typename Pointer, typename Reference, typename T>
   requires is_pointer_v<Pointer>
     decltype(auto) @*make-iterator-pointer*@(T&& value) // @*exposition only*@
       { return addressof(value); }
 
-template<typename Pointer, typename T>
+template<typename Pointer, typename Reference, typename T>
   auto @*make-iterator-pointer*@(T&& value)             // @*exposition only*@
     { return Pointer(std::forward<T>(value)); }
 
@@ -654,7 +674,7 @@ private:
 
 public:
   using iterator_concept = IteratorConcept;
-  using iterator_category = iterator_concept;
+  using iterator_category = @*see below*@;
   using value_type = remove_const_t<ValueType>;
   using reference = Reference;
   using pointer = conditional_t<
@@ -673,11 +693,11 @@ public:
     }
 
   constexpr auto operator->()
-    requires requires (D d) { *d; } {
+    requires (!same_as<pointer, void> && is_reference_v<reference> && requires (D d) { *d; }) {
       return @*make-iterator-pointer*@<pointer>(*derived());
     }
   constexpr auto operator->() const
-    requires requires (const D d) { *d; } {
+    requires (!same_as<pointer, void> && is_reference_v<reference> && requires (D d) { *d; }) {
       return @*make-iterator-pointer*@<pointer>(*derived());
     }
 
@@ -695,13 +715,17 @@ public:
         return derived();
       }
   constexpr decltype(auto) operator++()
-    requires requires (D d) { d += difference_type(1); } {
+    requires @*has-plus-eq*@<D, difference_type> {
       return derived() += difference_type(1);
     }
   constexpr auto operator++(int) requires requires (D d) { ++d; } {
-    D retval = derived();
-    ++derived();
-    return retval;
+    if constexpr (is_same_v<IteratorConcept, input_iterator_tag>){
+      ++derived();
+    } else {
+      D retval = derived();
+      ++derived();
+      return retval;
+    }
   }
   constexpr decltype(auto) operator+=(difference_type n)
     requires requires (D d) { iterator_interface_access::base(d) += n; } {
@@ -747,24 +771,54 @@ public:
       return it += -n;
     }
 
+  friend constexpr auto operator<=>(D lhs, D rhs)
+    requires @*base-3way*@<D> || @*iter-sub*@<D> {
+      if constexpr (@*base-3way*@<D>) {
+        return iterator_interface_access::base(lhs) <=> iterator_interface_access::base(rhs);
+      } else {
+        difference_type const diff = rhs - lhs;
+        return diff < difference_type(0) ? strong_ordering::less :
+          difference_type(0) < diff ? strong_ordering::greater :
+          strong_ordering::equal;
+      }
+    }
   friend constexpr bool operator<(D lhs, D rhs)
-    requires equality_comparable<D> {
+    requires @*iter-sub*@<D> {
       return (lhs - rhs) < typename D::difference_type(0);
     }
   friend constexpr bool operator<=(D lhs, D rhs)
-    requires equality_comparable<D> {
+    requires @*iter-sub*@<D> {
       return (lhs - rhs) <= typename D::difference_type(0);
     }
   friend constexpr bool operator>(D lhs, D rhs)
-    requires equality_comparable<D> {
+    requires @*iter-sub*@<D> {
       return (lhs - rhs) > typename D::difference_type(0);
     }
   friend constexpr bool operator>=(D lhs, D rhs)
-    requires equality_comparable<D> {
+    requires @*iter-sub*@<D> {
       return (lhs - rhs) >= typename D::difference_type(0);
     }
 };
 ```
+
+The nested type `iterator_category` is defined if and only if
+`IteratorConcept` is derived from `forward_iterator_tag`.  In that case,
+`iterator_category` is defined as follows:
+
+- If `is_reference_v<ReferenceType>` is `false`, `iterator_category` denotes
+  `input_iterator_tag`.
+
+- Otherwise, if `derived_from<IteratorConcept, random_access_iterator_tag>` is
+  `true`, `iterator_category` denotes `random_access_iterator_tag`.
+
+- Otherwise, if `derived_from<IteratorConcept, bidirectional_iterator_tag>` is
+  `true`, `iterator_category` denotes `bidirectional_iterator_tag`.
+
+- Otherwise, `iterator_category` denotes `forward_iterator_tag`.
+
+Note that this follows the semantics of `zip_transform_view::iterator`; see
+https://eel.is/c++draft/range.zip.transform.iterator#1 .
+
 
 ## Add `operator==` overload
 
@@ -798,19 +852,17 @@ undoubtedly already has it (unless it's an output iterator, of course).
 template<typename D1, typename D2>
   concept @*base-iter-comparable*@ =              // @*exposition only*@
     requires (D1 d1, D2 d2) {
-      iterator_interface_access::base(d1) ==
-      iterator_interface_access::base(d2);
+      iterator_interface_access::base(d1) == iterator_interface_access::base(d2);
     };
 
 template<typename D1, typename D2>
   constexpr bool operator==(D1 lhs, D2 rhs)
     requires (is_convertible_v<D2, D1> || is_convertible_v<D1, D2>) &&
-             (@*base-iter-comparable*@<D1, D2> ||
-              requires (D1 d) { d - d; }) {
+             (@*base-iter-comparable*@<D1, D2> || @*iter-sub*@<D1>) {
       if constexpr (@*base-iter-comparable*@<D1, D2>) {
         return (iterator_interface_access::base(lhs) ==
                 iterator_interface_access::base(rhs));
-      } else if constexpr (requires (D1 d) { d - d; }) {
+      } else if constexpr (@*iter-sub*@<D1>) {
         return (lhs - rhs) == typename D1::difference_type(0);
       }
     }
@@ -839,6 +891,42 @@ using proxy_iterator_interface = iterator_interface<
 ## Add a feature test macro
 
 Add the feature test macro `__cpp_lib_iterator_interface`.
+
+## Incompatibility of input iterators with non-`ranges` algorithms
+
+Based on LEWG telecon and reflector feedback, I changed the way
+`iterator_interface` works in the input iterator case.  In particular,
+`operator++(int)` now returns `void`, and there is no `iterator_category`
+nested type.
+
+This breaks use of non-`ranges` algorithms.  Given input iterators `it` and
+`end` of some type `I` made using `iterator_interface`, `std::copy(it, end,
+/*...*/)` is ill-formed, though `std::ranges::copy(it, end, /*...*/)` works
+fine.
+
+I consider this to be a design defect.  I was careful to make
+`iterator_interface` in such a way that it works with `ranges` and
+pre-`ranges` algorithms alike, and this is no longer true for the input
+iterator case.  There are likely more pre-`ranges` algorithms out there than
+`ranges` ones, including a significant number that do not appear in the
+standard.
+
+The design presented here adheres very closely to the `std::input_iterator`
+concept in the input iterator case.  That is, it tries not to provide any API
+outside of that concept -- that's why `operator++(int)` returns `void` and why
+it does not define `iterator_category`.
+
+The `void`-return for `operator++(int)` exists because an input iterator is
+not required to be copyable, according to the `std::input_iterator` concept.
+For a given iterator type `I` made using `iterator_interface`, if `I` is
+copyable, we could detect that and make `operator++(int)` do the same thing it
+does for all the other iterator categories, and return `I`.  It would still
+model the `std::input_iterator` concept.
+
+It would also still model the `std::input_iterator` concept if we defined
+`iterator_category` unconditionally.
+
+This requires discussion and a poll.
 
 ## Design notes
 
