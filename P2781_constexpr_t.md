@@ -30,8 +30,8 @@ monofont: "DejaVu Sans Mono"
 ## Changes since R1
 
 - Remove the `constexpr_value` concept.
-- Use an `auto` NTTP parameter for `constexpr_v`, instead of split type and
-  non-type template parameters
+- Use an `auto` NTTP parameter for `constexpr_v`, and default its type
+  template parameter.
 - Reduce the number of naming options.
 
 # Relationship to previous work
