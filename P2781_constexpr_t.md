@@ -38,7 +38,7 @@ monofont: "DejaVu Sans Mono"
 
 This paper is co-authored by the authors of P2725R1
 ("`std::integral_constant` Literals") and P2772R0
-("`std::integral_constant` literals do not suffice — `constexpr_v`?").  This
+("`std::integral_constant` literals do not suffice — `constexpr_t`?").  This
 paper supersedes both of those previous papers.
 
 # The ergonomics of `std::integral_constant<int>` are bad
