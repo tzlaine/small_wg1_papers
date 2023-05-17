@@ -69,7 +69,7 @@ auto y = submdspan(x, std::strided_index_range{
 
 The "after" case above would require that `std::strided_index_range` be
 changed; that is not being proposed here.  The point of the example is to show
-the releative convenience of `std::integral_constant` versus the proposed
+the relative convenience of `std::integral_constant` versus the proposed
 `std::constexpr_v`.
 
 ## Replacing the uses of `std::integral_constant` is not enough
