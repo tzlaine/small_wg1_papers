@@ -107,7 +107,7 @@ holds a `constexpr` value that it is given as an non-type template parameter.
 
 ```c++
 namespace std {
-  template<auto X>
+  template<auto X, class/* = decltype(X)*/>
   struct constexpr_v
   {
     using value_type = decltype(X);
@@ -160,6 +160,22 @@ void g(X<T> x)
 }
 ```
 
+## The difference in template parameters to `std::constexpr_v` and `std::c_`
+
+`std::c_` takes an `auto` NTTP.  `std::constexpr_v` takes an `auto` NTTP `X`,
+and a type `T` which is defaulted to `decltype(X)`.  Why is this?  ADL!  Even
+thought the type of `X` is deduced with our without `T`, without `T` some
+natural uses of `constexpr_v` cease to work.  For instance:
+
+```c++
+auto f = std::c_<strlit("foo")>; // Using the strlit from later in this paper.
+std::cout << f << "\n";
+```
+
+The stream insertion breaks without the `T` parameter.  The `T` parameter is
+`strlit</*...*/>`, which pulls `strlit`'s `operator<<` into consideration
+during ADL.
+
 # Making `constexpr_v` more useful
 
 `constexpr_v` is essentially a wrapper.  It takes a value `X` of some
@@ -177,9 +193,8 @@ might wrap.
 
 ```c++
 namespace std {
-  template<auto X>
-  struct constexpr_v
-  {
+  template<auto X, class/* = decltype(X)*/>
+  struct constexpr_v {
     using value_type = decltype(X);
     using type = constexpr_v;
 
@@ -402,15 +417,15 @@ happens to use it from breaking.
 
 ```c++
 namespace std {
-  template<auto X>
+  template<auto X, class = decltype(X)>
     struct constexpr_v;
 
   template<class T>
-    constexpr bool @*not-constexpr-v*@ = true;                   // @*exposition only*@
-  template<auto X>
-    constexpr bool @*not-constexpr-v*@<constexpr_v<X>> = false;  // @*exposition only*@
+    constexpr bool @*not-constexpr-v*@ = true;                      // @*exposition only*@
+  template<auto X, class T>
+    constexpr bool @*not-constexpr-v*@<constexpr_v<X, T>> = false;  // @*exposition only*@
 
-  template<auto X>
+  template<auto X, class>
   struct constexpr_v {
     using value_type = decltype(X);
     using type = constexpr_v;
@@ -656,7 +671,7 @@ Add the following to [meta.type.synop], after `false_type`:
 :::add
 
 ```
-template<auto X>
+template<auto X, class = decltype(X)>
   struct constexpr_v;
 
 template<class T>
@@ -675,7 +690,7 @@ Add the following to [meta.help], after `integral_constant`:
 :::add
 
 ```c++
-template<auto X>
+template<auto X, class>
 struct constexpr_v {
   using value_type = decltype(X);
   using type = constexpr_v;
