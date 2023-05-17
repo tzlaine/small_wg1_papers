@@ -1,7 +1,7 @@
 ---
 title: "`std::constexpr_v`"
-document: P2781R1
-date: 2023-01-28
+document: P2781R2
+date: 2023-05-17
 audience:
   - LEWG-I
   - LEWG
