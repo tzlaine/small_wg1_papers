@@ -573,12 +573,81 @@ many, many users.
 # Possible polls for LEWG
 
 - We should call `std::constexpr_v`:
-  - `std::constexpr_value`
-  - `std::constant_value`
+  1. `std::constexpr_wrapper`
+     - Pro: The name calls out that this type has a relation to constant 
+       expressions.
+
+     - Pro: Consistency. The name is analoguous to `std::reference_wrapper` (and 
+       `std::ref`).
+
+     - Pro: `constexpr_wrapper<1>` reads as **wrapper** for **const**ant 
+       **expr**ession with value **1**.
+
+     - Con: It's a long name. However, if we expect that user typically won't 
+       spell out this type, then it doesn't matter much.
+
+  1. `std::constexpr_t`
+     - Pro: The name calls out that this type has a relation to constant 
+       expressions.
+
+     - Pro: Read the name as either "the result of a **const**ant **expr**ession 
+       identified by a **t**ype" or "a **t**ype identifying a value usable in 
+       **const**ant **expr**essions".
+
+     - Pro: The name calls out that it's a type (or class template) and not a 
+       variable template.
+
+     - Con: `_t` in the standard library typically means "alias template for 
+       `::type` member of a trait". The use of `_t` to identify types is more of 
+       a C thing.
+
+  1. `std::constexpr_value`
+     - Pro: The name calls out that this type has a relation to constant 
+       expressions.
+
+     - Pro: `constexpr_value<1>` can be read as "the value 1 as a constant 
+       expression".
+
+     - Con: The `_value` suffix may mislead readers to expect a variable 
+       template.
+
+  1. `std::constant_value`
+     - Con: The `_value` suffix may mislead readers to expect a variable 
+       template.
+
+     - Con: Nothing in the type hints at the primary use case: enabling 
+       *constant expressions*.
+
+     - Con: The name `constant` hints at `const`. While `const` isn't wrong 
+       here, it's also irrelevant.
+
+     - Con: `constant_value<1>` reads pretty much like `const int` with value 
+       `1`, which is misleading.
 
 - We should call `std::c_`:
-  - `std::c_`
-  - `std::c`
+  1. `std::cc`
+     - short for **c**`onstexpr_wrapper` **c**onstant (somewhat silly, sure)
+
+     - quick to type: hit the same key twice
+
+     - 203'614 matches found on codesearch.isocpp.org
+
+  1. `std::c_`
+     - hardest to type (IMHO and with US keyboard layout, i.e. type "c shift+_ 
+       shift+<"; the _ < movement is slowing me down)
+
+     - 10'198 matches found on codesearch.isocpp.org
+
+  1. `std::cw`
+     - short for **c**`onstexpr_`**w**`rapper` or **c**onstexpr **w**rap, i.e. 
+       read `cw<1>` as "constexpr wrap 1"
+
+     - 41'311 matches found on codesearch.isocpp.org
+
+  1. `std::c`
+     - 3'869'416 matches found on codesearch.isocpp.org
+
+     - scarily short
 
 # Wording
 
