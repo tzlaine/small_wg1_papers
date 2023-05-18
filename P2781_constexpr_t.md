@@ -34,6 +34,7 @@ monofont: "DejaVu Sans Mono"
   template parameter.
 - Add the option for adding the mutating overloadable operators.
 - Add a note about `operator->`.
+- Add remarks about interconvertibility with `std::integral_constant`.
 - Reduce the number of naming options.
 - Simplify the implementation.
 
@@ -453,6 +454,26 @@ that are usually mutating.
 We're not proposing it, because of its very specific semantics -- it must
 yield a pointer, or something that eventually does.  That's not a very useful
 operation during constant evaluation.
+
+# Convertibility to and from `std::integral_constant`
+
+During the LEWG reviews, some attendees suggested that inter-conversions
+between `std::integral_constant` and `std::constexpr_v` would be useful.  The
+important thing to remember is that we want deduction to occur when calling
+functions that take a `std::constexpr_v`, including the `std::constexpr_v`
+operator overloads.  Conversions and deductions are at odds with one another,
+because deducing parameter types disables the conversion rules.
+
+If you look at the operator overloads proposed here, you will see that they
+are deduction operations at their most essential.  The types of the parameters
+do not matter, except that each conveys a value that is a core constant
+expression because it is embedded in the type system.  The fact that a
+`std::constexpr_v` conveys that value instead of a `std::integral_constant` is
+immaterial, and in fact the operators are written in such a way that they
+operate on either template (as long as at least one parameter is a
+specialization of `std::constexpr_v`).  Users can and should write their code
+using these kinds of values-as-types in a similar way.  Relying on conversions
+is a less-useful way to get interoperability.
 
 # Design
 
