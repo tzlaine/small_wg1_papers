@@ -110,7 +110,7 @@ holds a `constexpr` value that it is given as an non-type template parameter.
 
 ```c++
 namespace std {
-  template<auto X, class T/* = remove_const_t<decltype(X)>*/>
+  template<auto X, class T/* = remove_cvref_t<decltype(X)>*/>
   struct constexpr_v
   {
     using value_type = T;
@@ -196,7 +196,7 @@ might wrap.
 
 ```c++
 namespace std {
-  template<auto X, class T/* = remove_const_t<decltype(X)>*/>
+  template<auto X, class T/* = remove_cvref_t<decltype(X)>*/>
   struct constexpr_v {
     using value_type = T;
     using type = constexpr_v;
@@ -460,7 +460,7 @@ operation during constant evaluation.
 
 ```c++
 namespace std {
-  template<auto X, class T = remove_const_t<decltype(X)>>
+  template<auto X, class T = remove_cvref_t<decltype(X)>>
     struct constexpr_v;
 
   template <class T>
@@ -683,7 +683,7 @@ Add the following to [meta.type.synop], after `false_type`:
 :::add
 
 ```c++
-template<auto X, class T = remove_const_t<decltype(X)>>
+template<auto X, class T = remove_cvref_t<decltype(X)>>
   struct constexpr_v;
 
 template <class T>
