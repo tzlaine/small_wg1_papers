@@ -32,6 +32,7 @@ monofont: "DejaVu Sans Mono"
 - Remove the `constexpr_value` concept.
 - Use an `auto` NTTP parameter for `constexpr_v`, and default its type
   template parameter.
+- Add the option for adding the mutating overloadable operators.
 - Reduce the number of naming options.
 
 # Relationship to previous work
@@ -410,6 +411,43 @@ int bar()
 As you can see, everything works as it did before.  The presence of
 `operator()` does not enable any new functionality, it just keeps code that
 happens to use it from breaking.
+
+# What about the mutating operators?
+
+The operators left out of the code below are the ones that involve mutation,
+like `operator++`, `operator/=`, etc.  These seem at first that these are
+nonsensical, since all the operations on a `constexpr_v` must be nonmutating.
+
+However, some DSLs may wish to use these operations with atypical semantics.
+
+```c++
+struct weirdo
+{
+    constexpr int operator++() const { return 1; }
+};
+auto result = ++std::c_<weirdo{}>;
+```
+
+`result` is obviously `std::c_<1>` here, and no mutation occurred.  You can
+imagine a more elaborate use case, say a library that is used to create
+expression templates.  For example:
+
+```c++
+auto expr = std::c_<var0> += std::c_<var1>;
+```
+
+In this case, `var0` and `var1` would be some terminal types in the expression
+template library, and `operator+=` would return a `constexpr` expression tree,
+rather than mutating the left side of the `+=`.
+
+Since this is a realtively late addition -- after the paper has been through
+two LEWG reviews, the addition of these operators is being presented as an
+option.  However, we have implemented it, and know that they work.
+
+### Possible LEWG poll
+
+We want to add all overloadable operators to `constexpr_v`, including the ones
+that are usually mutating.
 
 # Design
 
