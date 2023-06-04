@@ -1,6 +1,6 @@
 ---
 title: "`std::iterator_interface`"
-document: P2727R2
+document: P2727R3
 date: 2022-11-20
 audience:
   - LEWG-I
@@ -32,6 +32,11 @@ reflector discussion:
   `Reference` is not a language reference.
 - Add support for `operator<=>`.
 - Return `void` from `operator++(int)` for input iterators.
+
+## Changes since R2
+
+- Radically changed the implementation.  Instead of using CRTP, the template
+  deduces `this`, and the formerly-hidden friends are no longer hidden.
 
 # Motivation
 
@@ -210,11 +215,7 @@ private:
 ### After
 ```c++
 struct repeated_chars_iterator :
-    std::iterator_interface<
-        repeated_chars_iterator,
-        std::random_access_iterator_tag,
-        char,
-        char>
+    std::iterator_interface<std::random_access_iterator_tag, char, char>
 {
     constexpr repeated_chars_iterator() :
         first_(nullptr),
@@ -344,7 +345,6 @@ this iterator.  To keep all the Unicode-y bits out of our way, I'm showing the
 ```cpp
 template<typename T, typename Proj, typename R1, typename R2>
 struct concat_iter : boost::stl_interfaces::proxy_iterator_interface<
-                         concat_iter<T, Proj, R1, R2>,
                          std::bidirectional_iterator_tag,
                          T>
 {
@@ -422,7 +422,6 @@ struct concat_iter : boost::stl_interfaces::proxy_iterator_interface<
 
     using base_type =
         boost::stl_interfaces::proxy_iterator_interface<
-            concat_iter<T, Proj, R1, R2>,
             std::bidirectional_iterator_tag,
             T>;
     using base_type::operator++;
@@ -522,7 +521,6 @@ For example, if we wanted to make a filtering iterator for something like
 ```cpp
 template<typename Pred>
 struct filtered_int_iterator : boost::stl_interfaces::iterator_interface<
-                                   filtered_int_iterator<Pred>,
                                    std::forward_iterator_tag,
                                    int>
 {
@@ -570,8 +568,8 @@ work".
 
 # Proposed design
 
-The proposal is to add a CRTP base template that will ease writing iterators,
-in the same way that `std::view_interface` eases the writing of views today.
+The proposal is to add a base template that will ease writing iterators, in
+the same way that `std::view_interface` eases the writing of views today.
 
 ## Add `iterator_interface_access`
 
@@ -632,46 +630,33 @@ private:
 ## Add `iterator_interface` itself
 
 ```cpp
-template<typename D, typename DifferenceType>
-  concept @*has-plus-eq*@ =                             // @*exposition only*@
-    requires (D d) { d += DifferenceType(1); };
-
-template<typename D>
+template<class D1, class D2 = D1>
   concept @*base-3way*@ =                               // @*exposition only*@
-    requires (D d) { iterator_interface_access::base(d) <=> iterator_interface_access::base(d); };
+    requires (D1 d1, D2 d2) { iterator_interface_access::base(d1) <=> iterator_interface_access::base(d2); };
 
-template<typename D, typename DifferenceType>
-  concept @*iter-sub*@ = requires (D d) {               // @*exposition only*@
-    {d - d} -> convertible_to<DifferenceType>;
+template<class D1, class D2 = D1>
+  concept @*iter-sub*@ = requires (D1 d1, D2 d2) {      // @*exposition only*@
+    typename D1::difference_type;
+    {d1 - d2} -> convertible_to<typename D1::difference_type>;
   };
 
-template<typename Pointer, typename Reference, typename T>
+template<class Pointer, class Reference, class T>
   requires is_pointer_v<Pointer>
     decltype(auto) @*make-iterator-pointer*@(T&& value) // @*exposition only*@
       { return addressof(value); }
 
-template<typename Pointer, typename Reference, typename T>
+template<class Pointer, class Reference, class T>
   auto @*make-iterator-pointer*@(T&& value)             // @*exposition only*@
     { return Pointer(std::forward<T>(value)); }
 
 template<
-  typename D,
-  typename IteratorConcept,
-  typename ValueType,
-  typename Reference = ValueType&,
-  typename Pointer = ValueType*,
-  typename DifferenceType = ptrdiff_t>
-  requires is_class_v<D> && same_as<D, remove_cv_t<D>>
+  class IteratorConcept,
+  class ValueType,
+  class Reference = ValueType&,
+  class Pointer = ValueType*,
+  class DifferenceType = ptrdiff_t>
 class iterator_interface
 {
-private:
-  constexpr D& derived() noexcept {              // @*exposition only*@
-    return static_cast<D&>(*this);
-  }
-  constexpr const D& derived() const noexcept {  // @*exposition only*@
-    return static_cast<const D&>(*this);
-  }
-
 public:
   using iterator_concept = IteratorConcept;
   using iterator_category = @*see below*@;
@@ -683,121 +668,61 @@ public:
     Pointer>;
   using difference_type = DifferenceType;
 
-  constexpr decltype(auto) operator*()
-    requires requires (D d) { *iterator_interface_access::base(d); } {
-      return *iterator_interface_access::base(derived());
-    }
-  constexpr decltype(auto) operator*() const
-    requires requires (const D d) { *iterator_interface_access::base(d); } {
-      return *iterator_interface_access::base(derived());
+  constexpr decltype(auto) operator*(this auto&& self)
+    requires requires { *iterator_interface_access::base(self); } {
+    return *iterator_interface_access::base(self);
+  }
+
+  constexpr auto operator->(this auto&& self)
+    requires (!same_as<pointer, void>) && is_reference_v<reference> && requires { *self; } {
+      return @*make-iterator-pointer*@<pointer, reference>(*self);
     }
 
-  constexpr auto operator->()
-    requires (!same_as<pointer, void> && is_reference_v<reference> && requires (D d) { *d; }) {
-      return @*make-iterator-pointer*@<pointer>(*derived());
-    }
-  constexpr auto operator->() const
-    requires (!same_as<pointer, void> && is_reference_v<reference> && requires (D d) { *d; }) {
-      return @*make-iterator-pointer*@<pointer>(*derived());
-    }
-
-  constexpr decltype(auto) operator[](difference_type n) const
-    requires requires (const D d) { d + n; } {
-    D retval = derived();
-    retval += n;
+  constexpr decltype(auto) operator[](this auto const& self, difference_type n) requires requires { self + n; } {
+    auto retval = self;
+    retval = retval + n;
     return *retval;
   }
 
-  constexpr decltype(auto) operator++()
-    requires requires (D d) { ++iterator_interface_access::base(d); } &&
-      (!@*has-plus-eq*@<D, difference_type>) {
-        ++iterator_interface_access::base(derived());
-        return derived();
-      }
-  constexpr decltype(auto) operator++()
-    requires @*has-plus-eq*@<D, difference_type> {
-      return derived() += difference_type(1);
+  constexpr decltype(auto) operator++(this auto& self)
+    requires requires { ++iterator_interface_access::base(self); } && (!requires { self += difference_type(1); }) {
+      ++iterator_interface_access::base(self);
+      return self;
     }
-  constexpr auto operator++(int) requires requires (D d) { ++d; } {
+  constexpr decltype(auto) operator++(this auto& self) requires requires { self += difference_type(1); } {
+    return self += difference_type(1);
+  }
+  constexpr auto operator++(this auto& self, int) requires requires { ++self; } {
     if constexpr (is_same_v<IteratorConcept, input_iterator_tag>){
-      ++derived();
+      ++self;
     } else {
-      D retval = derived();
-      ++derived();
+      auto retval = self;
+      ++self;
       return retval;
     }
   }
-  constexpr decltype(auto) operator+=(difference_type n)
-    requires requires (D d) { iterator_interface_access::base(d) += n; } {
-      iterator_interface_access::base(derived()) += n;
-      return derived();
-    }
-  friend constexpr auto operator+(D it, difference_type n)
-    requires requires { it += n; } {
-      return it += n;
-    }
-  friend constexpr auto operator+(difference_type n, D it)
-    requires requires { it += n; } {
-      return it += n;
+  constexpr decltype(auto) operator+=(this auto& self, difference_type n)
+    requires requires { iterator_interface_access::base(self) += n; } {
+      iterator_interface_access::base(self) += n;
+      return self;
     }
 
-  constexpr decltype(auto) operator--()
-    requires requires (D d) { --iterator_interface_access::base(d); } &&
-      (!@*has-plus-eq*@<D, difference_type>) {
-        --iterator_interface_access::base(derived());
-        return derived();
-      }
-  constexpr decltype(auto) operator--()
-    requires requires (D d) { d += -difference_type(1); } {
-      return derived() += -difference_type(1);
+  constexpr decltype(auto) operator--(this auto& self)
+    requires requires { --iterator_interface_access::base(self); } && (!requires { self += difference_type(1); }) {
+      --iterator_interface_access::base(self);
+      return self;
     }
-  constexpr auto operator--(int) requires requires (D d) { --d; } {
-    D retval = derived();
-    --derived();
+  constexpr decltype(auto) operator--(this auto& self) requires requires { self += -difference_type(1); } {
+    return self += -difference_type(1);
+  }
+  constexpr auto operator--(this auto& self, int) requires requires { --self; } {
+    auto retval = self;
+    --self;
     return retval;
   }
-  constexpr decltype(auto) operator-=(difference_type n)
-    requires requires (D d) { d += -n; } {
-      return derived() += -n;
-    }
-  friend constexpr auto operator-(D lhs, D rhs)
-    requires requires { iterator_interface_access::base(lhs) -
-                        iterator_interface_access::base(rhs); } {
-      return iterator_interface_access::base(lhs) -
-             iterator_interface_access::base(rhs);
-    }
-  friend constexpr auto operator-(D it, difference_type n)
-    requires requires { it += -n; } {
-      return it += -n;
-    }
-
-  friend constexpr auto operator<=>(D lhs, D rhs)
-    requires @*base-3way*@<D> || @*iter-sub*@<D> {
-      if constexpr (@*base-3way*@<D>) {
-        return iterator_interface_access::base(lhs) <=> iterator_interface_access::base(rhs);
-      } else {
-        difference_type const diff = rhs - lhs;
-        return diff < difference_type(0) ? strong_ordering::less :
-          difference_type(0) < diff ? strong_ordering::greater :
-          strong_ordering::equal;
-      }
-    }
-  friend constexpr bool operator<(D lhs, D rhs)
-    requires @*iter-sub*@<D> {
-      return (lhs - rhs) < typename D::difference_type(0);
-    }
-  friend constexpr bool operator<=(D lhs, D rhs)
-    requires @*iter-sub*@<D> {
-      return (lhs - rhs) <= typename D::difference_type(0);
-    }
-  friend constexpr bool operator>(D lhs, D rhs)
-    requires @*iter-sub*@<D> {
-      return (lhs - rhs) > typename D::difference_type(0);
-    }
-  friend constexpr bool operator>=(D lhs, D rhs)
-    requires @*iter-sub*@<D> {
-      return (lhs - rhs) >= typename D::difference_type(0);
-    }
+  constexpr decltype(auto) operator-=(this auto& self, difference_type n) requires requires { self += -n; } {
+    return self += -n;
+  }
 };
 ```
 
@@ -818,6 +743,63 @@ The nested type `iterator_category` is defined if and only if
 
 Note that this follows the semantics of `zip_transform_view::iterator`; see
 https://eel.is/c++draft/range.zip.transform.iterator#1 .
+
+
+## Add free operators
+
+Additionally, we want several free operators, shown here.  In addition to the
+constraints shown, they require that `D`, `D1`, and `D2` are derived from
+specializations of `iterator_interface`.
+
+```c++
+template<class D>
+  constexpr auto operator+(D it, difference_type n) requires requires { it += n; } {
+    return it += n;
+  }
+template<class D>
+  constexpr auto operator+(difference_type n, D it) requires requires { it += n; } {
+    return it += n;
+  }
+
+template<class D1, class D2>
+  constexpr auto operator-(D1 lhs, D2 rhs)
+    requires requires { iterator_interface_access::base(lhs) - iterator_interface_access::base(rhs); } {
+      return iterator_interface_access::base(lhs) - iterator_interface_access::base(rhs);
+    }
+template<class D>
+  constexpr auto operator-(D it, typename D::difference_type n) requires requires { it += -n; } {
+    return it += -n;
+  }
+
+template<class D1, class D2>
+  constexpr auto operator<=>(D1 lhs, D2 rhs) requires @*base-3way*@<D1, D2> || @*iter-sub*@<D1, D2> {
+    if constexpr (@*base-3way*@<D1, D2>) {
+      return iterator_interface_access::base(lhs) <=> iterator_interface_access::base(rhs);
+    } else {
+      using diff_type = typename D1::difference_type;
+      const diff_type diff = rhs - lhs;
+      return diff < diff_type(0) ? strong_ordering::less :
+        diff_type(0) < diff ? strong_ordering::greater :
+        strong_ordering::equal;
+    }
+  }
+template<class D1, class D2>
+  constexpr bool operator<(D1 lhs, D2 rhs) requires @*iter-sub*@<D1, D2> {
+    return (lhs - rhs) < typename D1::difference_type(0);
+  }
+template<class D1, class D2>
+  constexpr bool operator<=(D1 lhs, D2 rhs) requires @*iter-sub*@<D1, D2> {
+    return (lhs - rhs) <= typename D1::difference_type(0);
+  }
+template<class D1, class D2>
+  constexpr bool operator>(D1 lhs, D2 rhs) requires @*iter-sub*@<D1, D2> {
+    return (lhs - rhs) > typename D1::difference_type(0);
+  }
+template<class D1, class D2>
+  constexpr bool operator>=(D1 lhs, D2 rhs) requires @*iter-sub*@<D1, D2> {
+    return (lhs - rhs) >= typename D1::difference_type(0);
+  }
+```
 
 
 ## Add `operator==` overload
@@ -849,13 +831,13 @@ the user to have to define `operator==` when the underlying adapted iterator
 undoubtedly already has it (unless it's an output iterator, of course).
 
 ```cpp
-template<typename D1, typename D2>
+template<class D1, class D2>
   concept @*base-iter-comparable*@ =              // @*exposition only*@
     requires (D1 d1, D2 d2) {
       iterator_interface_access::base(d1) == iterator_interface_access::base(d2);
     };
 
-template<typename D1, typename D2>
+template<class D1, class D2>
   constexpr bool operator==(D1 lhs, D2 rhs)
     requires (is_convertible_v<D2, D1> || is_convertible_v<D1, D2>) &&
              (@*base-iter-comparable*@<D1, D2> || @*iter-sub*@<D1>) {
@@ -874,13 +856,11 @@ Finally, there's an alias that makes it easier to define proxy iterators:
 
 ```cpp
 template<
-    typename Derived,
-    typename IteratorConcept,
-    typename ValueType,
-    typename Reference = ValueType,
-    typename DifferenceType = ptrdiff_t>
+    class IteratorConcept,
+    class ValueType,
+    class Reference = ValueType,
+    class DifferenceType = ptrdiff_t>
 using proxy_iterator_interface = iterator_interface<
-    Derived,
     IteratorConcept,
     ValueType,
     Reference,
@@ -930,24 +910,11 @@ This requires discussion and a poll.
 
 ## Design notes
 
-The template parameter `D` for `iterator_interface` may be an incomplete type.
-Before any member of the resulting specialization of `iterator_interface`
-other than special member functions is referenced, `D` must be complete, and
-model `std::derived_from<iterator_interface<D>>`.
-
-Since we're using CRTP, any operation that is provided by default that you do
-not want, say because it has the wrong semantics, or because you know of a
-more efficient way to do it, you can simply provided that operation in your
-type, and the operation you would have inherited from the `iterator_interface`
-gets hidden.
-
-I did attempt to use `operator<=>` instead of the individually-defined
-relational operators, but it created all kinds of difficult-to-sort-out
-errors.
-
-I also attempted to use deduced `this` in `iterator_interface`, but it did not
-get rid of the need for the `D` template parameter. `D` is still needed to
-define the hidden friend operators.
+Since we're using a base template, any operation that is provided by default
+that you do not want, say because it has the wrong semantics, or because you
+know of a more efficient way to do it, you can simply provided that operation
+in your type, and the operation you would have inherited from the
+`iterator_interface` gets hidden.
 
 To get interoperability between user-created `const_iterator` and `iterator`
 types, the user must make `iterator`s convertible to `const_iterator`s.  You
@@ -955,9 +922,9 @@ can't automate everything.
 
 Here is a handy table listing all the user-provided operations necessary to
 implement all the various iterator concepts.  This is every user-defined
-operation, even though no one iterator requires all of them.  A following
-table with indicate which operations are needed when implementing which
-iterator concept.  In the table, `Iter` is a user-defined type derived from
+operation, even though no one iterator requires all of them.  A later table
+will indicate which operations are needed when implementing which iterator
+concept.  In the table, `Iter` is a user-defined type derived from
 `iterator_interface`; `i` and `i2` are objects of type `Iter`; `reference` is
 the type passed as the `Reference` template parameter to `iterator_interface`;
 `pointer` is the type passed as the `Pointer` template parameter to
@@ -1025,7 +992,6 @@ added another.  Here is the code:
 template<typename ValueType>
 struct basic_random_access_iter_dependent
     : boost::stl_interfaces::iterator_interface<
-          basic_random_access_iter_dependent<ValueType>,
           std::random_access_iterator_tag,
           ValueType>
 {
@@ -1079,7 +1045,6 @@ directly when writing it, like this:
 template<typename ValueType>
 struct basic_random_access_iter_dependent
     : boost::stl_interfaces::iterator_interface<
-          basic_random_access_iter_dependent<ValueType>,
           std::random_access_iterator_tag,
           ValueType>
 {
