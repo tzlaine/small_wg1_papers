@@ -486,13 +486,13 @@ namespace std {
 
   template <class T>
     concept @*constexpr-param*@ =                                // @*exposition only*@
-      requires { typename constexpr_v<T::value>; } and not is_member_pointer_v<decltype(&T::value)>;
+      requires { typename constexpr_v<T::value>; } && !is_member_pointer_v<decltype(&T::value)>;
   template <class T>
     concept @*derived-from-constexpr*@ =                         // @*exposition only*@
       derived_from<T, constexpr_v<T::value>>;
   template <class T, class SelfT>
     concept @*lhs-constexpr-param*@ =                            // @*exposition only*@
-      @*constexpr-param*@<T> and (derived_from<T, SelfT> or not @*derived-from-constexpr*@<T>);
+      @*constexpr-param*@<T> && (derived_from<T, SelfT> || !@*derived-from-constexpr*@<T>);
 
   template<auto X, class T>
   struct constexpr_v {
@@ -709,13 +709,13 @@ template<auto X, class T = remove_cvref_t<decltype(X)>>
 
 template <class T>
   concept @*constexpr-param*@ =                                // @*exposition only*@
-    requires { typename constexpr_v<T::value>; } and not is_member_pointer_v<decltype(&T::value)>;
+    requires { typename constexpr_v<T::value>; } && !is_member_pointer_v<decltype(&T::value)>;
 template <class T>
   concept @*derived-from-constexpr*@ =                         // @*exposition only*@
     derived_from<T, constexpr_v<T::value>>;
 template <class T, class SelfT>
   concept @*lhs-constexpr-param*@ =                            // @*exposition only*@
-    @*constexpr-param*@<T> and (derived_from<T, SelfT> or not @*derived-from-constexpr*@<T>);
+    @*constexpr-param*@<T> && (derived_from<T, SelfT> || !@*derived-from-constexpr*@<T>);
 
 template<auto X>
   inline constexpr constexpr_v<X> c_;
