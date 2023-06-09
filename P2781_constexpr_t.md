@@ -486,7 +486,7 @@ namespace std {
 
   template <class T>
     concept @*constexpr-param*@ =                                // @*exposition only*@
-      requires { typename constexpr_v<T::value>; } && !is_member_pointer_v<decltype(&T::value)>;
+      !is_member_pointer_v<decltype(&T::value)> && requires { typename constexpr_v<T::value>; };
   template <class T>
     concept @*derived-from-constexpr*@ =                         // @*exposition only*@
       derived_from<T, constexpr_v<T::value>>;
@@ -709,7 +709,7 @@ template<auto X, class T = remove_cvref_t<decltype(X)>>
 
 template <class T>
   concept @*constexpr-param*@ =                                // @*exposition only*@
-    requires { typename constexpr_v<T::value>; } && !is_member_pointer_v<decltype(&T::value)>;
+    !is_member_pointer_v<decltype(&T::value)> && requires { typename constexpr_v<T::value>; }
 template <class T>
   concept @*derived-from-constexpr*@ =                         // @*exposition only*@
     derived_from<T, constexpr_v<T::value>>;
