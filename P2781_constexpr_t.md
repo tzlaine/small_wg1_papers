@@ -207,7 +207,7 @@ namespace std {
 
     // unary -
     template<auto Y = X>
-      constexpr auto operator-() const -> constexpr_v<-Y> { return {}; }
+      constexpr constexpr_v<-Y> operator-() const { return {}; }
 
     // binary + and -
     template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
@@ -508,22 +508,22 @@ namespace std {
 #endif
 
     template<auto Y = X>
-      constexpr auto operator+() const -> constexpr_v<+Y> { return {}; }
+      constexpr constexpr_v<+Y> operator+() const { return {}; }
     template<auto Y = X>
-      constexpr auto operator-() const -> constexpr_v<-Y> { return {}; }
+      constexpr constexpr_v<-Y> operator-() const { return {}; }
     template<auto Y = X>
-      constexpr auto operator~() const -> constexpr_v<~Y> { return {}; }
+      constexpr constexpr_v<~Y> operator~() const { return {}; }
     template<auto Y = X>
-      constexpr auto operator!() const -> constexpr_v<!Y> { return {}; }
+      constexpr constexpr_v<!Y> operator!() const { return {}; }
     template<auto Y = X>
-      constexpr auto operator&() const -> constexpr_v<&Y> { return {}; }
+      constexpr constexpr_v<&Y> operator&() const { return {}; }
     template<auto Y = X>
-      constexpr auto operator*() const -> constexpr_v<*Y> { return {}; }
+      constexpr constexpr_v<*Y> operator*() const { return {}; }
 
     template<class... Args>
-      constexpr auto operator()(Args... args) const -> constexpr_v<X(Args::value...)> { return {}; }
+      constexpr constexpr_v<X(Args::value...)> operator()(Args... args) const { return {}; }
     template<class... Args>
-      constexpr auto operator[](Args... args) const -> constexpr_v<X[Args::value...]> { return {}; }
+      constexpr constexpr_v<X[Args::value...]> operator[](Args... args) const { return {}; }
 
     template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
       friend constexpr constexpr_v<U::value + V::value> operator+(U, V) { return {}; }
@@ -742,22 +742,22 @@ struct constexpr_v {
 #endif
 
   template<auto Y = X>
-    constexpr auto operator+() const -> constexpr_v<+Y> { return {}; }
+    constexpr constexpr_v<+Y> operator+() const { return {}; }
   template<auto Y = X>
-    constexpr auto operator-() const -> constexpr_v<-Y> { return {}; }
+    constexpr constexpr_v<-Y> operator-() const { return {}; }
   template<auto Y = X>
-    constexpr auto operator~() const -> constexpr_v<~Y> { return {}; }
+    constexpr constexpr_v<~Y> operator~() const { return {}; }
   template<auto Y = X>
-    constexpr auto operator!() const -> constexpr_v<!Y> { return {}; }
+    constexpr constexpr_v<!Y> operator!() const { return {}; }
   template<auto Y = X>
-    constexpr auto operator&() const -> constexpr_v<&Y> { return {}; }
+    constexpr constexpr_v<&Y> operator&() const { return {}; }
   template<auto Y = X>
-    constexpr auto operator*() const -> constexpr_v<*Y> { return {}; }
+    constexpr constexpr_v<*Y> operator*() const { return {}; }
 
   template<class... Args>
-    constexpr auto operator()(Args... args) const -> constexpr_v<X(Args::value...)> { return {}; }
+    constexpr constexpr_v<X(Args::value...)> operator()(Args... args) const { return {}; }
   template<class... Args>
-    constexpr auto operator[](Args... args) const -> constexpr_v<X[Args::value...]> { return {}; }
+    constexpr constexpr_v<X[Args::value...]> operator[](Args... args) const { return {}; }
 
   template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
     friend constexpr constexpr_v<U::value + V::value> operator+(U, V) { return {}; }
