@@ -44,6 +44,8 @@ monofont: "DejaVu Sans Mono"
 - Remove use of `and`, `or` and `not` keywords.
 - Correct the requirements in the exposition only `@*constexpr-param*@`
   concept.
+- Add a note about the imperfect nature of ADL support given by
+  `constexpr_v`'s `T` template parameter.
 
 # Relationship to previous work
 
@@ -185,7 +187,22 @@ std::cout << f << "\n";
 
 The stream insertion breaks without the `T` parameter.  The `T` parameter is
 `strlit</*...*/>`, which pulls `strlit`'s `operator<<` into consideration
-during ADL.
+during ADL.  Note that this ADL support is imperfect.  The use op `operator<<`
+above is due to the way the operator overload is declared:
+
+```c++
+friend std::ostream & operator<<(std::ostream & os, strlit l) { /* ...*/ }
+```
+
+If it were instead declared as a non-`friend`:
+
+```c++
+template<size_t N>
+std::ostream & operator<<(std::ostream & os, strlit<N> l) { /* ...*/ }
+```
+
+... ADL would be no help.  This is pretty likely to confuse users.  This may
+make the `T` parameter more trouble than it's worth.
 
 # Making `constexpr_v` more useful
 
