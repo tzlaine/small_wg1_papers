@@ -1,7 +1,7 @@
 ---
 title: "`std::constexpr_v`"
-document: P2781R2
-date: 2023-05-17
+document: P2781R3
+date: 2023-06-10
 audience:
   - LEWG-I
   - LEWG
@@ -37,6 +37,13 @@ monofont: "DejaVu Sans Mono"
 - Add remarks about interconvertibility with `std::integral_constant`.
 - Reduce the number of naming options.
 - Simplify the implementation.
+
+## Changes since R2
+
+- Remove unnecessary uses of trailing return type.
+- Remove use of `and`, `or` and `not` keywords.
+- Correct the inverted order of the requirements in the exposition only
+  `@*constexpr-param*@` concept.
 
 # Relationship to previous work
 
