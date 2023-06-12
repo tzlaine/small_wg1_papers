@@ -194,15 +194,17 @@ above is due to the way the operator overload is declared:
 friend std::ostream & operator<<(std::ostream & os, strlit l) { /* ...*/ }
 ```
 
-If it were instead declared as a non-`friend`:
+If it is instead declared as a non-`friend`:
 
 ```c++
 template<size_t N>
 std::ostream & operator<<(std::ostream & os, strlit<N> l) { /* ...*/ }
 ```
 
-... ADL would be no help.  This is pretty likely to confuse users.  This may
-make the `T` parameter more trouble than it's worth.
+... ADL's help doesn't suffice. The deduction of `N` is not possible from a
+type that isn't a `strlit<N>` itself (e.g. base class) even if it is
+implicitly convertible to `strlit<N>`.  This is pretty likely to confuse
+users.  This may make the `T` parameter more trouble than it's worth.
 
 # Making `constexpr_v` more useful
 
