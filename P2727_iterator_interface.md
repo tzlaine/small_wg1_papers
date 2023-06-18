@@ -1,6 +1,6 @@
 ---
 title: "`std::iterator_interface`"
-document: P2727R3
+document: P2727R4
 date: 2022-11-20
 audience:
   - LEWG-I
@@ -37,6 +37,10 @@ reflector discussion:
 
 - Radically changed the implementation.  Instead of using CRTP, the template
   deduces `this`, and the formerly-hidden friends are no longer hidden.
+
+## Changes since R3
+
+- Wording.
 
 # Motivation
 
@@ -935,7 +939,7 @@ the type passed as the `Reference` template parameter to `iterator_interface`;
 +============+=====================================+===================================================================+=============================================================================================+
 | `*i`       | Convertible to `reference`.         | Dereferences `i` and returns the result.                          | _Precondition:_ `i` is dereferenceable.                                                     |
 +------------+-------------------------------------+-------------------------------------------------------------------+---------------------------------------------------------------------------------------------+
-| `i == i2`  | Contextually convertible to `bool`. | Returns true if and only if `i` and `i2` refer to the same value. | _Precondition:_ `(i, i2)` is in the domain of `==`.                                         |
+| `i == i2`  | Convertible to `bool`.              | Returns true if and only if `i` and `i2` refer to the same value. | _Precondition:_ `(i, i2)` is in the domain of `==`.                                         |
 +------------+-------------------------------------+-------------------------------------------------------------------+---------------------------------------------------------------------------------------------+
 | `i2 - i`   | Convertible to `difference_type`.   | Returns `n`.                                                      | _Precondition:_ there exists a value `n` of type `difference_type` such that `i + n == i2`. |
 +------------+-------------------------------------+-------------------------------------------------------------------+---------------------------------------------------------------------------------------------+
@@ -958,7 +962,6 @@ same meaning here as they do in the previous table.
 | Concept                                         | Operations                |
 +=================================================+===========================+
 | `input_iterator`                                | `*i` \                    |
-|                                                 | `i == i2` \               |
 |                                                 | `++i`                     |
 +-------------------------------------------------+---------------------------+
 | `output_iterator`                               | `*i` \                    |
