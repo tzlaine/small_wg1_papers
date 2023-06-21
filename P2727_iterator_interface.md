@@ -888,29 +888,14 @@ This breaks use of non-`ranges` algorithms.  Given input iterators `it` and
 /*...*/)` is ill-formed, though `std::ranges::copy(it, end, /*...*/)` works
 fine.
 
-I consider this to be a design defect.  I was careful to make
-`iterator_interface` in such a way that it works with `ranges` and
-pre-`ranges` algorithms alike, and this is no longer true for the input
-iterator case.  There are likely more pre-`ranges` algorithms out there than
-`ranges` ones, including a significant number that do not appear in the
-standard.
-
 The design presented here adheres very closely to the `std::input_iterator`
 concept in the input iterator case.  That is, it tries not to provide any API
 outside of that concept -- that's why `operator++(int)` returns `void` and why
 it does not define `iterator_category`.
 
-The `void`-return for `operator++(int)` exists because an input iterator is
-not required to be copyable, according to the `std::input_iterator` concept.
-For a given iterator type `I` made using `iterator_interface`, if `I` is
-copyable, we could detect that and make `operator++(int)` do the same thing it
-does for all the other iterator categories, and return `I`.  It would still
-model the `std::input_iterator` concept.
-
-It would also still model the `std::input_iterator` concept if we defined
-`iterator_category` unconditionally.
-
-This requires discussion and a poll.
+Note that users can restore pre-`ranges` compatibility if they want, by
+providing a few operations and defining `iterator_category` in their derived
+type.
 
 ## Design notes
 
