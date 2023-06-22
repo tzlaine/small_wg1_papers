@@ -22,25 +22,14 @@ that I think are important; I hope you’ll agree:
 - Ranges are the future. We should have range-friendly ways of doing
   transcoding. This includes support for sentinels and lazy views.
 
-- Iterators are the present. We should support generic programming, whether it
-  is done in terms of pointers, a particular iterator, or an iterator type
-  specified as a template parameter.
-
 - A null-terminated string should not be treated as a special case. The
   ubiquity of such strings means that they should be treated as first-class
   strings.
 
-- If there's a specific algorithm specialization that operates directly on
-  UTF-8 or UTF-16, the top-level algorithm should use that when appropriate.
-  This is analogous to having multiple implementations of the algorithms in
-  `std` that differ based on iterator category.
-
 - Input may come from UTF-8, UTF-16, or UTF-32 strings (though UTF-32 is
   extremely uncommon in practice).  There should be a single overload of each
-  normalization function, so that the user does not need to change code when
-  the input is changed from UTF-N to UTF-M.  The most optimal version of the
-  algorithm (processing either UTF-8 or UTF-16) will be selected (as mentioned
-  above).
+  normalization interface, so that the user does not need to change code when
+  the input is changed from UTF-N to UTF-M.
 
 - The Unicode algorithms are low-level tools that most C++ users will not need
   to touch, even if their code needs to be Unicode-aware.  C++ users should
@@ -58,9 +47,9 @@ a single code point, the latter as two.  Unicode rules state that both strings
 must be treated as identical.
 
 To make such comparisons more efficient, Unicode has normalization forms.  If
-all the text you ever compare is in the same normalization form, it doesn't
-matter whether they're all the composed form like "ä" or the decomposed form
-like "a¨" -- they'll all compare bitwise-equal to each other if they represent
+all the text you ever compare is in the same normalization form, they won't be
+in different forms like "ä" vs. "a¨" -- they'll all be represented the same
+way, and will therefore compare bitwise-equal to each other if they represent
 the same text.
 
 There are four official normalization forms.  The first two are NFC
@@ -79,8 +68,8 @@ proposed.  It's coming, though.
 # The stream-safe format
 
 Unicode text often contains sequences in which a noncombining code point
-(e.g. 'A') is followed by one or more combining code points (e.g. some number
-of umlauts). It is valid to have an 'A' followed by 100 million umlauts. This
+(e.g. "A") is followed by one or more combining code points (e.g. some number
+of umlauts). It is valid to have an "A" followed by 100 million umlauts. This
 is valid but not useful. Unicode specifies something called the Stream-Safe
 Format. This format inserts extra code points between combiners to ensure that
 there are never more than 30 combiners in a row. In practice, you should never
@@ -89,10 +78,11 @@ need anywhere near 30 to represent meaningful text.
 Long sequences of combining characters create a problem for algorithms like
 normalization and grapheme breaking; the grapheme breaking algorithm may be
 required to look ahead a very long way in order to determine how to handle the
-current grapheme. To address this, Unicode allows a conforming implementation
-to assume that a sequence of code points contains graphemes of at most 31 code
-points. This is known as the Stream-Safe Format assumption.  All the proposed
-interfaces here and in the papers to come make this assumption.
+current code point. To address this, Unicode allows a conforming
+implementation to assume that a sequence of code points contains graphemes of
+at most 31 code points. This is known as the Stream-Safe Format assumption.
+All the proposed interfaces here and in the papers to come make this
+assumption.
 
 The stream-safe format is very important.  Its use prevents the Unicode
 algorithms from having to worry about unbounded-length graphemes.  This in
@@ -120,7 +110,7 @@ algorithm.  This is the most flexible and general-purpose API.
 std::string s = /* ... */; // using a std::string to store UTF-8
 assert(!std::uc::is_normalized(std::uc::as_utf32(s)));
 
-char * nfc_s = new char[s.size() * 2];
+char8_t * nfc_s = new char8_t[s.size() * 2];
 // Have to use as_utf32(), because normalization operates on code points, not UTF-8.
 auto out = std::uc::normalize<std::uc::nf::c>(std::uc::as_utf32(s), nfc_s);
 *out = '\0';
@@ -234,10 +224,10 @@ namespace std::uc {
   template<utf_range_like R>
     constexpr @*range-like-result-iterator*@<R> stream_safe(R && r);
 
-  template<utf_iter I, sentinel_for<I> S, output_iterator<uint32_t> O>
+  template<utf_iter I, sentinel_for<I> S, output_iterator<char32_t> O>
     constexpr ranges::copy_result<I, O> stream_safe_copy(I first, S last, O out);
 
-  template<utf_range_like R, output_iterator<uint32_t> O>
+  template<utf_range_like R, output_iterator<char32_t> O>
     constexpr ranges::copy_result<@*range-like-result-iterator*@<R>, O>
       stream_safe_copy(R && r, O out);
 
@@ -261,18 +251,18 @@ Note that `@*range-like-result-iterator*@<R>` comes from
 
 ```c++
 namespace std::uc {
-  constexpr int @*uc-ccc*@(uint32_t cp); // @*exposition only*@
+  constexpr int @*uc-ccc*@(char32_t cp); // @*exposition only*@
 
   template<code_point_iter I, sentinel_for<I> S = I>
   struct stream_safe_iterator
-    : iterator_interface<stream_safe_iterator<I, S>, forward_iterator_tag, uint32_t, uint32_t> {
+    : iterator_interface<stream_safe_iterator<I, S>, forward_iterator_tag, char32_t, char32_t> {
     constexpr stream_safe_iterator() = default;
     constexpr stream_safe_iterator(I first, S last)
       : first_(first), it_(first), last_(last),
         nonstarters_(it_ != last_ && @*uc-ccc*@(*it_) ? 1 : 0)
         {}
 
-    constexpr uint32_t operator*() const;
+    constexpr char32_t operator*() const;
 
     constexpr I base() const { return it_; }
 
@@ -285,7 +275,7 @@ namespace std::uc {
         { return lhs.base() == rhs; }
 
     using base_type =  // @*exposition only*@
-      iterator_interface<stream_safe_iterator<I, S>, forward_iterator_tag, uint32_t, uint32_t>;
+      iterator_interface<stream_safe_iterator<I, S>, forward_iterator_tag, char32_t, char32_t>;
     using base_type::operator++;
 
   private:
@@ -437,10 +427,10 @@ See the section on implementation experience for why that is important.
 
 ```cpp
 namespace std::uc {
-  template<nf Normalization, utf_iter I, sentinel_for<I> S, output_iterator<uint32_t> O>
+  template<nf Normalization, utf_iter I, sentinel_for<I> S, output_iterator<char32_t> O>
     constexpr O normalize(I first, S last, O out);
 
-  template<nf Normalization, utf_range_like R, output_iterator<uint32_t> O>
+  template<nf Normalization, utf_range_like R, output_iterator<char32_t> O>
     constexpr O normalize(R&& r, O out);
 
   template<nf Normalization, utf_iter I, sentinel_for<I> S>
@@ -507,7 +497,7 @@ been present in the string before the insertion.
 
 Note that `replace_result::iterator` refers to the underlying sequence, which
 may not itself be a sequence of code points.  For example, the underlying
-sequence may be a sequence of `char` which is interpreted as UTF-8.  We can't
+sequence may be a sequence of `char8_t` which is interpreted as UTF-8.  We can't
 return an iterator of the type `I` passed to `normalize_replace()`, for the
 same reason we don't return an `in_out_result` from `normalization()`.
 
