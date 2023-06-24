@@ -329,34 +329,6 @@ the second template parameter to `stream_safe_view` will be
 `as_stream_safe` can also be used as a range adaptor, as in `r |
 std::uc::as_stream_safe`.
 
-## Add concepts that describe the constraints on parameters to the normalization API
-
-```cpp
-namespace std::uc {
-  template<class T, class CodeUnit>
-  concept @*eraseable-insertable-sized-bidi-range*@ = // @*exposition only*@
-    ranges::sized_range<T> &&
-    ranges::bidirectional_range<T> &&
-    requires(T t, const CodeUnit* it) {
-      { t.erase(t.begin(), t.end()) } -> same_as<ranges::iterator_t<T>>;
-      { t.insert(t.end(), it, it) } -> same_as<ranges::iterator_t<T>>;
-    };
-
-  template<class T>
-    concept utf8_string =
-      utf8_code_unit<ranges::range_value_t<T>> &&
-      @*eraseable-insertable-sized-bidi-range*@<T, ranges::range_value_t<T>>;
-
-  template<class T>
-    concept utf16_string =
-      utf8_code_unit<ranges::range_value_t<T>> &&
-      @*eraseable-insertable-sized-bidi-range*@<T, ranges::range_value_t<T>>;
-
-  template<class T>
-    concept utf_string = utf8_string<T> || utf16_string<T>;
-}
-```
-
 ## Add an enumeration listing the supported normalization forms
 
 `nf` is short for normalization form, and the letter(s) of each enumerator
@@ -375,104 +347,6 @@ namespace std::uc {
     kd,
     fcc
   };
-```
-
-## Add normalization-aware insertion, erasure, and replacement operations on strings
-
-If you need to insert text into a `std::string` or other STL-compatible
-container, you can use the erase/insert/replace API.  There are iterator and
-range overloads of each. Each one:
-
-- normalizes the inserted text (if text is being inserted);
-- places the inserted text in Stream-Safe Format (if text is being inserted);
-- performs the erase/insert/replace operation on the string;
-- ensures that the result is in Stream-Safe Format (if text is being erased); and
-- normalizes the code points on either side of the affected subsequence within the string.
-
-This last step is necessary because insertions and erasures may create
-situations in which code points which may combine are now next to each other,
-when they were not before.  It's all very complicated, and the user should
-have a means of doing this generically, and remaining ignorant of the details.
-
-This API is like the `normalize_append()` overloads in that it may operate on
-UTF-8 or UTF-16 containers, and deduces the output UTF from the size of the
-mutated container's `value_type`.
-
-About the need for `replace_result`: `replace_result` represents the result of
-inserting a sequence of code points `I` into an existing sequence of code
-points `E`, ensuring proper normalization.  Since the insertion operation may
-need to change some code points just before and/or just after the insertion
-due to normalization, the code points described by `replace_result` may be
-longer than `I`.  `replace_result` values represent the entire sequence of
-code points in `E` that have changed -- some version of which may have already
-been present in the string before the insertion.
-
-Note that `replace_result::iterator` refers to the underlying sequence, which
-may not itself be a sequence of code points.  For example, the underlying
-sequence may be a sequence of `char8_t` which is interpreted as UTF-8.  We can't
-return an iterator of the type `I` passed to `normalize_replace()`, for the
-same reason we don't return an `in_out_result` from `normalization()`.
-
-```cpp
-namespace std::uc {
-  template<class I>
-  struct replace_result : subrange<I> {
-    using iterator = I;
-
-    constexpr replace_result() = default;
-    constexpr replace_result(iterator first, iterator last) : subrange<I>(first, last) {}
-
-    constexpr operator iterator() const { return this->begin(); }
-  };
-
-  enum insertion_normalization {
-    insertion_normalized,
-    insertion_not_normalized
-  };
-
-  template<
-    nf Normalization,
-    utf_string String,
-    code_point_iter I,
-    class StringIter = ranges::iterator_t<String>>
-  constexpr replace_result<StringIter> normalize_replace(
-    String& string,
-    StringIter str_first,
-    StringIter str_last,
-    I first,
-    I last,
-    insertion_normalization insertion_norm = insertion_not_normalized);
-
-  template<
-    nf Normalization,
-    utf_string String,
-    code_point_iter I,
-    class StringIter = ranges::iterator_t<String>>
-  constexpr replace_result<StringIter> normalize_insert(
-    String& string,
-    StringIter at,
-    I first,
-    I last,
-    insertion_normalization insertion_norm = insertion_not_normalized);
-
-  template<
-    nf Normalization,
-    utf_string String,
-    code_point_range R,
-    class StringIter = ranges::iterator_t<String>>
-  constexpr replace_result<StringIter> normalize_insert(
-    String& string,
-    StringIter at,
-    R&& r,
-    insertion_normalization insertion_norm = insertion_not_normalized);
-
-  template<
-    nf Normalization,
-    utf_string String,
-    class StringIter = ranges::iterator_t<String>>
-  constexpr replace_result<StringIter> normalize_erase(
-    String& string, StringIter str_first, StringIter str_last);
-}
 ```
 
 ## Add a feature test macro
