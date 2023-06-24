@@ -152,11 +152,10 @@ namespace std::uc::__detail {
         // members ...
     };
 
-    // Separately compiled.
-    __normalization_table_data const & __get_nfc_table();
+    constexpr __normalization_table_data const & __get_nfc_table();
     
     template</* ... */>
-    auto __norm_impl(/* ... */) {
+    constexpr auto __norm_impl(/* ... */) {
         __normalization_table_data const & table = __get_nfc_table();
         // Do normalization ...
     }
@@ -181,13 +180,13 @@ namespace std::uc::__detail {
     };
 
     template<int _Major, int _Minor, int _Patch>
-    __normalization_table_data __get_nfc_table();
+    constexpr __normalization_table_data __get_nfc_table();
 
-    // Separately compiled.
-    template<> __normalization_table_data __get_nfc_table<major_version, minor_version, patch_version>();
+    template<>
+    constexpr __normalization_table_data __get_nfc_table<major_version, minor_version, patch_version>();
     
     template</* ... */>
-    auto __norm_impl(/* ... */) {
+    constexpr auto __norm_impl(/* ... */) {
         __normalization_table_data const & table =
             __get_nfc_table<major_version, minor_version, patch_version>();
         // Do normalization ...
@@ -203,17 +202,173 @@ approach is workable.
 
 ## Add stream-safe view
 
-# TODO
-
-### `stream_safe_view::iterator`
-
 ```c++
-namespace std::uc {
-  constexpr int @*uc-ccc*@(char32_t cp); // @*exposition only*@
+namespace std:: uc {
+  constexpr int @*stream-safe-max-nonstarters*@ = @*implementation defined*@;
+
+  template<class T>
+  constexpr bool @*is-utf-iter*@ = false;                                 // @*exposition only*@
+  template<format F, format T, class I, class S, class E>
+  constexpr bool @*is-utf-iter*@<utf_iterator<F, T, I, S, E>> = true;     // @*exposition only*@
+
+  template<class V>
+  constexpr auto @*uc-view-category*@() {                                 // @*exposition only*@
+    if constexpr (ranges::common_range<V> && ranges::bidirectional_range<V>) {
+      return bidirectional_iterator_tag{};
+    } else {
+      return forward_iterator_tag{};
+    }
+  }
+  template<class V>
+  using @*uc-view-category-t*@ = decltype(uc_view_category<V>());         // @*exposition only*@
+
+  constexpr int @*uc-ccc*@(char32_t cp);                                  // @*exposition only*@
+
+  template<utf32_range V>
+    requires ranges::view<V> && ranges::forward_range<V>
+  class stream_safe_view : public ranges::view_interface<stream_safe_view<V>>
+  {
+    template<bool Const, bool StoreLast = !@*is-utf-iter*@<ranges::iterator_t<V>>>
+    class @*iterator*@;                                                   // @*exposition only*@
+    class @*sentinel*@;                                                   // @*exposition only*@
+
+    static constexpr bool @*bidi*@ =                                      // @*exposition only*@
+      derived_from<@*uc-view-category-t*@<V>, bidirectional_iterator_tag>;
+
+    V @*base_*@ = V();                                                    // @*exposition only*@
+
+  public:
+    constexpr stream_safe_view() requires default_initializable<V> = default;
+    constexpr stream_safe_view(V base) : @*base_*@{std::move(base)} {}
+
+    constexpr V base() const & requires copy_constructible<V> { return @*base_*@; }
+    constexpr V base() && { return std::move(@*base_*@); }
+
+    constexpr @*iterator*@<false> begin() { return @*iterator*@<false>{@*base_*@}; }
+    constexpr @*iterator*@<true> begin() const requires utf32_range<const V> { return @*iterator*@<true>{@*base_*@}; }
+
+    constexpr auto end() {
+      if constexpr (@*bidi*@) {
+        return @*iterator*@<false>{@*base_*@, ranges::end(@*base_*@)};
+      } else {
+        return @*sentinel*@{};
+      }
+    }
+    constexpr auto end() const requires utf32_range<const V> {
+      if constexpr (@*bidi*@) {
+        return @*iterator*@<true>{@*base_*@, ranges::end(@*base_*@)};
+      } else {
+        return @*sentinel*@{};
+      }
+    }
+  };
+
+  template<utf32_range V>
+    requires ranges::view<V> && ranges::forward_range<V>
+  template<bool Const, bool StoreLast>
+  class stream_safe_view<V>::@*iterator*@
+    : public std::iterator_interface<
+        @*iterator*@<Const, StoreLast>,
+        @*uc-view-category-t*@<V>,
+        char32_t,
+        char32_t>
+  {
+    using @*Base*@ = @*maybe-const*@<Const, V>;                               // @*exposition only*@
+
+    static constexpr bool @*bidi*@ =                                      // @*exposition only*@
+      derived_from<@*uc-view-category-t*@<V>, bidirectional_iterator_tag>;
+
+    ranges::iterator_t<@*Base*@> @*it_*@;                                     // @*exposition only*@
+    ranges::iterator_t<@*Base*@> @*first_*@;                                  // @*exposition only*@
+    ranges::sentinel_t<@*Base*@> @*last_*@;                                   // @*exposition only*@
+    int @*nonstarters_*@ = 0;                                             // @*exposition only*@
+
+    constexpr auto @*end_iter*@(ranges::iterator_t<@*Base*@> i) const;    // @*exposition only*@
+    constexpr auto @*begin_iter*@(ranges::iterator_t<@*Base*@> i) const;  // @*exposition only*@
+
+    friend class @*sentinel*@;
+
+  public:
+    constexpr @*iterator*@() requires default_initializable<ranges::iterator_t<@*Base*@>> = default;
+    constexpr @*iterator*@(@*Base*@ & base) : @*it_*@(ranges::begin(base)) {
+      if (@*it_*@ != @*end_iter*@(@*it_*@) && @*uc-ccc*@(*@*it_*@))
+        @*nonstarters_*@ = 1;
+    }
+    constexpr @*iterator*@(@*Base*@ & base, ranges::iterator_t<V> it) requires @*bidi*@
+      : @*it_*@(it) {}
+    constexpr @*iterator*@(@*iterator*@<!Const, StoreLast> i)
+      requires Const && convertible_to<ranges::iterator_t<V>, ranges::iterator_t<@*Base*@>>
+      : @*it_*@(i.@*it_*@), @*nonstarters_*@(i.@*nonstarters_*@) {}
+
+    constexpr const ranges::iterator_t<@*Base*@> & base() const & noexcept { return @*it_*@; }
+    constexpr ranges::iterator_t<@*Base*@> base() && { return std::move(@*it_*@); }
+
+    constexpr char32_t operator*() const { return *@*it_*@; }
+
+    constexpr @*iterator*@ & operator++() {
+      if (@*it_*@ == @*end_iter*@(@*it_*@))
+        return *this;
+      ++@*it_*@;
+      @*nonstarters_*@
+      @*it_*@ = detail::next_stream_safe_cp(@*it_*@, @*end_iter*@(@*it_*@), @*nonstarters_*@);
+      return *this;
+    }
+
+    constexpr @*iterator*@ & operator--() requires @*bidi*@ {
+      auto const first = @*begin_iter*@(@*it_*@);
+      if (@*it_*@ == first)
+        return *this;
+      if (0 < @*nonstarters_*@) {
+        --@*it_*@;
+        --@*nonstarters_*@;
+      } else {
+        auto const initial_it = @*it_*@;
+        auto it = ranges::find_last_if(first, @*it_*@, [](auto cp) { return @*uc-ccc*@(cp) == 0; });
+        auto const from = it == @*it_*@ ? first : ranges::next(it);
+        ptrdiff_t const nonstarters = distance(from, @*it_*@);
+        @*nonstarters_*@ = min(
+          nonstarters, ptrdiff_t(@*stream-safe-max-nonstarters*@ - 1));
+        if (@*nonstarters_*@)
+          @*it_*@ = ranges::next(from, @*nonstarters_*@);
+        if (@*it_*@ == initial_it)
+          --@*it_*@;
+      }
+      return *this;
+    }
+
+    friend bool operator==(@*iterator*@ lhs, @*iterator*@ rhs)
+      { return lhs.base() == rhs.base(); }
+
+    using @*base-type*@ = std::iterator_interface<                        // @*exposition only*@
+      @*iterator*@<Const, StoreLast>,
+      @*uc-view-category-t*@<V>,
+      char32_t,
+      char32_t>;
+    using @*base-type*@::operator++;
+    using @*base-type*@::operator--;
+  };
+
+  template<utf32_range V>
+    requires ranges::view<V> && ranges::forward_range<V>
+  class stream_safe_view<V>::@*sentinel*@
+  {
+  public:
+    template<bool Const, bool StoreLast>
+    friend constexpr bool operator==(const @*iterator*@<Const, StoreLast> & it, @*sentinel*@) {
+      if constexpr (StoreLast) {
+        return it.@*it_*@ == it.last_;
+      } else {
+        return it.base().base() == it.base().end();
+      }
+    }
+  };
+
+  template<class R>
+  stream_safe_view(R &&) -> stream_safe_view<views::all_t<R>>;
 }
 ```
 
-`@*uc-ccc*@()` returns the [Canonical Combining
+The exposition-only function `@*uc-ccc*@()` returns the [Canonical Combining
 Class](https://unicode.org/reports/tr44/#Canonical_Combining_Class_Values),
 which indicates how and whether a code point combines with other code points.
 For some code point `cp`, `@*uc-ccc*@(cp) == 0` iff `cp` is a
@@ -221,20 +376,48 @@ For some code point `cp`, `@*uc-ccc*@(cp) == 0` iff `cp` is a
 starter (remember that the purpose of the stream-safe format is to limit the
 maximum number of combiners to at most 30).
 
-The behavior of this iterator should be left to the implementation, as long as
-the result meets the stream-safe format, and does not 1) change or remove any
-starters, or 2) change the first 30 nonstarters after any given starter.  The
-Unicode standard shows a technique for inserting special dummy-starters (that
-do not interact with most other text) every 30 non-starters, so that the
-original input is preserved.  I think this is silly -- the longest possible
-meaningful sequence of nonstarters is 17 code points, and that is only
-necessary for backwards comparability.  Most meaningful sequences are much
-shorter.  I think a more reasonable implementation is simply to truncate any
-sequence of nonstarters to 30 code points.
+This design truncates sequences of nonstartes longer than
+`@*stream-safe-max-nonstarters*@`, meaning that it skips over the subsequent
+nonstarters.  The Unicode standard shows a technique for inserting special
+dummy-starters (that do not interact with most other text) every 30
+non-starters, so that the original input is preserved.  I think this is silly
+-- the longest possible meaningful sequence of nonstarters is 18 code points,
+and that is only necessary for backwards compatibility.  This means a value of
+18 for `@*stream-safe-max-nonstarters*@` is fine.  Typcial sequences are
+*much* shorter.
+
+### Why `stream_safe_view` is forward-only
+
+TODO: Explain why this is inherently unusable with input ranges -- there is
+inherently going to be backtracking.
+
+### Why `stream_safe_view::end` produces `sentinel`s and `iterator`s
+
+### `stream_safe_view::iterator`
+
+The exposition-only data member `first_` is defined if and only if
+`!@*is-utf-iter*@<ranges::iterator_t<V>> && ranges::common_range<V> &&
+ranges::bidirectional_range<V>` is `true`.  The exposition-only data member
+`first_` is defined if and only if `!@*is-utf-iter*@<ranges::iterator_t<V>>` is
+`true`.
+
+The exposition-only function `@*begin_iter*@` returns `first_` if there is a
+`first_` data member.  Otherwise, if `@*is-utf-iter*@<ranges::iterator_t<V>>`
+is `true`, it returns `std::ranges::iterator_t<V>(i.begin(), i.begin(),
+i.end())`.  Otherwise, it returns `void`.
+
+The exposition-only function `@*end_iter*@` returns `last_` if there is a
+`last_` data member.  Otherwise, it returns
+`std::ranges::iterator_t<V>(i.begin(), i.end(), i.end())` if that is well
+formed.  Otherwise, it returns `i.end()`.
+
+### Why `first_` and `last_` are conditionally defined
+
+TODO
 
 ## Add stream-safe adaptor
 
-# TODO
+TODO
 
 ## Add an enumeration listing the supported normalization forms
 
