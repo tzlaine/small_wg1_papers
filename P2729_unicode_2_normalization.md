@@ -98,72 +98,9 @@ UAX15](https://unicode.org/reports/tr15/#Stream_Safe_Text_Format).
 See [UAX15 Unicode Normalization Forms](https://unicode.org/reports/tr15) for
 more information on Unicode normalization.
 
-# Use cases
+# Examples
 
-## Case 1: Normalize a sequence of code points to NFC
-
-We want to make a normalized copy of `s`, and we want the underlying
-implementation to use a specialized UTF-8 version of the normalization
-algorithm.  This is the most flexible and general-purpose API.
-
-```cpp
-std::string s = /* ... */; // using a std::string to store UTF-8
-assert(!std::uc::is_normalized(std::uc::as_utf32(s)));
-
-char8_t * nfc_s = new char8_t[s.size() * 2];
-// Have to use as_utf32(), because normalization operates on code points, not UTF-8.
-auto out = std::uc::normalize<std::uc::nf::c>(std::uc::as_utf32(s), nfc_s);
-*out = '\0';
-assert(std::uc::is_normalized(nfc_s, out));
-```
-
-## Case 2: Normalize a sequence of code points to NFC, where the output is going into a string-like container
-
-This is like the previous case, except that the results must go into a
-string-like container, not just any old output iterator.  The advantage of
-doing things this way is that the code is a lot faster if you can append the
-results in chunks.
-
-```cpp
-std::string s = /* ... */; // using a std::string to store UTF-8
-assert(!std::uc::is_normalized(std::uc::as_utf32(s)));
-
-std::string nfc_s;
-nfc_s.reserve(s.size());
-// Have to use as_utf32(), because normalization operates on code points, not UTF-8.
-std::uc::normalize_append<std::uc::nf::c>(std::uc::as_utf32(s), nfc_s);
-assert(std::uc::is_normalized(std::uc::as_utf32(nfc_s)));
-```
-
-## Case 3: Modify some normalized text without breaking normalization
-
-You cannot modify arbitrary text that is already normalized without risking
-breaking the normalization.  For instance, let's say I have some
-NFC-normalized text.  That means that all the combining code points that could
-combine with one or more preceding code points have already done so.  For
-instance, if I see "ä" in the NFC text, then I know it's code point U+00E4
-"Latin Small Letter A with Diaeresis", *not* some combination of "a" and a
-combining two dots.
-
-Now, forget about the "ä" I just gave as an example.  Let's say that I want to
-insert a single code point, "¨̈" (U+0308 Combining Diaeresis) into NFC text.
-Let's also say that the insertion position is right after a letter "o".  If I
-do the insertion and then walk away, I would have broken the NFC normalization,
-because "o" followed by "¨" is supposed to combine to form "ö" (U+00F6 Latin
-Small Letter O with Diaeresis).
-
-Similar things can happen when deleting text -- sometimes the deletion can
-leave two code points next to each other that should interact in some way that
-did not apply when they were separate, before the deletion.
-
-```cpp
-std::string s = /* ... */;                            // using a std::string to store UTF-8
-assert(std::uc::is_normalized(std::uc::as_utf32(s))); // already normalized
-
-std::string insertion = /* ... */;
-normalize_insert<std::uc::nf::c>(s, s.begin() + 2, std::uc::as_utf32(insertion));
-assert(std::uc::is_normalized(std::uc::as_utf32(nfc_s)));
-```
+# TODO
 
 # Proposed design
 
