@@ -153,11 +153,11 @@ namespace std::uc::__detail {
     };
 
     // Separately compiled.
-    __normalization_table_data const & __get_nfkc_table();
+    __normalization_table_data const & __get_nfc_table();
     
     template</* ... */>
     auto __norm_impl(/* ... */) {
-        __normalization_table_data const & table = __get_nfkc_table();
+        __normalization_table_data const & table = __get_nfc_table();
         // Do normalization ...
     }
 }
@@ -181,15 +181,15 @@ namespace std::uc::__detail {
     };
 
     template<int _Major, int _Minor, int _Patch>
-    __normalization_table_data __get_nfkc_table();
+    __normalization_table_data __get_nfc_table();
 
     // Separately compiled.
-    template<> __normalization_table_data __get_nfkc_table<major_version, minor_version, patch_version>();
+    template<> __normalization_table_data __get_nfc_table<major_version, minor_version, patch_version>();
     
     template</* ... */>
     auto __norm_impl(/* ... */) {
         __normalization_table_data const & table =
-            __get_nfkc_table<major_version, minor_version, patch_version>();
+            __get_nfc_table<major_version, minor_version, patch_version>();
         // Do normalization ...
     }
 }
