@@ -177,9 +177,9 @@ Part 1: UTF Transcoding".
 
 ```c++
 namespace std::uc {
-  inline constexpr major_version = @*implementation defined*@;
-  inline constexpr minor_version = @*implementation defined*@;
-  inline constexpr patch_version = @*implementation defined*@;
+  inline constexpr int major_version = @*implementation defined*@;
+  inline constexpr int minor_version = @*implementation defined*@;
+  inline constexpr int patch_version = @*implementation defined*@;
 }
 ```
 
@@ -193,6 +193,76 @@ the normalization algorithms must be updated to keep up.
 I'm proposing that implementations provide support for whatever version of
 Unicode they like, as long as they document which one is supported via
 `major_`-/`minor_`-/`patch_version`.
+
+### ABI concerns
+
+The algorithms proposed in this paper and papers to follow are often
+data-driven.  (Normalization is, stream-safe is not.)  While the code of each
+algorithm is going to be template code, the data will not be.  However, if the
+implementation makes those data available using the right interface, the
+implementation will be able to ship the same algorithm for multiple versions
+of Unicode.  For example, say your favorite standard library ("StdLib")
+version N contains support for normalization using Unicode X.Y.Z.  Say also
+that its NFC data table (containing the data that drive NFC normalization)
+comes from a function that looks like this:
+
+```c++
+// In <unicode> or similar.
+
+namespace std::uc::__detail {
+    // Note that this is a non-template.
+    struct __normalization_table_data {
+        // members ...
+    };
+
+    // Separately compiled.
+    __normalization_table_data const & __get_nfkc_table();
+    
+    template</* ... */>
+    auto __norm_impl(/* ... */) {
+        __normalization_table_data const & table = __get_nfkc_table();
+        // Do normalization ...
+    }
+}
+```
+
+Now say that version N+1 of StdLib is release, supporting Unicode (X+2).Y.Z.
+Since the normalization code must match the data that drive it, now we have
+broken ABI compatibility between builds of StdLib N and StdLib N+1.  We cannot
+provide a new data table without one version of the template code being out of
+sync with it.
+
+Instead, StdLib could do this:
+
+```c++
+// In <unicode> or similar.
+
+namespace std::uc::__detail {
+    // Note that this is a non-template.
+    struct __normalization_table_data {
+        // members ...
+    };
+
+    template<int _Major, int _Minor, int _Patch>
+    __normalization_table_data __get_nfkc_table();
+
+    // Separately compiled.
+    template<> __normalization_table_data __get_nfkc_table<major_version, minor_version, patch_version>();
+    
+    template</* ... */>
+    auto __norm_impl(/* ... */) {
+        __normalization_table_data const & table =
+            __get_nfkc_table<major_version, minor_version, patch_version>();
+        // Do normalization ...
+    }
+}
+```
+
+This effectively ABI-tags each data table with the major+minor+patch version
+of Unicode that it belongs with.  Though Boost.Text deals only with one
+version of Unicode at a time, the non-version-specific code above is
+structurally very similar to the implementation in Boost.Text, so I know this
+approach is workable.
 
 ## Add stream-safe view
 
