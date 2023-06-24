@@ -214,39 +214,6 @@ If they do not, they can use the stream-safe operations to meet the
 stream-safe precondition of the call to
 `std::uc::normalize<std::uc::fc::d>()`.
 
-### Add stream-safe algorithms
-
-```c++
-namespace std::uc {
-  template<utf_iter I, std::sentinel_for<I> S>
-    constexpr I stream_safe(I first, S last);
-
-  template<utf_range_like R>
-    constexpr @*range-like-result-iterator*@<R> stream_safe(R && r);
-
-  template<utf_iter I, sentinel_for<I> S, output_iterator<char32_t> O>
-    constexpr ranges::copy_result<I, O> stream_safe_copy(I first, S last, O out);
-
-  template<utf_range_like R, output_iterator<char32_t> O>
-    constexpr ranges::copy_result<@*range-like-result-iterator*@<R>, O>
-      stream_safe_copy(R && r, O out);
-
-  template<utf_iter I, sentinel_for<I> S>
-    constexpr bool is_stream_safe(I first, S last);
-
-  template<utf_range_like R>
-    constexpr bool is_stream_safe(R && r);
-}
-```
-
-`stream_safe()` is like `std::remove_if()` and related algorithms.  It writes
-the stream-safe subset of the given range into the beginning, and leaves junk
-at the end. It returns the iterator to the first junk element.
-
-Note that `@*range-like-result-iterator*@<R>` comes from
-[P2728](https://isocpp.org/files/papers/P2728R0.html).  It provides a
-`ranges::borrowed_iterator_t<R>` or just a pointer, as appropriate, based `R`.
-
 ### Add `stream_safe_iterator`
 
 ```c++
@@ -408,61 +375,6 @@ namespace std::uc {
     kd,
     fcc
   };
-```
-
-## Add a generic normalization algorithm
-
-`normalize()` takes some input in code points, and writes the result to the
-out iterator `out`, also in code points.  Since there are fast implementations
-that normalize UTF-16 and UTF-8 sequences, if the user passes a UTF-8 ->
-UTF-32 or UTF-16 -> UTF-32 transcoding iterator to `normalize()`, it is
-allowed to get the underlying iterators out of `[first, last)`, and do all the
-normalization in UTF-8 or UTF-16.
-
-You may expect `normalize()` to return an alias of `in_out_result`, like
-`std::ranges::copy()`, or `std::uc::transcode_to_utf8()` from
-[P2728](https://isocpp.org/files/papers/P2728R0.html).  The reason it does not
-is that to do so would interfere with using ICU to implement these algorithms.
-See the section on implementation experience for why that is important.
-
-```cpp
-namespace std::uc {
-  template<nf Normalization, utf_iter I, sentinel_for<I> S, output_iterator<char32_t> O>
-    constexpr O normalize(I first, S last, O out);
-
-  template<nf Normalization, utf_range_like R, output_iterator<char32_t> O>
-    constexpr O normalize(R&& r, O out);
-
-  template<nf Normalization, utf_iter I, sentinel_for<I> S>
-    constexpr bool is_normalized(I first, S last);
-
-  template<nf Normalization, utf_range_like R>
-    constexpr bool is_normalized(R&& r);
-}
-```
-
-## Add an append version of the normalization algorithm
-
-In performance tests, I found that appending multiple elements to the output
-in one go was substantially faster than the more generic `normalize()`
-algorithm, which appends to the output one code point at a time.  So, we
-should provide support for that as well, in the form of `normalize_append()`.
-
-If transcoding is necessary when the result is appended, `normalize_append()`
-does automatic transcoding to UTF-N, where N is implied by the size of
-`String::value_type`.
-
-```cpp
-namespace std::uc {
-  template<nf Normalization, utf_iter I, sentinel_for<I> S, utf_string String>
-    constexpr void normalize_append(I first, S last, String& s);
-
-  template<nf Normalization, utf_range_like R, utf_string String>
-    constexpr void normalize_append(R&& r, String& s);
-
-  template<nf Normalization, utf_string String>
-    constexpr void normalize_string(String& s);
-}
 ```
 
 ## Add normalization-aware insertion, erasure, and replacement operations on strings
