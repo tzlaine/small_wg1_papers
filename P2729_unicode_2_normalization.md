@@ -185,8 +185,8 @@ namespace std::uc {
 
 Unlike [P2728](https://isocpp.org/files/papers/P2728R0.html) (Unicode Part 1),
 the interfaces in this proposal refer to parts of the Unicode standard that
-are allowed to change over time.  The normalization of code points is unlikely
-to change in Unicode N from what it was for those same code points in Unicode
+are allowed to change over time.  The normalization of code points will not
+change in Unicode N from what it was for those same code points in Unicode
 N-1, but since new code points are introduced with each new Unicode release,
 the normalization algorithms must be updated to keep up.
 
@@ -194,63 +194,15 @@ I'm proposing that implementations provide support for whatever version of
 Unicode they like, as long as they document which one is supported via
 `major_`-/`minor_`-/`patch_version`.
 
-## Add stream-safe operations
+## Add stream-safe view
 
-As mentioned above, I consider most of the Unicode algorithms presented in
-this proposal and the proposals to come to be low-level tools that most C++
-users will not need to touch.  I would instead like to see most C++ users use
-a higher-level, string-like abstraction (provisionally called `std::text`)
-that will handle all the messy Unicode details, leaving C++ users to think
-about their program instead of Unicode).  As such, most of the interfaces in
-this proposal assume that their input is in stream-safe format, but they do
-not enforce that.  The exceptions are `normalize_insert`/-`_erase`/-`_replace`
-algorithms, which are designed to be operations with which something like
-`std::text` may be built.  These interfaces do not assume stream-safe for
-inserted text, and in fact they put inserted text *into* stream-safe format.
+# TODO
 
-So, if users use something like `std::uc::normalize<std::uc::fc::d>()`, they
-may know *a priori* that the input is in stream-safe format, or they may not.
-If they do not, they can use the stream-safe operations to meet the
-stream-safe precondition of the call to
-`std::uc::normalize<std::uc::fc::d>()`.
-
-### Add `stream_safe_iterator`
+### `stream_safe_view::iterator`
 
 ```c++
 namespace std::uc {
   constexpr int @*uc-ccc*@(char32_t cp); // @*exposition only*@
-
-  template<code_point_iter I, sentinel_for<I> S = I>
-  struct stream_safe_iterator
-    : iterator_interface<stream_safe_iterator<I, S>, forward_iterator_tag, char32_t, char32_t> {
-    constexpr stream_safe_iterator() = default;
-    constexpr stream_safe_iterator(I first, S last)
-      : first_(first), it_(first), last_(last),
-        nonstarters_(it_ != last_ && @*uc-ccc*@(*it_) ? 1 : 0)
-        {}
-
-    constexpr char32_t operator*() const;
-
-    constexpr I base() const { return it_; }
-
-    constexpr stream_safe_iterator& operator++();
-
-    friend constexpr bool operator==(stream_safe_iterator lhs, stream_safe_iterator rhs)
-      { return lhs.it_ == rhs.it_; }
-    template<class I, class S>
-      friend constexpr bool operator==(const stream_safe_iterator<I, S>& lhs, S rhs)
-        { return lhs.base() == rhs; }
-
-    using base_type =  // @*exposition only*@
-      iterator_interface<stream_safe_iterator<I, S>, forward_iterator_tag, char32_t, char32_t>;
-    using base_type::operator++;
-
-  private:
-    I first_;                      // @*exposition only*@
-    I it_;                         // @*exposition only*@
-    [[no_unique_address]] S last_; // @*exposition only*@
-    size_t nonstarters_ = 0;       // @*exposition only*@
-  };
 }
 ```
 
@@ -273,61 +225,9 @@ necessary for backwards comparability.  Most meaningful sequences are much
 shorter.  I think a more reasonable implementation is simply to truncate any
 sequence of nonstarters to 30 code points.
 
-### Add `stream_safe_view` and `as_stream_safe()`
+## Add stream-safe adaptor
 
-```c++
-namespace std::uc {
-  template<class T>
-  concept @*stream-safe-iter*@ = @*see below*@;  // @*exposition only*@
-
-  template<class I, std::sentinel_for<I> S = I>
-    requires @*stream-safe-iter*@<I>
-  struct stream_safe_view : view_interface<stream_safe_view<I, S>> {
-    using iterator = I;
-    using sentinel = S;
-
-    constexpr stream_safe_view() {}
-    constexpr stream_safe_view(iterator first, sentinel last) :
-      first_(first), last_(last)
-    {}
-
-    constexpr iterator begin() const { return first_; }
-    constexpr sentinel end() const { return last_; }
-
-    friend constexpr bool operator==(stream_safe_view lhs, stream_safe_view rhs)
-      { return lhs.first_ == rhs.first_ && lhs.last_ == rhs.last_; }
-
-  private:
-    iterator first_;                      // @*exposition only*@
-    [[no_unique_address]] sentinel last_; // @*exposition only*@
-  };
-
-  struct @*as-stream-safe-t*@ : range_adaptor_closure<@*as-stream-safe-t*@> { // @*exposition only*@
-    template<utf_iter I, std::sentinel_for<I> S>
-      constexpr @*unspecified*@ operator()(I first, S last) const;
-    template<utf_range_like R>
-      constexpr @*unspecified*@ operator()(R && r) const;
-  };
-
-  inline constexpr @*as-stream-safe-t*@ as_stream_safe;
-}
-```
-
-`@*stream-safe-iter*@<T>` is `true` iff `T` is a specialization of
-`stream_safe_iterator`.
-
-The `as_stream_safe()` overloads each return a `stream_safe_view` of the
-appropriate type.
-
-`as_stream_safe(/*...*/)` returns a `stream_safe_view` of the appropriate
-type, except that the range overload returns `ranges::dangling{}` if
-`!is_pointer_v<remove_reference_t<R>> && !ranges::borrowed_range<R>` is
-`true`.  If either overload is called with a non-common range `r`, the type of
-the second template parameter to `stream_safe_view` will be
-`decltype(ranges::end(r))`, *not* a specialization of `stream_safe_iterator`.
-
-`as_stream_safe` can also be used as a range adaptor, as in `r |
-std::uc::as_stream_safe`.
+# TODO
 
 ## Add an enumeration listing the supported normalization forms
 
@@ -349,6 +249,14 @@ namespace std::uc {
   };
 ```
 
+## Add normalization views
+
+# TODO
+
+## Add normalization adaptors
+
+# TODO
+
 ## Add a feature test macro
 
 Add the feature test macro `__cpp_lib_unicode_normalization`.
@@ -358,51 +266,6 @@ Add the feature test macro `__cpp_lib_unicode_normalization`.
 All of these interfaces have been implemented in
 [Boost.Text](https://github.com/tzlaine/text) (proposed -- not yet a part of
 Boost).  All of the interfaces here have been very well-exercised by
-full-coverage tests, and by other parts of Boost.Text that use normalization.
-
-The first attempt at implementing the normalization algorithms was fairly
-straightforward.  I wrote code following the algorithms as described in the
-Unicode standard and its accompanying Annexes, and got all the
-Unicode-published tests to pass.  However, comparing the performance of the
-naive implementation to the performance of the equivalent ICU normalization
-API showed that the naive implementation was a *lot* slower -- around a factor
-of 50!
-
-I managed to optimize the initial implementation quite a lot, and got the
-performance delta down to about a factor of 10.  After that, I could shave no
-more time off of the naive implementation.  I looked at how ICU performs
-normalization, and had a brief discussion about performance with one of the
-ICU maintainers.  It turns out that if you understand the
-normalization-related Unicode data very deeply, you can take advantage of
-certain patterns in those data to take shortcuts.  In fact, it is only
-necessary to perform the full algorithm as described in the Unicode standard
-in a small minority of cases.  ICU is maintained in lockstep with the
-evolution of Unicode, so as new code points are added (often from new
-languages), the new normalization data associated with those new code points
-are designed so that they enable the shortcuts mentioned above.
-
-In the end, I looked at the ICU normalization algorithms, and reimplemented
-them in a generic way, using templates and therefore header-based code.  Being
-generic, this reimplementation works for numerous types of input (iterators,
-ranges, pointers to null-terminated strings) -- not just `icu::UnicodeString`
-(a `std::string`-like UTF-16 type) and `icu::StringPiece` (a
-`std::string_view`-like UTF-8 type) that ICU supports.  Being inline,
-header-only code, the reimplementation optimizes better, and I managed about a
-20% speedup over the ICU implementation.
-
-However, this reimplementation of ICU was a lot of work, and there's no
-guarantee that it will work for more than just the current version of Unicode
-supported by Boost.Text.  Since ICU and Unicode evolve in lockstep, any
-reimplementation needs to track changes to the ICU implementation when the
-Unicode version is updated, and the equivalent change needs to be applied to
-the reimplementation.
-
-## tl;dr
-
-Standard library implementers will probably want to just use ICU to implement
-the normalization algorithms.  Since ICU only implements the normalization
-algorithms for UTF-16 and UTF-8, and since it only implements the algorithms
-for the exact types `icu::UnicodeString` (for UTF-16) and `icu::StringPiece`
-(for UTF-8), copying may need to occur.  There are implementation-detail
-interfaces within ICU that more intrepid implementers may wish to use; these
-interfaces can be made to work with iterators and pointers more directly.
+full-coverage tests (millions of lines of code testing thousands of cases
+published by Unicode), and by other parts of Boost.Text that use
+normalization.
