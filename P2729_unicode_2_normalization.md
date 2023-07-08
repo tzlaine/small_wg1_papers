@@ -220,11 +220,11 @@ namespace std:: uc {
     }
   }
   template<class V>
-  using @*uc-view-category-t*@ = decltype(uc_view_category<V>());         // @*exposition only*@
+  using @*uc-view-category-t*@ = decltype(@*uc-view-category*@<V>());         // @*exposition only*@
 
   constexpr int @*uc-ccc*@(char32_t cp);                                  // @*exposition only*@
 
-  template<typename I, typename S>
+  template<class I, class S>
     I @*next-stream-safe-cp*@(I first, S last, int & nonstarters) {
       for (; first != last; ++first) {
         char32_t const cp = *first;
@@ -272,11 +272,7 @@ namespace std:: uc {
     requires ranges::view<V> && ranges::forward_range<V>
   template<bool Const, bool StoreLast>
   class stream_safe_view<V>::@*iterator*@
-    : public std::iterator_interface<
-        @*iterator*@<Const, StoreLast>,
-        @*uc-view-category-t*@<V>,
-        char32_t,
-        char32_t>
+    : public iterator_interface<@*uc-view-category-t*@<V>, char32_t, char32_t>
   {
     using @*Base*@ = @*maybe-const*@<Const, V>;                               // @*exposition only*@
 
@@ -322,8 +318,7 @@ namespace std:: uc {
     friend bool operator==(@*iterator*@ lhs, @*iterator*@ rhs)
       { return lhs.base() == rhs.base(); }
 
-    using @*base-type*@ = std::iterator_interface<                        // @*exposition only*@
-      @*iterator*@<Const, StoreLast>,
+    using @*base-type*@ = iterator_interface<                             // @*exposition only*@
       @*uc-view-category-t*@<V>,
       char32_t,
       char32_t>;
@@ -339,7 +334,7 @@ namespace std:: uc {
     template<bool Const, bool StoreLast>
     friend constexpr bool operator==(const @*iterator*@<Const, StoreLast> & it, @*sentinel*@) {
       if constexpr (StoreLast) {
-        return it.@*it_*@ == it.last_;
+        return it.@*it_*@ == it.@*last_*@;
       } else {
         return it.base().base() == it.base().end();
       }
@@ -348,15 +343,13 @@ namespace std:: uc {
 
   template<class R>
   stream_safe_view(R &&) -> stream_safe_view<views::all_t<R>>;
+
+  inline constexpr @*unspecified*@ as_stream_safe;
 }
 
 namespace std::ranges {
   template<class V>
   inline constexpr bool enable_borrowed_range<uc::stream_safe_view<V>> = enable_borrowed_range<V>;
-}
-
-namespace std::uc {
-  inline constexpr @*unspecified*@ as_stream_safe;
 }
 ```
 
@@ -390,8 +383,8 @@ Effects:
 - Otherwise, as if by:
 ```c++
     auto const initial_it = @*it_*@;
-    auto it = ranges::find_last_if(@*begin_iter*@(), @*it_*@, [](auto cp) { return @*uc-ccc*@(cp) == 0; });
-    auto const from = it == @*it_*@ ? @*begin_iter*@(): ranges::next(it);
+    auto it = ranges::find_last_if(@*begin_iter*@(@*it_*@), @*it_*@, [](auto cp) { return @*uc-ccc*@(cp) == 0; });
+    auto const from = it == @*it_*@ ? @*begin_iter*@(@*it_*@) : ranges::next(it);
     ptrdiff_t const nonstarters = distance(from, @*it_*@);
     @*nonstarters_*@ = std::min(nonstarters, ptrdiff_t(@*stream-safe-max-nonstarters*@ - 1));
     if (@*nonstarters_*@)
@@ -476,11 +469,241 @@ namespace std::uc {
   };
 ```
 
-## Add normalization views
+## Add normalization views and adaptors
 
-# TODO
+```c++
+namespace std {
+  template<nf N>
+  bool @*stable-code-point*@(char32_t cp);
 
-## Add normalization adaptors
+  template<nf N, utf32_range V>
+    requires ranges::view<V> && ranges::forward_range<V>
+  class normalize_view : public ranges::view_interface<normalize_view<N, V>> {
+    template<bool Const, bool StoreLast = !@*is-utf-iter*@<ranges::iterator_t<V>>>
+    class @*iterator*@;                                                   // @*exposition only*@
+    class @*sentinel*@;                                                   // @*exposition only*@
+
+    static constexpr bool @*bidi*@ =                                      // @*exposition only*@
+      derived_from<@*uc-view-category-t*@<V>, bidirectional_iterator_tag>;
+
+    V @*base_*@ = V();                                                    // @*exposition only*@
+
+  public:
+    static constexpr nf normalization_form = N;
+
+    constexpr normalize_view() requires default_initializable<V> = default;
+    constexpr normalize_view(V base) : @*base_*@{std::move(base)} {}
+
+    constexpr V base() const & requires copy_constructible<V> { return @*base_*@; }
+    constexpr V base() && { return std::move(@*base_*@); }
+
+    constexpr @*iterator*@<false> begin() { return @*iterator*@<false>{@*base_*@}; }
+    constexpr @*iterator*@<true> begin() const requires utf32_range<const V> { return @*iterator*@<true>{@*base_*@}; }
+
+    constexpr @*sentinel*@ end() { return @*sentinel*@{}; }
+    constexpr @*iterator*@<false> end() requires @*bidi*@ { return @*iterator*@<false>{@*base_*@, ranges::end(@*base_*@)}; }
+    constexpr @*sentinel*@ end() const requires utf32_range<const V> { return @*sentinel*@{}; }
+    constexpr @*iterator*@<true> end() const requires utf32_range<const V> && @*bidi*@
+      { return @*iterator*@<true>{@*base_*@, ranges::end(@*base_*@)}; }
+  };
+
+  template<nf N, utf32_range V>
+    requires ranges::view<V> && ranges::forward_range<V>
+  template<bool Const, bool StoreLast>
+  class normalize_view<N, V>::@*iterator*@
+    : public std::iterator_interface<@*uc-view-category-t*@<V>, char32_t, char32_t> {
+    using @*Base*@ = @*maybe-const*@<Const, V>;                               // @*exposition only*@
+
+    static constexpr bool @*bidi*@ =                                      // @*exposition only*@
+      derived_from<@*uc-view-category-t*@<V>, bidirectional_iterator_tag>;
+
+    ranges::iterator_t<@*Base*@> @*it_*@;                                     // @*exposition only*@
+    ranges::iterator_t<@*Base*@> @*first_*@;                                  // @*exposition only*@
+    ranges::sentinel_t<@*Base*@> @*last_*@;                                   // @*exposition only*@
+    ranges::iterator_t<@*Base*@> @*chunk_last_*@;                             // @*exposition only*@
+
+    inplace_vector<char32_t, 32> @*buf_*@;                                // @*exposition only*@
+    int @*index_*@ = 0;                                                   // @*exposition only*@
+
+    constexpr auto @*begin_iter*@(ranges::iterator_t<@*Base*@> i) const;  // @*exposition only*@
+    constexpr auto @*end_iter*@(ranges::iterator_t<@*Base*@> i) const;    // @*exposition only*@
+
+    constexpr void @*read_chunk_and_normalize*@(bool reverse) {           // @*exposition only*@
+      inplace_vector<char32_t, 32> temp_buf_;
+      auto search_it = @*it_*@;
+      if (search_it != @*end_iter*@(@*it_*@))
+        ++search_it;
+      auto last = reverse ?
+        @*chunk_last_*@ : find_if(search_it, @*end_iter*@(@*it_*@), @*stable-code-point*@<N>);
+      @*chunk_last_*@ = ranges::copy(@*it_*@, last, back_inserter(temp_buf_)).in;
+      @*buf_*@.clear();
+      text::normalize<N>(temp_buf_, back_inserter(@*buf_*@));
+    }
+
+    friend class @*sentinel*@;
+
+  public:
+    constexpr @*iterator*@() requires default_initializable<ranges::iterator_t<@*Base*@>> = default;
+    constexpr @*iterator*@(@*Base*@ & base) : @*it_*@(ranges::begin(base)) { @*read_chunk_and_normalize*@(false); }
+    constexpr @*iterator*@(@*Base*@ & base, ranges::iterator_t<V> it) requires @*bidi*@ : @*it_*@(it), @*chunk_last_*@(it) {}
+    constexpr @*iterator*@(@*iterator*@<!Const, StoreLast> i)
+      requires Const && convertible_to<ranges::iterator_t<V>, ranges::iterator_t<@*Base*@>>
+      : @*it_*@(i.@*it_*@), @*chunk_last_*@(i.@*chunk_last_*@), @*buf_*@(i.@*buf_*@), @*index_*@(i.@*index_*@) {}
+
+    constexpr const ranges::iterator_t<@*Base*@> & base() const & noexcept { return @*it_*@; }
+    constexpr ranges::iterator_t<@*Base*@> base() && { return std::move(@*it_*@); }
+
+    constexpr char32_t operator*() const { return @*buf_*@[@*index_*@]; }
+
+    constexpr @*iterator*@ & operator++() {
+      auto const last = @*end_iter*@(@*it_*@);
+      if (@*it_*@ == last && @*index_*@ == int(@*buf_*@.size()))
+        return *this;
+      ++@*index_*@;
+      if (int(@*buf_*@.size()) == @*index_*@ && @*it_*@ != last) {
+        @*it_*@ = @*chunk_last_*@;
+        @*read_chunk_and_normalize*@(false);
+        @*index_*@ = 0;
+      }
+      return *this;
+    }
+
+    constexpr @*iterator*@ & operator--() requires @*bidi*@ {
+      auto const first = @*begin_iter*@(@*it_*@);
+      if (@*it_*@ == first && !@*index_*@)
+        return *this;
+      if (!@*index_*@) {
+        @*chunk_last_*@ = @*it_*@;
+        auto const p = ranges::find_last_if(first, @*it_*@, @*stable-code-point*@<N>);
+        if (p == @*it_*@)
+          @*it_*@ == first;
+        @*it_*@ p;
+        @*read_chunk_and_normalize*@(true);
+        @*index_*@ = @*buf_*@.size();
+      }
+      --@*index_*@;
+      return *this;
+    }
+
+    friend bool operator==(@*iterator*@ lhs, @*iterator*@ rhs) {
+      return lhs.@*it_*@ == rhs.@*it_*@ && (lhs.@*index_*@ == rhs.@*index_*@ ||
+                      (lhs.@*index_*@ == int(lhs.@*buf_*@.size()) && rhs.@*index_*@ == int(rhs.@*buf_*@.size())));
+    }
+
+    using @*base-type*@ = std::iterator_interface<                        // @*exposition only*@
+      @*uc-view-category-t*@<V>,
+      char32_t,
+      char32_t>;
+    using @*base-type*@::operator++;
+    using @*base-type*@::operator--;
+  };
+
+  template<nf N, utf32_range V>
+    requires ranges::view<V> && ranges::forward_range<V>
+  class normalize_view<N, V>::@*sentinel*@ {
+  public:
+    template<bool Const, bool StoreLast>
+    friend constexpr bool operator==(const @*iterator*@<Const, StoreLast> & it, @*sentinel*@) {
+      if (it.@*index_*@ < int(it.@*buf_*@.size()))
+        return false;
+      if constexpr (StoreLast) {
+        return it.@*it_*@ == it.@*last_*@;
+      } else {
+        return it.base().base() == it.base().end();
+      }
+    }
+  };
+
+
+  template<utf32_range V>
+    requires ranges::view<V> && ranges::forward_range<V>
+  class nfc_view : public normalize_view<nf::c, V> {
+  public:
+    constexpr nfc_view() requires default_initializable<V> = default;
+    constexpr nfc_view(V base) :
+      normalize_view<nf::c, V>{std::move(base)}
+    {}
+  };
+  template<utf32_range V>
+    requires ranges::view<V> && ranges::forward_range<V>
+  class nfkc_view : public normalize_view<nf::kc, V> {
+  public:
+    constexpr nfkc_view() requires default_initializable<V> = default;
+    constexpr nfkc_view(V base) :
+      normalize_view<nf::kc, V>{std::move(base)}
+    {}
+  };
+  template<utf32_range V>
+    requires ranges::view<V> && ranges::forward_range<V>
+  class nfd_view : public normalize_view<nf::d, V> {
+  public:
+    constexpr nfd_view() requires default_initializable<V> = default;
+    constexpr nfd_view(V base) :
+      normalize_view<nf::d, V>{std::move(base)}
+    {}
+  };
+  template<utf32_range V>
+    requires ranges::view<V> && ranges::forward_range<V>
+  class nfkd_view : public normalize_view<nf::kd, V> {
+  public:
+    constexpr nfkd_view() requires default_initializable<V> = default;
+    constexpr nfkd_view(V base) :
+      normalize_view<nf::kd, V>{std::move(base)}
+    {}
+  };
+  template<utf32_range V>
+    requires ranges::view<V> && ranges::forward_range<V>
+  class fcc_view : public normalize_view<nf::fcc, V> {
+  public:
+    constexpr fcc_view() requires default_initializable<V> = default;
+    constexpr fcc_view(V base) :
+      normalize_view<nf::fcc, V>{std::move(base)}
+    {}
+  };
+
+  template<class R>
+  nfc_view(R &&) -> nfc_view<views::all_t<R>>;
+  template<class R>
+  nfkc_view(R &&) -> nfkc_view<views::all_t<R>>;
+  template<class R>
+  nfd_view(R &&) -> nfd_view<views::all_t<R>>;
+  template<class R>
+  nfkd_view(R &&) -> nfkd_view<views::all_t<R>>;
+  template<class R>
+  fcc_view(R &&) -> fcc_view<views::all_t<R>>;
+
+  inline constexpr @*unspecified*@ as_nfc;
+  inline constexpr @*unspecified*@ as_nfkc;
+  inline constexpr @*unspecified*@ as_nfd;
+  inline constexpr @*unspecified*@ as_nfkd;
+  inline constexpr @*unspecified*@ as_fcc;
+}
+
+namespace std::ranges {
+  template<uc::nf N, class V>
+  inline constexpr bool enable_borrowed_range<uc::normalize_view<N, V>> = enable_borrowed_range<V>;
+  template<class V>
+  inline constexpr bool enable_borrowed_range<uc::nfc_view<V>> = enable_borrowed_range<V>;
+  template<class V>
+  inline constexpr bool enable_borrowed_range<uc::nfkc_view<V>> = enable_borrowed_range<V>;
+  template<class V>
+  inline constexpr bool enable_borrowed_range<uc::nfd_view<V>> = enable_borrowed_range<V>;
+  template<class V>
+  inline constexpr bool enable_borrowed_range<uc::nfkd_view<V>> = enable_borrowed_range<V>;
+  template<class V>
+  inline constexpr bool enable_borrowed_range<uc::fcc_view<V>> = enable_borrowed_range<V>;
+}
+```
+
+If `nf::c <= N && N <= nf::fcc` is not `true`, the program is ill-formed.
+
+The exposition-only function `@*stable-code-point*@` returns `true` if and
+only if `@*uc-ccc*@(cp) == 0`, and the Unicode property `Quick_Check` is `YES`
+for `cp` under normalization form `N`.
+
+TODO
+
+## Normalization adaptors
 
 # TODO
 
