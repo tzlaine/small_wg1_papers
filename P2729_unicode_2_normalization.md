@@ -224,6 +224,20 @@ namespace std:: uc {
 
   constexpr int @*uc-ccc*@(char32_t cp);                                  // @*exposition only*@
 
+  template<typename I, typename S>
+    I @*next-stream-safe-cp*@(I first, S last, int & nonstarters) {
+      for (; first != last; ++first) {
+        char32_t const cp = *first;
+        if (@*uc-ccc*@(cp) == 0)
+          nonstarters = 0;
+        else
+          ++nonstarters;
+        if (nonstarters <= @*stream-safe-max-nonstarters*@)
+          break;
+      }
+      return first;
+    }
+
   template<utf32_range V>
     requires ranges::view<V> && ranges::forward_range<V>
   class stream_safe_view : public ranges::view_interface<stream_safe_view<V>>
@@ -248,9 +262,10 @@ namespace std:: uc {
     constexpr @*iterator*@<true> begin() const requires utf32_range<const V> { return @*iterator*@<true>{@*base_*@}; }
 
     constexpr @*sentinel*@ end() { return @*sentinel*@{}; }
-    constexpr @*iterator*@<false> end() requires bidi { return @*iterator*@<false>{base_, ranges::end(base_)}; }
+    constexpr @*iterator*@<false> end() requires @*bidi*@ { return @*iterator*@<false>{base_, ranges::end(base_)}; }
     constexpr @*sentinel*@ end() const requires utf32_range<const V> { return @*sentinel*@{}; }
-    constexpr @*iterator*@<true> end() const requires utf32_range<const V> && bidi { return @*iterator*@<true>{base_, ranges::end(base_)}; }
+    constexpr @*iterator*@<true> end() const requires utf32_range<const V> && @*bidi*@
+      { return @*iterator*@<true>{base_, ranges::end(base_)}; }
   };
 
   template<utf32_range V>
@@ -273,8 +288,8 @@ namespace std:: uc {
     ranges::sentinel_t<@*Base*@> @*last_*@;                                   // @*exposition only*@
     int @*nonstarters_*@ = 0;                                             // @*exposition only*@
 
-    constexpr auto @*end_iter*@(ranges::iterator_t<@*Base*@> i) const;    // @*exposition only*@
     constexpr auto @*begin_iter*@(ranges::iterator_t<@*Base*@> i) const;  // @*exposition only*@
+    constexpr auto @*end_iter*@(ranges::iterator_t<@*Base*@> i) const;    // @*exposition only*@
 
     friend class @*sentinel*@;
 
@@ -296,35 +311,13 @@ namespace std:: uc {
     constexpr char32_t operator*() const { return *@*it_*@; }
 
     constexpr @*iterator*@ & operator++() {
-      if (@*it_*@ == @*end_iter*@(@*it_*@))
+      if (it_ == last_)
         return *this;
-      ++@*it_*@;
-      @*nonstarters_*@
-      @*it_*@ = detail::next_stream_safe_cp(@*it_*@, @*end_iter*@(@*it_*@), @*nonstarters_*@);
+      ++it_;
+      it_ = @*next-stream-safe-cp*@(it_, last_, nonstarters_);
       return *this;
     }
-
-    constexpr @*iterator*@ & operator--() requires @*bidi*@ {
-      auto const first = @*begin_iter*@(@*it_*@);
-      if (@*it_*@ == first)
-        return *this;
-      if (0 < @*nonstarters_*@) {
-        --@*it_*@;
-        --@*nonstarters_*@;
-      } else {
-        auto const initial_it = @*it_*@;
-        auto it = ranges::find_last_if(first, @*it_*@, [](auto cp) { return @*uc-ccc*@(cp) == 0; });
-        auto const from = it == @*it_*@ ? first : ranges::next(it);
-        ptrdiff_t const nonstarters = distance(from, @*it_*@);
-        @*nonstarters_*@ = min(
-          nonstarters, ptrdiff_t(@*stream-safe-max-nonstarters*@ - 1));
-        if (@*nonstarters_*@)
-          @*it_*@ = ranges::next(from, @*nonstarters_*@);
-        if (@*it_*@ == initial_it)
-          --@*it_*@;
-      }
-      return *this;
-    }
+    constexpr @*iterator*@ & operator--() requires @*bidi*@;
 
     friend bool operator==(@*iterator*@ lhs, @*iterator*@ rhs)
       { return lhs.base() == rhs.base(); }
@@ -376,12 +369,36 @@ and that is only necessary for backwards compatibility.  This means a value of
 18 for `@*stream-safe-max-nonstarters*@` is fine.  Typcial sequences are
 *much* shorter.
 
-### Why `stream_safe_view` is forward-only
+```c++
+constexpr @*iterator*@ & operator--() requires @*bidi*@;
+```
 
-TODO: Explain why this is inherently unusable with input ranges -- there is
-inherently going to be backtracking.
+Effects:
 
-### Why `stream_safe_view::end` produces `sentinel`s and `iterator`s
+- If `@*it_*@ == @**@` is `true`, no effect.
+- Otherwise, if `@*it_*@ > @*nonstarters_*@`, decrements `@*it_*@` and
+  `@*nonstarters_*@`.
+- Otherwise, as if by:
+```c++
+    auto const initial_it = @*it_*@;
+    auto it = ranges::find_last_if(@*begin_iter*@(), @*it_*@, [](auto cp) { return @*uc-ccc*@(cp) == 0; });
+    auto const from = it == @*it_*@ ? @*begin_iter*@(): ranges::next(it);
+    ptrdiff_t const nonstarters = distance(from, @*it_*@);
+    @*nonstarters_*@ = std::min(nonstarters, ptrdiff_t(@*stream-safe-max-nonstarters*@ - 1));
+    if (@*nonstarters_*@)
+      @*it_*@ = ranges::next(from, @*nonstarters_*@);
+    if (@*it_*@ == initial_it)
+      --@*it_*@;
+```
+
+Returns: `*this`.
+
+### Why `stream_safe_view` is forward-or-better
+
+When reading forward to find the next valid code point, each code point is
+read, using `*@*it_*@`.  This consumes the value in an input range, so the
+subsequent call to `stream_safe_view::iterator::operator*()` would not read
+the value found, but the next one instead.
 
 ### `stream_safe_view::iterator`
 
@@ -403,7 +420,15 @@ formed.  Otherwise, it returns `i.end()`.
 
 ### Why `first_` and `last_` are conditionally defined
 
-TODO
+For some specializations of `stream_safe_view`, the iterator has all the
+information necessary for the `stream_safe_view` function.  Specifically, this
+is the case for a `stream_safe_view` adapting a view whose iterator type is a
+specialization of `utf_iter`.  `utf_iter` contains the current posisiton, the
+end of the range it is adapting, and often even the beginning of the range it
+is adapting.
+
+To prevent carrying around a sentinel value that reproduces the data in the
+iterator value, `first_` and `last_` can be elided.
 
 ## Add stream-safe adaptor
 
