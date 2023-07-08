@@ -432,7 +432,20 @@ iterator value, `first_` and `last_` can be elided.
 
 ## Add stream-safe adaptor
 
-TODO
+The name `as_stream_safe` denotes a range adaptor object
+([range.adaptor.object]).  Let `E` be an expression and let `T` be
+`remove_cvref_t<decltype((E))>`.  If `as_utf32(decltype((E)))` is not
+well-formed, `as_stream_safe(E)` is ill-formed.  Additionally, if
+`decltype((E))` does not model `forward_range` and `is_pointer_v<T>` is not
+`true`, `as_stream_safe(E)` is ill-formed.  The expression `as_stream_safe(E)`
+is expression-equivalent to:
+
+- If `T` is a specialization of `empty_view` ([range.empty.view]), then
+  `@*decay-copy*@(E)`.
+- Otherwise, if `T` is a specialization of `stream_safe_view`, then `E`.
+- Otherwise, if `T` is a specialization of `utf32_view`, then
+  `stream_safe_view(E)`.
+- Otherwise, `stream_safe_view(as_utf32(E))`.
 
 ## Add an enumeration listing the supported normalization forms
 
