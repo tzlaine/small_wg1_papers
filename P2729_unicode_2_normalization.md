@@ -200,7 +200,7 @@ version of Unicode at a time, the non-version-specific code above is
 structurally very similar to the implementation in Boost.Text, so I know this
 approach is workable.
 
-## Add stream-safe view
+## Add stream-safe view and adaptor
 
 ```c++
 namespace std:: uc {
@@ -349,6 +349,15 @@ namespace std:: uc {
   template<class R>
   stream_safe_view(R &&) -> stream_safe_view<views::all_t<R>>;
 }
+
+namespace std::ranges {
+  template<class V>
+  inline constexpr bool enable_borrowed_range<uc::stream_safe_view<V>> = enable_borrowed_range<V>;
+}
+
+namespace std::uc {
+  inline constexpr @*unspecified*@ as_stream_safe;
+}
 ```
 
 The exposition-only function `@*uc-ccc*@()` returns the [Canonical Combining
@@ -430,7 +439,7 @@ is adapting.
 To prevent carrying around a sentinel value that reproduces the data in the
 iterator value, `first_` and `last_` can be elided.
 
-## Add stream-safe adaptor
+## Stream-safe adaptor
 
 The name `as_stream_safe` denotes a range adaptor object
 ([range.adaptor.object]).  Let `E` be an expression and let `T` be
