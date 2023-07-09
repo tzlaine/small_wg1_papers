@@ -203,7 +203,7 @@ approach is workable.
 ## Add stream-safe view and adaptor
 
 ```c++
-namespace std:: uc {
+namespace std::uc {
   constexpr int @*stream-safe-max-nonstarters*@ = @*implementation defined*@;
 
   template<class T>
@@ -402,6 +402,8 @@ read, using `*@*it_*@`.  This consumes the value in an input range, so the
 subsequent call to `stream_safe_view::iterator::operator*()` would not read
 the value found, but the next one instead.
 
+Note that the same logic applies to `normalize_view` below.
+
 ### `stream_safe_view::iterator`
 
 The exposition-only data member `first_` is defined if and only if
@@ -431,6 +433,8 @@ is adapting.
 
 To prevent carrying around a sentinel value that reproduces the data in the
 iterator value, `first_` and `last_` can be elided.
+
+Note that the same logic applies to `normalize_view` below.
 
 ## Stream-safe adaptor
 
@@ -472,9 +476,12 @@ namespace std::uc {
 ## Add normalization views and adaptors
 
 ```c++
-namespace std {
+namespace std::uc {
   template<nf N>
   bool @*stable-code-point*@(char32_t cp);
+
+  template<nf N, utf32_range R, output_iterator<char32_t> Out>
+  Out @*normalize*@(R && r, Out out);
 
   template<nf N, utf32_range V>
     requires ranges::view<V> && ranges::forward_range<V>
@@ -537,7 +544,7 @@ namespace std {
         @*chunk_last_*@ : find_if(search_it, @*end_iter*@(@*it_*@), @*stable-code-point*@<N>);
       @*chunk_last_*@ = ranges::copy(@*it_*@, last, back_inserter(temp_buf_)).in;
       @*buf_*@.clear();
-      text::normalize<N>(temp_buf_, back_inserter(@*buf_*@));
+      @*normalize*@<N>(temp_buf_, back_inserter(@*buf_*@));
     }
 
     friend class @*sentinel*@;
@@ -695,21 +702,163 @@ namespace std::ranges {
 }
 ```
 
+`nfc_view` produces a view of `char32_t` elements, normalized using Unicode
+Normalization Form D, from another view.  `nfkc_view` produces a view of
+`char32_t` elements, normalized using Unicode Normalization Form KD, from
+another view.  `nfc_view` produces a view of `char32_t` elements, normalized
+using Unicode Normalization Form C, from another view.  `nfkc_view` produces a
+view of `char32_t` elements, normalized using Unicode Normalization Form KC,
+from another view.  `fcc_view` produces a view of `char32_t` elements,
+normalized using Unicode Normalization Form FCC, from another view.  Let
+`nfN_view` denote any one of the views `nfd_view`, `nfkd_view`, `nfc_view`,
+`nfkc_view`, and `fcc_view`.
+
 If `nf::c <= N && N <= nf::fcc` is not `true`, the program is ill-formed.
 
 The exposition-only function `@*stable-code-point*@` returns `true` if and
 only if `@*uc-ccc*@(cp) == 0`, and the Unicode property `Quick_Check` is `YES`
 for `cp` under normalization form `N`.
 
-TODO
+The exposition-only function `@*normalize*@` normalizes the given range `r` of
+code points, writing the result to output iterator `out`, and returns the
+final value of `out`.
+
+### `normalize_view::iterator`
+
+The exposition-only data member `first_` is defined if and only if
+`!@*is-utf-iter*@<ranges::iterator_t<V>> && ranges::common_range<V> &&
+ranges::bidirectional_range<V>` is `true`.  The exposition-only data member
+`first_` is defined if and only if `!@*is-utf-iter*@<ranges::iterator_t<V>>` is
+`true`.
+
+The exposition-only function `@*begin_iter*@` returns `first_` if there is a
+`first_` data member.  Otherwise, if `@*is-utf-iter*@<ranges::iterator_t<V>>`
+is `true`, it returns `std::ranges::iterator_t<V>(i.begin(), i.begin(),
+i.end())`.  Otherwise, it returns `void`.
+
+The exposition-only function `@*end_iter*@` returns `last_` if there is a
+`last_` data member.  Otherwise, it returns
+`std::ranges::iterator_t<V>(i.begin(), i.end(), i.end())` if that is well
+formed.  Otherwise, it returns `i.end()`.
 
 ## Normalization adaptors
 
-# TODO
+The names `as_nfc`, `as_nfkc`, `as_nfd`, `as_nfkd`, and `as_fcc` denote range
+adaptor objects ([range.adaptor.object]).  `as_nfc` produces `nfc_view`s,
+`as_nfkc` produces `nfkc_view`s, `as_nfd` produces `nfd_view`s, `as_nfkd`
+produces `nfkd_view`s, and `as_fcc` produces `fcc_view`s.  Let `as_nfN` denote
+any one of `as_nfc`, `as_nfkc`, `as_nfd`, `as_nfkd`, and `as_fcc`. and let `V`
+denote the `nfN_view` associated with that object.  Let `E` be an expression
+and let `T` be `remove_cvref_t<decltype((E))>`.  If
+`as_stream_safe(decltype((E)))` is not well-formed, `as_nfN(E)` is ill-formed.
+The expression `as_nfN(E)` is expression-equivalent to:
+
+- If `T` is a specialization of `empty_view` ([range.empty.view]), then
+  `@*decay-copy*@(E)`.
+- Otherwise, if `T` is derived from a specialization of `normalize_view`, then:
+  - If `N == T::normalization_form` is `true`, then `E`.
+  - Otherwise, if `V(E.base())` is well-formed, `V(E.base())`.
+  - Otherwise, `V(E)`.
+- Otherwise, `V(as_stream_safe(E))`.
+
+# Adaptor examples
+
+```c++
+struct my_text_type
+{
+    my_text_type() = default;
+    my_text_type(std::u8string utf8) : utf8_(std::move(utf8)) {}
+
+    auto begin() const {
+        return std::uc::utf_8_to_32_iterator(
+            utf8_.begin(), utf8_.begin(), utf8_.end());
+    }
+    auto end() const {
+        return std::uc::utf_8_to_32_iterator(
+            utf8_.begin(), utf8_.end(), utf8_.end());
+    }
+
+private:
+    std::u8string utf8_;
+};
+
+static_assert(std::is_same_v<
+              decltype(my_text_type(u8"text") | std::uc::as_nfc),
+              std::uc::nfc_view<std::uc::stream_safe_view<
+                  std::uc::utf32_view<std::uc::unpacking_view<
+                      std::ranges::owning_view<my_text_type>>>>>>);
+
+static_assert(std::is_same_v<
+              decltype(my_text_type(u8"text") | std::uc::as_nfc | std::uc::as_nfc),
+              std::uc::nfc_view<std::uc::stream_safe_view<
+                  std::uc::utf32_view<std::uc::unpacking_view<
+                      std::ranges::owning_view<my_text_type>>>>>>);
+
+static_assert(std::is_same_v<
+              decltype(my_text_type(u8"text") | std::uc::as_nfd | std::uc::as_nfc),
+              std::uc::nfc_view<std::uc::stream_safe_view<
+                  std::uc::utf32_view<std::uc::unpacking_view<
+                      std::ranges::owning_view<my_text_type>>>>>>);
+
+static_assert(std::is_same_v<
+              decltype(u8"text" | std::uc::as_nfc),
+              std::uc::nfc_view<
+                  std::uc::stream_safe_view<std::uc::utf32_view<
+                      std::ranges::subrange<const char8_t *>>>>>);
+
+static_assert(std::is_same_v<
+              decltype(std::u8string(u8"text") | std::uc::as_nfc),
+              std::uc::nfc_view<
+                  std::uc::stream_safe_view<std::uc::utf32_view<
+                      std::ranges::owning_view<std::u8string>>>>>);
+
+std::u8string const str = u8"text";
+
+static_assert(std::is_same_v<
+              decltype(str | std::uc::as_nfc),
+              std::uc::nfc_view<
+                  std::uc::stream_safe_view<std::uc::utf32_view<
+                      std::ranges::ref_view<std::u8string const>>>>>);
+
+static_assert(std::is_same_v<
+              decltype(str.c_str() | std::uc::as_nfc),
+              std::uc::nfc_view<std::uc::stream_safe_view<
+                  std::uc::utf32_view<std::ranges::subrange<
+                      const char8_t *,
+                      std::uc::null_sentinel_t>>>>>);
+
+static_assert(std::is_same_v<
+              decltype(std::ranges::empty_view<int>{} | std::uc::as_char16_t),
+              std::ranges::empty_view<char16_t>>);
+
+std::u16string str2 = u"text";
+
+static_assert(std::is_same_v<
+              decltype(str2 | std::uc::as_nfc),
+              std::uc::nfc_view<
+                  std::uc::stream_safe_view<std::uc::utf32_view<
+                      std::ranges::ref_view<std::u16string>>>>>);
+
+static_assert(std::is_same_v<
+              decltype(str2.c_str() | std::uc::as_nfc),
+              std::uc::nfc_view<std::uc::stream_safe_view<
+                  std::uc::utf32_view<std::ranges::subrange<
+                      const char16_t *,
+                      std::uc::null_sentinel_t>>>>>);
+```
 
 ## Add a feature test macro
 
 Add the feature test macro `__cpp_lib_unicode_normalization`.
+
+# Design notes
+
+One nice thing about normalizing small chunks of text, as `normalize_view`
+does above, is that it becomes very easy to take a chunk, put it in an
+ICU-friendly buffer, and use ICU's normalization implementation, instead of
+implementing one from scratch.  This will be neither recommended, nor
+discouraged, in the wording, but it does provide an implementation option for
+Unicode-averse implementers.
 
 # Implementation experience
 
