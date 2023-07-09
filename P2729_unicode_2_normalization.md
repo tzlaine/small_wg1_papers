@@ -1,7 +1,7 @@
 ---
 title: "Unicode in the Library, Part 2: Normalization"
 document: P2729R0
-date: 2022-11-20
+date: 2023-07-08
 audience:
   - SG-16 Unicode
   - LEWG-I
