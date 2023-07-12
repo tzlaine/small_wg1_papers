@@ -239,7 +239,7 @@ namespace std::uc {
     }
 
   template<utf32_range V>
-    requires ranges::view<V> && ranges::forward_range<V>
+    requires ranges::view<V>
   class stream_safe_view : public ranges::view_interface<stream_safe_view<V>>
   {
     template<bool Const, bool StoreLast = !@*is-utf-iter*@<ranges::iterator_t<V>>>
@@ -269,7 +269,7 @@ namespace std::uc {
   };
 
   template<utf32_range V>
-    requires ranges::view<V> && ranges::forward_range<V>
+    requires ranges::view<V>
   template<bool Const, bool StoreLast>
   class stream_safe_view<V>::@*iterator*@
     : public iterator_interface<@*uc-view-category-t*@<V>, char32_t, char32_t>
@@ -327,7 +327,7 @@ namespace std::uc {
   };
 
   template<utf32_range V>
-    requires ranges::view<V> && ranges::forward_range<V>
+    requires ranges::view<V>
   class stream_safe_view<V>::@*sentinel*@
   {
   public:
@@ -395,15 +395,6 @@ Effects:
 
 Returns: `*this`.
 
-### Why `stream_safe_view` is forward-or-better
-
-When reading forward to find the next valid code point, each code point is
-read, using `*@*it_*@`.  This consumes the value in an input range, so the
-subsequent call to `stream_safe_view::iterator::operator*()` would not read
-the value found, but the next one instead.
-
-Note that the same logic applies to `normalize_view` below.
-
 ### `stream_safe_view::iterator`
 
 The exposition-only data member `first_` is defined if and only if
@@ -441,10 +432,8 @@ Note that the same logic applies to `normalize_view` below.
 The name `as_stream_safe` denotes a range adaptor object
 ([range.adaptor.object]).  Let `E` be an expression and let `T` be
 `remove_cvref_t<decltype((E))>`.  If `as_utf32(decltype((E)))` is not
-well-formed, `as_stream_safe(E)` is ill-formed.  Additionally, if
-`decltype((E))` does not model `forward_range` and `is_pointer_v<T>` is not
-`true`, `as_stream_safe(E)` is ill-formed.  The expression `as_stream_safe(E)`
-is expression-equivalent to:
+well-formed, `as_stream_safe(E)` is ill-formed.  The expression
+`as_stream_safe(E)` is expression-equivalent to:
 
 - If `T` is a specialization of `empty_view` ([range.empty.view]), then
   `@*decay-copy*@(E)`.
@@ -484,7 +473,7 @@ namespace std::uc {
   Out @*normalize*@(R && r, Out out);
 
   template<nf N, utf32_range V>
-    requires ranges::view<V> && ranges::forward_range<V>
+    requires ranges::view<V>
   class normalize_view : public ranges::view_interface<normalize_view<N, V>> {
     template<bool Const, bool StoreLast = !@*is-utf-iter*@<ranges::iterator_t<V>>>
     class @*iterator*@;                                                   // @*exposition only*@
@@ -515,7 +504,7 @@ namespace std::uc {
   };
 
   template<nf N, utf32_range V>
-    requires ranges::view<V> && ranges::forward_range<V>
+    requires ranges::view<V>
   template<bool Const, bool StoreLast>
   class normalize_view<N, V>::@*iterator*@
     : public std::iterator_interface<@*uc-view-category-t*@<V>, char32_t, char32_t> {
@@ -606,7 +595,7 @@ namespace std::uc {
   };
 
   template<nf N, utf32_range V>
-    requires ranges::view<V> && ranges::forward_range<V>
+    requires ranges::view<V>
   class normalize_view<N, V>::@*sentinel*@ {
   public:
     template<bool Const, bool StoreLast>
