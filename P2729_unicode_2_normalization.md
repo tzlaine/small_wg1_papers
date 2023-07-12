@@ -621,63 +621,19 @@ namespace std::uc {
     }
   };
 
+  template<nf N, class R>
+  normalize_view(R &&) -> normalize_view<N, views::all_t<R>>;
 
-  template<utf32_range V>
-    requires ranges::view<V> && ranges::forward_range<V>
-  class nfc_view : public normalize_view<nf::c, V> {
-  public:
-    constexpr nfc_view() requires default_initializable<V> = default;
-    constexpr nfc_view(V base) :
-      normalize_view<nf::c, V>{std::move(base)}
-    {}
-  };
-  template<utf32_range V>
-    requires ranges::view<V> && ranges::forward_range<V>
-  class nfkc_view : public normalize_view<nf::kc, V> {
-  public:
-    constexpr nfkc_view() requires default_initializable<V> = default;
-    constexpr nfkc_view(V base) :
-      normalize_view<nf::kc, V>{std::move(base)}
-    {}
-  };
-  template<utf32_range V>
-    requires ranges::view<V> && ranges::forward_range<V>
-  class nfd_view : public normalize_view<nf::d, V> {
-  public:
-    constexpr nfd_view() requires default_initializable<V> = default;
-    constexpr nfd_view(V base) :
-      normalize_view<nf::d, V>{std::move(base)}
-    {}
-  };
-  template<utf32_range V>
-    requires ranges::view<V> && ranges::forward_range<V>
-  class nfkd_view : public normalize_view<nf::kd, V> {
-  public:
-    constexpr nfkd_view() requires default_initializable<V> = default;
-    constexpr nfkd_view(V base) :
-      normalize_view<nf::kd, V>{std::move(base)}
-    {}
-  };
-  template<utf32_range V>
-    requires ranges::view<V> && ranges::forward_range<V>
-  class fcc_view : public normalize_view<nf::fcc, V> {
-  public:
-    constexpr fcc_view() requires default_initializable<V> = default;
-    constexpr fcc_view(V base) :
-      normalize_view<nf::fcc, V>{std::move(base)}
-    {}
-  };
-
-  template<class R>
-  nfc_view(R &&) -> nfc_view<views::all_t<R>>;
-  template<class R>
-  nfkc_view(R &&) -> nfkc_view<views::all_t<R>>;
-  template<class R>
-  nfd_view(R &&) -> nfd_view<views::all_t<R>>;
-  template<class R>
-  nfkd_view(R &&) -> nfkd_view<views::all_t<R>>;
-  template<class R>
-  fcc_view(R &&) -> fcc_view<views::all_t<R>>;
+  template<class V>
+  using nfc_view = normalize_view<nf::c, V>;
+  template<class V>
+  using nfkc_view = normalize_view<nf::kc, V>;
+  template<class V>
+  using nfd_view = normalize_view<nf::d, V>;
+  template<class V>
+  using nfkd_view = normalize_view<nf::kd, V>;
+  template<class V>
+  using fcc_view = normalize_view<nf::fcc, V>;
 
   inline constexpr @*unspecified*@ as_nfc;
   inline constexpr @*unspecified*@ as_nfkc;
@@ -689,16 +645,6 @@ namespace std::uc {
 namespace std::ranges {
   template<uc::nf N, class V>
   inline constexpr bool enable_borrowed_range<uc::normalize_view<N, V>> = enable_borrowed_range<V>;
-  template<class V>
-  inline constexpr bool enable_borrowed_range<uc::nfc_view<V>> = enable_borrowed_range<V>;
-  template<class V>
-  inline constexpr bool enable_borrowed_range<uc::nfkc_view<V>> = enable_borrowed_range<V>;
-  template<class V>
-  inline constexpr bool enable_borrowed_range<uc::nfd_view<V>> = enable_borrowed_range<V>;
-  template<class V>
-  inline constexpr bool enable_borrowed_range<uc::nfkd_view<V>> = enable_borrowed_range<V>;
-  template<class V>
-  inline constexpr bool enable_borrowed_range<uc::fcc_view<V>> = enable_borrowed_range<V>;
 }
 ```
 
@@ -755,7 +701,7 @@ The expression `as_nfN(E)` is expression-equivalent to:
 
 - If `T` is a specialization of `empty_view` ([range.empty.view]), then
   `@*decay-copy*@(E)`.
-- Otherwise, if `T` is derived from a specialization of `normalize_view`, then:
+- Otherwise, if `T` is a specialization of `normalize_view`, then:
   - If `N == T::normalization_form` is `true`, then `E`.
   - Otherwise, if `V(E.base())` is well-formed, `V(E.base())`.
   - Otherwise, `V(E)`.
