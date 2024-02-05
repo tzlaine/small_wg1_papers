@@ -1,6 +1,6 @@
 ---
 title: "Policy for `explicit`"
-document: P2727R4
+document: P3116R0
 date: 2024-02-05
 audience:
   - LEWG
@@ -23,18 +23,18 @@ Based on the recently-adopted P2267R1: Library Evolution Policies, this paper
 makes the case for a policy for when and why to add `explicit` to member
 functions in standard library templates and types.
 
-There are 721 occurences of the keyword `explicit` in the library clauses of
-the standard.  This does not include the appearance of the keyword in in plain
+There are 721 occurrences of the keyword `explicit` in the library clauses of
+the standard.  This does not include the appearance of the keyword in plain
 text; this count is of in-code appearances only.  This is an overcount,
 though, as I overcount duplicates when an `explicit` member function is listed
 in a synopsis and then again in a definition.  However, this gives the sense
 of how many times `explicit` is currently used.
 
-These occurences fall into three distinct categories:
+These occurrences fall into three distinct categories:
 
 1. `explicit operator bool()`
 
-2. `explicit` on single-parameter constructors to prevent undesireable
+2. `explicit` on single-parameter constructors to prevent undesirable
    implicit conversions.
 
 3. `explicit` on zero-parameter constructors for tag types, to enforce
@@ -60,13 +60,15 @@ review to use `explicit`.  Having a policy would save LEWG effort by
 concretely indicating to paper authors when and where `explicit` should be
 used.  A policy will also help paper authors keep uses of `explicit` to the
 kinds of uses indicated in the policy, rather than other ad hoc uses; this
-will help improve coherence.
+will further help improve coherence.
 
-This rationale applies only to the three categories above.  There are some
-exceptions to the categories:
+This rationale applies only to turning the three categories of use above into
+policy.  There are some uses of `explicit` in the standard that are exceptions
+to those categories.
 
-- The use of `explicit` on three deduction guides.  This appears to be
-  addressed by LWG3451, and so this exception can be ignored.
+- The use of `explicit` on deduction guides (only three in the entire
+  standard).  This appears to be addressed by LWG3451, and so this exception
+  can be ignored.
 
 - The use of `explicit` with multi-parameter view constructors.  This is a
   one-off, in that this is the only place that `explicit` is used on
@@ -99,9 +101,8 @@ constexpr explicit partial_ordering(ord v) noexcept;
 
 ### `[diagnostics]` (26 occurrences)
 
-Used on the constructors for various exception types that take a
-`string`, and the constructors of various types that take an allocator,
-e.g.:
+Used on the constructors for various exception types that take a `string`, and
+the constructors of various types that take an allocator, e.g.:
 
 ```c++
 explicit logic_error(const string& what_arg);
@@ -187,7 +188,7 @@ template<class charT,
     -> basic_string<charT, traits, Allocator>;
 ```
 
-This is part of the subject of LWG3451 (see below).
+These guides are part of the subject of LWG3451 (see below).
 
 ### `[containers]` (87 occurrences)
 
@@ -232,7 +233,7 @@ Used on various views' constructors that may take a single argument, e.g.:
 constexpr explicit single_view(const T& t) requires copy_constructible<T>;
 
 constexpr explicit iota_view(W value);
-``
+```
 
 Used on various views' nested iterator and adaptor types' constructors, e.g.:
 
@@ -249,10 +250,11 @@ template<class R>
 ```
 
 This is the subject of LWG3451, "Inconsistently explicit deduction guides"
-(https://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#3451).  The
-issue recommends that the `explicit` be struck from this and the
-`basic_string` deduction guides mentioned above.  The issue seems to have
-been accepted as P3; these three deduction guides seem to be safe to ignore.
+(https://www.open-std.org/jtc1/sc22/wg21/docs/lwg-active.html#3451), along
+with the `basic_string` deduction guides mentioned previously.  The issue
+recommends that the `explicit` be struck from all three deduction guides.  The
+issue seems to have been accepted as P3; these three deduction guides seem to
+be safe to ignore.
 
 Used in `explicit operator bool() const noexcept`.
 
@@ -320,7 +322,7 @@ explicit bernoulli_distribution(double p);
 
 Used on `valarray`: `explicit valarray(size_t);`.
 
-Used on various templates in linalg, e.g.
+Used on various templates in `linalg`, e.g.
 
 ```c++
 // inside template<class Layout> class layout_transpose
@@ -449,7 +451,7 @@ template<class F>
 ## 3. A survey of the status quo for this topic, in the wider C++ community.
 
 I did not look at this in any depth.  Anecdotally, it seems very common to use
-`explicit` on construtors and `bool` conversion operators for disabling
+`explicit` on constructors and `bool` conversion operators for disabling
 implicit conversions.  I have rarely, if ever, seen `explicit` used to force
 the naming of a tag type at the point of construction outside of the standard.
 
@@ -471,7 +473,7 @@ used to initialize a `bool`.
 
 2. Place `explicit` on constructors that may take a single parameter
 (including when defaulted parameters are not passed), when implicit conversion
-from that single parameter is undesireable.  Implicit conversions should exist
+from that single parameter is undesirable.  Implicit conversions should exist
 only between types that are fundamentally the same (such as `float` and
 `double`, but not a `packaged_task` and some invocable that may be used to
 construct it).  Example: `constexpr explicit vector(size_type n, const
