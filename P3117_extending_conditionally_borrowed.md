@@ -56,3 +56,29 @@ This question is a little simpler for `views::transform` (which only needs to
 potentially store `f` in the adapted iterator) than it is for `views::filter`
 (which would need not only the predicate but also the underlying sentinel, so
 this may not be worthwhile).  This would need to be carefully considered.
+
+
+# Notes
+
+views containing an invocable F:
+
+- transform_view
+- zip_transform_view
+- adjacent_transform_view
+
+
+views containing a predicate Pred:
+
+- filter_view
+- take_while_view -- not borrowed (does almost exaclty what drop_while_view does!)
+- drop_while_view -- already borrowed
+- chunk_by_view
+
+
+Other things to consider:
+
+- Why isn't join_view borrowed if its V is?
+
+- Why aren't join_with_view, split_view, lazy_split_view, and
+  cartesian_product_view borrowed when they're constructed from however many
+  borrowed ranges?
