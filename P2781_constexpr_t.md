@@ -1,10 +1,10 @@
 ---
-title: "`std::constexpr_v`"
-document: P2781R3
-date: 2023-06-10
+title: "`std::constant_wrapper`"
+document: P2781R4
+date: 2024-02-05
 audience:
-  - LEWG-I
   - LEWG
+  - LWG
 author:
   - name: Matthias Kretz
     email: <m.kretz@gsi.de>
@@ -47,6 +47,15 @@ monofont: "DejaVu Sans Mono"
 - Add a note about the imperfect nature of ADL support given by
   `constexpr_v`'s `T` template parameter.
 
+## Changes since R3
+
+- Fix IFNDR in unary operator overloads (including `operator()` and
+  `operator[]`).
+- Add mutating operators, like `operator++` and `operator-=`.
+- Change the defaulted template parameter of the `constexpr_v` (formerly
+  "`T`") to be exposition-only.
+- `constexpr_v` -> `constant_wrapper`, and `c_` -> `cw`.
+
 # Relationship to previous work
 
 This paper is co-authored by the authors of P2725R1
@@ -75,7 +84,7 @@ auto y = submdspan(x, sir);
 ### After
 ```c++
 auto y = submdspan(x, std::strided_index_range{
-    std::c_<0>, std::c_<10>, 3});
+    std::cw<0>, std::cw<10>, 3});
 ```
 
 :::
@@ -83,13 +92,13 @@ auto y = submdspan(x, std::strided_index_range{
 The "after" case above would require that `std::strided_index_range` be
 changed; that is not being proposed here.  The point of the example is to show
 the relative convenience of `std::integral_constant` versus the proposed
-`std::constexpr_v`.
+`std::constant_wrapper`.
 
 ## Replacing the uses of `std::integral_constant` is not enough
 
 Parameters passed to a `constexpr` function lose their `constexpr`-ness when
 used inside the function.  Replacing `std::integral_constant` with
-`std::constexpr_v` has the potential to improve a lot more uses of
+`std::constant_wrapper` has the potential to improve a lot more uses of
 compile-time constants than just integrals; what about all the other
 `constexpr`-friendly C++ types?
 
@@ -115,16 +124,16 @@ struct X
 ```
 
 We would like to be able to call `X::f()` with a value, and have that value
-keep its `constexpr`-ness.  Let's introduce a template "`constexpr_v`" that
+keep its `constexpr`-ness.  Let's introduce a template "`constant_wrapper`" that
 holds a `constexpr` value that it is given as an non-type template parameter.
 
 ```c++
 namespace std {
-  template<auto X, class T/* = remove_cvref_t<decltype(X)>*/>
-  struct constexpr_v
+  template<auto X>
+  struct constant_wrapper
   {
-    using value_type = T;
-    using type = constexpr_v;
+    using value_type = remove_cvref_t<decltype(X)>;
+    using type = constant_wrapper;
 
     constexpr operator value_type() const { return X; }
     static constexpr value_type value = X;
@@ -140,21 +149,21 @@ Now we can write this.
 template<typename T>
 void g(X<T> x)
 {
-    x.f(std::constexpr_v<1>{});
-    x.f(std::constexpr_v<2uz>{});
-    x.f(std::constexpr_v<3.0>{});
-    x.f(std::constexpr_v<4.f>{});
-    x.f(std::constexpr_v<foo>{});
-    x.f(std::constexpr_v<my_complex(1.f, 1.f)>{});
+    x.f(std::constant_wrapper<1>{});
+    x.f(std::constant_wrapper<2uz>{});
+    x.f(std::constant_wrapper<3.0>{});
+    x.f(std::constant_wrapper<4.f>{});
+    x.f(std::constant_wrapper<foo>{});
+    x.f(std::constant_wrapper<my_complex(1.f, 1.f)>{});
 }
 ```
 
-Let's now add a `constexpr` variable template with a shorter name, say `c_`.
+Let's now add a `constexpr` variable template with a shorter name, say `cw`.
 
 ```c++
 namespace std {
   template<auto X>
-  inline constexpr constexpr_v<X> c_{};
+  inline constexpr constant_wrapper<X> cw{};
 }
 ```
 
@@ -164,31 +173,34 @@ And now we can write this.
 template<typename T>
 void g(X<T> x)
 {
-    x.f(std::c_<1>);
-    x.f(std::c_<2uz>);
-    x.f(std::c_<3.0>);
-    x.f(std::c_<4.f>);
-    x.f(std::c_<foo>);
-    x.f(std::c_<my_complex(1.f, 1.f)>);
+    x.f(std::cw<1>);
+    x.f(std::cw<2uz>);
+    x.f(std::cw<3.0>);
+    x.f(std::cw<4.f>);
+    x.f(std::cw<foo>);
+    x.f(std::cw<my_complex(1.f, 1.f)>);
 }
 ```
 
-## The difference in template parameters to `std::constexpr_v` and `std::c_`
+## The difference in template parameters to `std::constant_wrapper` and `std::cw`
 
-`std::c_` takes an `auto` NTTP.  `std::constexpr_v` takes an `auto` NTTP `X`,
-and a type `T` which is defaulted to `decltype(X)`.  Why is this?  ADL!  Even
-thought the type of `X` is deduced with our without `T`, without `T` some
-natural uses of `constexpr_v` cease to work.  For instance:
+If you look at the wording below, you will see that `std::cw` takes an `auto`
+NTTP, whereas `std::constant_wrapper` takes an `auto` NTTP `X`, and an
+exposition-only parameter `@*adl-type*@` which is defaulted to
+`remove_cvref_t<decltype(X)>`.  Why is this?  As the `@*adl-type*@` name
+implies, ADL!  Even though the type of `X` is deduced with or without
+`@*adl-type*@`, without it some natural uses of `constant_wrapper` cease to
+work.  For instance:
 
 ```c++
-auto f = std::c_<strlit("foo")>; // Using the strlit from later in this paper.
+auto f = std::cw<strlit("foo")>; // Using the strlit from later in this paper.
 std::cout << f << "\n";
 ```
 
-The stream insertion breaks without the `T` parameter.  The `T` parameter is
-`strlit</*...*/>`, which pulls `strlit`'s `operator<<` into consideration
-during ADL.  Note that this ADL support is imperfect.  The use op `operator<<`
-above is due to the way the operator overload is declared:
+The stream insertion breaks without the `@*adl-type*@` parameter.
+`@*adl-type*@` is `strlit</*...*/>`, which pulls `strlit`'s `operator<<` into
+consideration during ADL.  Note that this ADL support is imperfect.  The use
+op `operator<<` above is due to the way the operator overload is declared:
 
 ```c++
 friend std::ostream & operator<<(std::ostream & os, strlit l) { /* ...*/ }
@@ -203,43 +215,42 @@ std::ostream & operator<<(std::ostream & os, strlit<N> l) { /* ...*/ }
 
 ... ADL's help doesn't suffice. The deduction of `N` is not possible from a
 type that isn't a `strlit<N>` itself (e.g. base class) even if it is
-implicitly convertible to `strlit<N>`.  This is pretty likely to confuse
-users.  This may make the `T` parameter more trouble than it's worth.
+implicitly convertible to `strlit<N>`.
 
-# Making `constexpr_v` more useful
+# Making `constant_wrapper` more useful
 
-`constexpr_v` is essentially a wrapper.  It takes a value `X` of some
-structural type `T`, and represents `X` in such a way that we can continue to
-use `X` as a compile-time constant, regardless of context.  As such,
-`constexpr_v` should be implicitly convertible to `T`; this is already
-reflected in the design presented above.  For the same reason, `constexpr_v`
-should provide all the operations that the underlying type has.  Though we
-cannot predict what named members the underlying type `T` has, we *can* guess
-at all the operator overloads it might have.
+`constant_wrapper` is essentially a wrapper.  It takes a value `X` of some
+structural type `value_type`, and represents `X` in such a way that we can
+continue to use `X` as a compile-time constant, regardless of context.  As
+such, `constant_wrapper` should be implicitly convertible to `value_type`;
+this is already reflected in the design presented above.  For the same reason,
+`constant_wrapper` should provide all the operations that the underlying type
+has.  Though we cannot predict what named members the underlying type
+`value_type` has, we *can* guess at all the operator overloads it might have.
 
 So, by adding conditionally-defined overloads for all the overloadable
-operators, we can make `constexpr_v` as natural to use as many of the types it
+operators, we can make `constant_wrapper` as natural to use as many of the types it
 might wrap.
 
 ```c++
 namespace std {
-  template<auto X, class T/* = remove_cvref_t<decltype(X)>*/>
-  struct constexpr_v {
-    using value_type = T;
-    using type = constexpr_v;
+  template<auto X>
+  struct constant_wrapper {
+    using value_type = remove_cvref_t<decltype(X)>;
+    using type = constant_wrapper;
 
     constexpr operator value_type() const { return X; }
     static constexpr value_type value = X;
 
     // unary -
     template<auto Y = X>
-      constexpr constexpr_v<-Y> operator-() const { return {}; }
+      constexpr constant_wrapper<-Y> operator-() const { return {}; }
 
     // binary + and -
     template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
-      friend constexpr constexpr_v<U::value + V::value> operator+(U, V) { return {}; }
+      friend constexpr constant_wrapper<U::value + V::value> operator+(U, V) { return {}; }
     template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
-      friend constexpr constexpr_v<U::value - V::value> operator-(U, V) { return {}; }
+      friend constexpr constant_wrapper<U::value - V::value> operator-(U, V) { return {}; }
 
     // etc... (full listing later)
   };
@@ -247,35 +258,36 @@ namespace std {
 ```
 
 These operators are defined in such a way that they behave just like the
-operations on underlying the `T` and `V` values would, including promotions and
-coercions.  For example:
+operations on underlying the `U` and `V` values would, including promotions
+and coercions.  For example:
 
 ```c++
 static_assert(std::is_same_v<
-              decltype(std::c_<42> - std::c_<13u>),
-              std::constexpr_v<29u>>);
+              decltype(std::cw<42> - std::cw<13u>),
+              std::constant_wrapper<29u>>);
 ```
 
-Each operation is only defined if the underlying operation on `X` and `Y` is
-defined.  Each operation additionally requires that the result of the
-underlying operation have a structural type.
+Each operation is only defined if the underlying operation on `X` is defined.
+Each operation additionally requires that the result of the underlying
+operation have a structural type.
 
-The mutating operations are left out, because none of them makes sense -- the
-type of the mutated value would have to change, since the value is itself part
-of the type.
+All the overloadable operations are included, even the index and call
+operators.  The rationale for this is that a user may want to make some sort
+of compile-time domain-specific embedded language using operator overloading,
+and having all but a couple of the operators specified would frustrate that
+effort.  The only exception to this is `operator->` which must eventually
+return a pointer type, which is not very useful at compile time.
 
-All the remaining operations are included, even the index and call operators.
-The rationale for this is that a user may want to make some sort of
-compile-time domain-specific embedded language using operator overloading, and
-having all but a couple of the operators specified would frustrate that
-effort.
-
-The only downside to adding `std::constexpr_v::operator()()` is that it would
-represent a break from the design of `std::integral_constant`, making it an
-imperfect drop-in replacement for that template.
+The only downside to adding `std::constant_wrapper::operator()` is that it
+would represent a break from the design of `std::integral_constant`, making it
+an imperfect drop-in replacement for that template.  Nullary
+`std::constant_wrapper::operator()` with the same semantics as
+`std::integral_constant::operator()` is defined when
+`requires (!std::invocable<value_type>)` is `true`, so this incompatibility is
+truly a corner case.
 
 The operators are designed to interoperate with other types and templates that
-have a constexpr static `value` member.  This works with `std::constexpr_v`s
+have a constexpr static `value` member.  This works with `std::constant_wrapper`s
 of course, but also `std::integral_constant`s, and user-provided types as
 well.  For example:
 
@@ -284,7 +296,7 @@ struct my_type { constexpr static int value = 42; };
 
 void foo()
 {
-    constexpr auto zero = my_type{} - std::c_<42>;  // Ok.
+    constexpr auto zero = my_type{} - std::cw<42>;  // Ok.
     // ...
 }
 ```
@@ -304,14 +316,14 @@ proposed in P2772R0, and use that for these literals instead of
 ... taken in the 2023-01-17 Library Evolution telecon.
 
 Note that the one SA said he would not be opposed if the word "integral" was
-stricken from the poll, and the design of `std::constexpr_v` is not limited to
+stricken from the poll, and the design of `std::constant_wrapper` is not limited to
 integral types.
 
 # What about strings?
 
-As pointed out on the reflector, `std::c_<"foo">` does not work, because of
+As pointed out on the reflector, `std::cw<"foo">` does not work, because of
 language rules.  However, it's pretty easy for users to add an NTTP-friendly
-string wrapper type, and then use that with `std::c_<>`.
+string wrapper type, and then use that with `std::cw<>`.
 
 ```c++
 template<size_t N>
@@ -336,7 +348,7 @@ struct strlit
 
 int main()
 {
-    auto f = std::c_<strlit("foo")>;
+    auto f = std::cw<strlit("foo")>;
     std::cout << f; // Prints "foo".
 }
 ```
@@ -408,10 +420,10 @@ int foo()
 
 Say we wanted to use the templates in namespace `parser` along side other
 values, like `int`s and `float`s.  We would want that not to break our
-`std::constexpr_v` expressions.  Having to work around the absence of
-`std::constexpr_v::operator()` would require us to write a lot more code.
+`std::constant_wrapper` expressions.  Having to work around the absence of
+`std::constant_wrapper::operator()` would require us to write a lot more code.
 Here is the equivalent of the function `foo()` above, but with all the
-variables wrapped using `std::c_`.
+variables wrapped using `std::cw`.
 
 ```c++
 int bar()
@@ -420,13 +432,13 @@ int bar()
     constexpr parse::str_parser p2{strlit("incr")};
     constexpr parse::str_parser p3{strlit("decr")};
 
-    constexpr auto p_ = std::c_<p1> | std::c_<p2> | std::c_<p3>;
+    constexpr auto p_ = std::cw<p1> | std::cw<p2> | std::cw<p3>;
 
-    constexpr bool matches_empty_ = p_(std::c_<strlit("")>);
+    constexpr bool matches_empty_ = p_(std::cw<strlit("")>);
     static_assert(!matches_empty_);
-    constexpr bool matches_pos_ = p_(std::c_<strlit("pos")>);
+    constexpr bool matches_pos_ = p_(std::cw<strlit("pos")>);
     static_assert(!matches_pos_);
-    constexpr bool matches_decr_ = p_(std::c_<strlit("decr")>);
+    constexpr bool matches_decr_ = p_(std::cw<strlit("decr")>);
     static_assert(matches_decr_);
 }
 ```
@@ -437,9 +449,8 @@ happens to use it from breaking.
 
 # What about the mutating operators?
 
-The operators left out of the code below are the ones that involve mutation,
-like `operator++`, `operator/=`, etc.  These seem at first that these are
-nonsensical, since all the operations on a `constexpr_v` must be nonmutating.
+It may seem at first that these operators are nonsensical, since all the
+operations on a `constant_wrapper` must be nonmutating.
 
 However, some DSLs may wish to use these operations with atypical semantics.
 
@@ -448,32 +459,32 @@ struct weirdo
 {
     constexpr int operator++() const { return 1; }
 };
-auto result = ++std::c_<weirdo{}>;
+auto result = ++std::cw<weirdo{}>;
 ```
 
-`result` is obviously `std::c_<1>` here, and no mutation occurred.  You can
+`result` is obviously `std::cw<1>` here, and no mutation occurred.  You can
 imagine a more elaborate use case, say a library that is used to create
 expression templates.  For example:
 
 ```c++
-auto expr = std::c_<var0> += std::c_<var1>;
+auto expr = std::cw<var0> += std::cw<var1>;
 ```
 
 In this case, `var0` and `var1` would be some terminal types in the expression
 template library, and `operator+=` would return a `constexpr` expression tree,
 rather than mutating the left side of the `+=`.
 
-Since this is a realtively late addition -- after the paper has been through
-two LEWG reviews, the addition of these operators is being presented as an
-option.  However, we have implemented it, and know that they work.
+These operators are now part of the proposal, based on this LEWG poll from
+Kona 2023:
 
-The optional parts in the design listing and wording are marked with `#if
-LEWG_SAYS_SO`.
+"We should add mutating operations (i.e. `#define IF_LEWG_SAYS_SO 1` and `++`
+and `--`) to P2781R3"
 
-### Possible LEWG poll
-
-We want to add all overloadable operators to `constexpr_v`, including the ones
-that are usually mutating.
++----+---+---+---+----+
+| SF | F | N | A | SA |
++====+===+===+===+====+
+| 2  | 6 | 5 | 2 | 0  |
++----+---+---+---+----+
 
 # What about `operator->`?
 
@@ -484,9 +495,9 @@ operation during constant evaluation.
 # Convertibility to and from `std::integral_constant`
 
 During the LEWG reviews, some attendees suggested that inter-conversions
-between `std::integral_constant` and `std::constexpr_v` would be useful.  The
+between `std::integral_constant` and `std::constant_wrapper` would be useful.  The
 important thing to remember is that we want deduction to occur when calling
-functions that take a `std::constexpr_v`, including the `std::constexpr_v`
+functions that take a `std::constant_wrapper`, including the `std::constant_wrapper`
 operator overloads.  Conversions and deductions are at odds with one another,
 because deducing parameter types disables the conversion rules.
 
@@ -494,146 +505,153 @@ If you look at the operator overloads proposed here, you will see that they
 are deduction operations at their most essential.  The types of the parameters
 do not matter, except that each conveys a value that is a core constant
 expression because it is embedded in the type system.  The fact that a
-`std::constexpr_v` conveys that value instead of a `std::integral_constant` is
+`std::constant_wrapper` conveys that value instead of a `std::integral_constant` is
 immaterial, and in fact the operators are written in such a way that they
 operate on either template (as long as at least one parameter is a
-specialization of `std::constexpr_v`).  Users can and should write their code
+specialization of `std::constant_wrapper`).  Users can and should write their code
 using these kinds of values-as-types in a similar way.  Relying on conversions
 is a less-useful way to get interoperability.
 
 # Design
 
-## Add `constexpr_v`
+## Add `constant_wrapper`
 
 ```c++
 namespace std {
-  template<auto X, class T = remove_cvref_t<decltype(X)>>
-    struct constexpr_v;
+  template<auto X,
+           class @*adl-type*@ = remove_cvref_t<decltype(X)>>     // @*exposition only*@
+    struct constant_wrapper;
 
   template <class T>
     concept @*constexpr-param*@ =                                // @*exposition only*@
-      requires { typename constexpr_v<T::value>; };
+      requires { typename constant_wrapper<T::value>; };
   template <class T>
     concept @*derived-from-constexpr*@ =                         // @*exposition only*@
-      derived_from<T, constexpr_v<T::value>>;
+      derived_from<T, constant_wrapper<T::value>>;
   template <class T, class SelfT>
     concept @*lhs-constexpr-param*@ =                            // @*exposition only*@
       @*constexpr-param*@<T> && (derived_from<T, SelfT> || !@*derived-from-constexpr*@<T>);
 
-  template<auto X, class T>
-  struct constexpr_v {
-    using value_type = T;
-    using type = constexpr_v;
+  template<auto X, class @*adl-type*@>
+  struct constant_wrapper {
+    using value_type = @*adl-type*@;
+    using type = constant_wrapper;
 
     constexpr operator value_type() const { return X; }
     static constexpr value_type value = X;
 
-#if LEWG_SAYS_SO
     template <@*constexpr-param*@ U>
-      constexpr constexpr_v<X = U::value> operator=(U) const { return {}; }
-#endif
+      constexpr constant_wrapper<(X = U::value)> operator=(U) const { return {}; }
 
     template<auto Y = X>
-      constexpr constexpr_v<+Y> operator+() const { return {}; }
+      constexpr constant_wrapper<+Y> operator+() const { return {}; }
     template<auto Y = X>
-      constexpr constexpr_v<-Y> operator-() const { return {}; }
+      constexpr constant_wrapper<-Y> operator-() const { return {}; }
     template<auto Y = X>
-      constexpr constexpr_v<~Y> operator~() const { return {}; }
+      constexpr constant_wrapper<~Y> operator~() const { return {}; }
     template<auto Y = X>
-      constexpr constexpr_v<!Y> operator!() const { return {}; }
+      constexpr constant_wrapper<!Y> operator!() const { return {}; }
     template<auto Y = X>
-      constexpr constexpr_v<&Y> operator&() const { return {}; }
+      constexpr constant_wrapper<&Y> operator&() const { return {}; }
     template<auto Y = X>
-      constexpr constexpr_v<*Y> operator*() const { return {}; }
+      constexpr constant_wrapper<*Y> operator*() const { return {}; }
 
-    template<class... Args>
-      constexpr constexpr_v<X(Args::value...)> operator()(Args... args) const { return {}; }
-    template<class... Args>
-      constexpr constexpr_v<X[Args::value...]> operator[](Args... args) const { return {}; }
-
-    template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
-      friend constexpr constexpr_v<U::value + V::value> operator+(U, V) { return {}; }
-    template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
-      friend constexpr constexpr_v<U::value - V::value> operator-(U, V) { return {}; }
-    template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
-      friend constexpr constexpr_v<U::value * V::value> operator*(U, V) { return {}; }
-    template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
-      friend constexpr constexpr_v<U::value / V::value> operator/(U, V) { return {}; }
-    template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
-      friend constexpr constexpr_v<U::value % V::value> operator%(U, V) { return {}; }
+    template<auto Y = X, class... Args>
+      constexpr constant_wrapper<Y(Args::value...)> operator()(Args... args) const { return {}; }
+    template<auto Y = X, class... Args>
+      constexpr constant_wrapper<Y[Args::value...]> operator[](Args... args) const { return {}; }
+    constexpr value_type operator()() const requires (!std::invocable<value_type>) { return X; }
 
     template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
-      friend constexpr constexpr_v<(U::value << V::value)> operator<<(U, V) { return {}; }
+      friend constexpr constant_wrapper<U::value + V::value> operator+(U, V) { return {}; }
     template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
-      friend constexpr constexpr_v<(U::value >> V::value)> operator>>(U, V) { return {}; }
+      friend constexpr constant_wrapper<U::value - V::value> operator-(U, V) { return {}; }
     template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
-      friend constexpr constexpr_v<U::value & V::value> operator&(U, V) { return {}; }
+      friend constexpr constant_wrapper<U::value * V::value> operator*(U, V) { return {}; }
     template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
-      friend constexpr constexpr_v<U::value | V::value> operator|(U, V) { return {}; }
+      friend constexpr constant_wrapper<U::value / V::value> operator/(U, V) { return {}; }
     template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
-      friend constexpr constexpr_v<U::value ^ V::value> operator^(U, V) { return {}; }
+      friend constexpr constant_wrapper<U::value % V::value> operator%(U, V) { return {}; }
 
     template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
-      friend constexpr constexpr_v<U::value && V::value> operator&&(U, V) { return {}; }
+      friend constexpr constant_wrapper<(U::value << V::value)> operator<<(U, V) { return {}; }
     template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
-      friend constexpr constexpr_v<U::value || V::value> operator||(U, V) { return {}; }
+      friend constexpr constant_wrapper<(U::value >> V::value)> operator>>(U, V) { return {}; }
+    template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
+      friend constexpr constant_wrapper<U::value & V::value> operator&(U, V) { return {}; }
+    template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
+      friend constexpr constant_wrapper<U::value | V::value> operator|(U, V) { return {}; }
+    template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
+      friend constexpr constant_wrapper<U::value ^ V::value> operator^(U, V) { return {}; }
 
     template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
-      friend constexpr constexpr_v<(U::value <=> V::value)> operator<=>(U, V) { return {}; }
+      friend constexpr constant_wrapper<U::value && V::value> operator&&(U, V) { return {}; }
     template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
-      friend constexpr constexpr_v<(U::value == V::value)> operator==(U, V) { return {}; }
-    template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
-      friend constexpr constexpr_v<(U::value != V::value)> operator!=(U, V) { return {}; }
-    template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
-      friend constexpr constexpr_v<(U::value < V::value)> operator<(U, V) { return {}; }
-    template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
-      friend constexpr constexpr_v<(U::value > V::value)> operator>(U, V) { return {}; }
-    template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
-      friend constexpr constexpr_v<(U::value <= V::value)> operator<=(U, V) { return {}; }
-    template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
-      friend constexpr constexpr_v<(U::value >= V::value)> operator>=(U, V) { return {}; }
+      friend constexpr constant_wrapper<U::value || V::value> operator||(U, V) { return {}; }
 
     template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
-      friend constexpr constexpr_v<(U::value, V::value)> operator,(U, V) { return {}; }
+      friend constexpr constant_wrapper<(U::value <=> V::value)> operator<=>(U, V) { return {}; }
     template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
-      friend constexpr constexpr_v<(U::value ->* V::value)> operator->*(U, V) { return {}; }
+      friend constexpr constant_wrapper<(U::value == V::value)> operator==(U, V) { return {}; }
+    template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
+      friend constexpr constant_wrapper<(U::value != V::value)> operator!=(U, V) { return {}; }
+    template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
+      friend constexpr constant_wrapper<(U::value < V::value)> operator<(U, V) { return {}; }
+    template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
+      friend constexpr constant_wrapper<(U::value > V::value)> operator>(U, V) { return {}; }
+    template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
+      friend constexpr constant_wrapper<(U::value <= V::value)> operator<=(U, V) { return {}; }
+    template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
+      friend constexpr constant_wrapper<(U::value >= V::value)> operator>=(U, V) { return {}; }
 
-#if LEWG_SAYS_SO
     template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
-      friend constexpr constexpr_v<(U::value += V::value)> operator+=(U, V) { return {}; }
+      friend constexpr constant_wrapper<(U::value, V::value)> operator,(U, V) { return {}; }
     template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
-      friend constexpr constexpr_v<(U::value -= V::value)> operator-=(U, V) { return {}; }
+      friend constexpr constant_wrapper<(U::value ->* V::value)> operator->*(U, V) { return {}; }
+
+    template <auto Y = X>
+      constexpr constant_wrapper<++Y> operator++() { return {}; }
+    template <auto Y = X>
+      constexpr constant_wrapper<Y++> operator++(int) { return {}; }
+    template <auto Y = X>
+      constexpr constant_wrapper<--Y> operator--() { return {}; }
+    template <auto Y = X>
+      constexpr constant_wrapper<Y--> operator--(int) { return {}; }
+
     template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
-      friend constexpr constexpr_v<(U::value *= V::value)> operator*=(U, V) { return {}; }
+      friend constexpr constant_wrapper<(U::value += V::value)> operator+=(U, V) { return {}; }
     template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
-      friend constexpr constexpr_v<(U::value /= V::value)> operator/=(U, V) { return {}; }
+      friend constexpr constant_wrapper<(U::value -= V::value)> operator-=(U, V) { return {}; }
     template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
-      friend constexpr constexpr_v<(U::value %= V::value)> operator%=(U, V) { return {}; }
+      friend constexpr constant_wrapper<(U::value *= V::value)> operator*=(U, V) { return {}; }
     template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
-      friend constexpr constexpr_v<(U::value &= V::value)> operator&=(U, V) { return {}; }
+      friend constexpr constant_wrapper<(U::value /= V::value)> operator/=(U, V) { return {}; }
     template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
-      friend constexpr constexpr_v<(U::value |= V::value)> operator|=(U, V) { return {}; }
+      friend constexpr constant_wrapper<(U::value %= V::value)> operator%=(U, V) { return {}; }
     template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
-      friend constexpr constexpr_v<(U::value ^= V::value)> operator^=(U, V) { return {}; }
+      friend constexpr constant_wrapper<(U::value &= V::value)> operator&=(U, V) { return {}; }
     template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
-      friend constexpr constexpr_v<(U::value <<= V::value)> operator<<=(U, V) { return {}; }
+      friend constexpr constant_wrapper<(U::value |= V::value)> operator|=(U, V) { return {}; }
     template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
-      friend constexpr constexpr_v<(U::value >>= V::value)> operator>>=(U, V) { return {}; }
-#endif
+      friend constexpr constant_wrapper<(U::value ^= V::value)> operator^=(U, V) { return {}; }
+    template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
+      friend constexpr constant_wrapper<(U::value <<= V::value)> operator<<=(U, V) { return {}; }
+    template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
+      friend constexpr constant_wrapper<(U::value >>= V::value)> operator>>=(U, V) { return {}; }
   };
 
   template<auto X>
-    inline constexpr constexpr_v<X> c_{};
+    inline constexpr constant_wrapper<X> cw{};
 }
 ```
 
 ## Add a feature macro
 
-Add a new feature macro, `__cpp_lib_constexpr_v`.
+Add a new feature macro, `__cpp_lib_constant_wrapper`.
 
 # Implementation experience
 
-Look up a few lines to see an implementation of `std::constexpr_v`.  At the
+Look up a few lines to see an implementation of `std::constant_wrapper`.  At the
 time of this writing, there is one caveat: `operator[]()` looks correct to the
 authors, but does not work in any compiler tested, due to the very limited
 multi-variate `operator[]` support in even the latest compilers.
@@ -644,85 +662,6 @@ been a part of
 since its initial release in May of 2016.  Its operations have been used by
 many, many users.
 
-# Possible polls for LEWG
-
-- We should call `std::constexpr_v`:
-  1. `std::constexpr_wrapper`
-     - Pro: The name calls out that this type has a relation to constant 
-       expressions.
-
-     - Pro: Consistency. The name is analoguous to `std::reference_wrapper` (and 
-       `std::ref`).
-
-     - Pro: `constexpr_wrapper<1>` reads as **wrapper** for **const**ant 
-       **expr**ession with value **1**.
-
-     - Con: It's a long name. However, if we expect that user typically won't 
-       spell out this type, then it doesn't matter much.
-
-  1. `std::constexpr_t`
-     - Pro: The name calls out that this type has a relation to constant 
-       expressions.
-
-     - Pro: Read the name as either "the result of a **const**ant **expr**ession 
-       identified by a **t**ype" or "a **t**ype identifying a value usable in 
-       **const**ant **expr**essions".
-
-     - Pro: The name calls out that it's a type (or class template) and not a 
-       variable template.
-
-     - Con: `_t` in the standard library typically means "alias template for 
-       `::type` member of a trait". The use of `_t` to identify types is more of 
-       a C thing.
-
-  1. `std::constexpr_value`
-     - Pro: The name calls out that this type has a relation to constant 
-       expressions.
-
-     - Pro: `constexpr_value<1>` can be read as "the value 1 as a constant 
-       expression".
-
-     - Con: The `_value` suffix may mislead readers to expect a variable 
-       template.
-
-  1. `std::constant_value`
-     - Con: The `_value` suffix may mislead readers to expect a variable 
-       template.
-
-     - Con: Nothing in the type hints at the primary use case: enabling 
-       *constant expressions*.
-
-     - Con: The name `constant` hints at `const`. While `const` isn't wrong 
-       here, it's also irrelevant.
-
-     - Con: `constant_value<1>` reads pretty much like `const int` with value 
-       `1`, which is misleading.
-
-- We should call `std::c_`:
-  1. `std::cc`
-     - short for **c**`onstexpr_wrapper` **c**onstant (somewhat silly, sure)
-
-     - quick to type: hit the same key twice
-
-     - 203'614 matches found on codesearch.isocpp.org
-
-  1. `std::c_`
-     - hardest to type (IMHO and with US keyboard layout, i.e. type "c shift+_ 
-       shift+<"; the _ < movement is slowing me down)
-
-     - 10'198 matches found on codesearch.isocpp.org
-
-  1. `std::cw`
-     - short for **c**`onstexpr_`**w**`rapper` or **c**onstexpr **w**rap, i.e. 
-       read `cw<1>` as "constexpr wrap 1"
-
-     - 41'311 matches found on codesearch.isocpp.org
-
-  1. `std::c`
-     - 3'869'416 matches found on codesearch.isocpp.org
-
-     - scarily short
-
 # Wording
 
 Add the following to [meta.type.synop], after `false_type`:
@@ -730,21 +669,22 @@ Add the following to [meta.type.synop], after `false_type`:
 :::add
 
 ```c++
-template<auto X, class T = remove_cvref_t<decltype(X)>>
-  struct constexpr_v;
+template<auto X,
+         class @*adl-type*@ = remove_cvref_t<decltype(X)>>     // @*exposition only*@
+  struct constant_wrapper;
 
 template <class T>
   concept @*constexpr-param*@ =                                // @*exposition only*@
-    !is_member_pointer_v<decltype(&T::value)> && requires { typename constexpr_v<T::value>; }
+    requires { typename constant_wrapper<T::value>; };
 template <class T>
   concept @*derived-from-constexpr*@ =                         // @*exposition only*@
-    derived_from<T, constexpr_v<T::value>>;
+    derived_from<T, constant_wrapper<T::value>>;
 template <class T, class SelfT>
   concept @*lhs-constexpr-param*@ =                            // @*exposition only*@
     @*constexpr-param*@<T> && (derived_from<T, SelfT> || !@*derived-from-constexpr*@<T>);
 
 template<auto X>
-  inline constexpr constexpr_v<X> c_;
+  inline constexpr constant_wrapper<X> cw;
 ```
 
 :::
@@ -754,121 +694,127 @@ Add the following to [meta.help], after `integral_constant`:
 :::add
 
 ```c++
-template<auto X, class T>
-struct constexpr_v {
-  using value_type = T;
-  using type = constexpr_v;
+template<auto X, class @*adl-type*@>
+struct constant_wrapper {
+  using value_type = @*adl-type*@;
+  using type = constant_wrapper;
 
   constexpr operator value_type() const { return X; }
   static constexpr value_type value = X;
 
-#if LEWG_SAYS_SO
   template <@*constexpr-param*@ U>
-    constexpr constexpr_v<X = U::value> operator=(U) const { return {}; }
-#endif
+    constexpr constant_wrapper<(X = U::value)> operator=(U) const { return {}; }
 
   template<auto Y = X>
-    constexpr constexpr_v<+Y> operator+() const { return {}; }
+    constexpr constant_wrapper<+Y> operator+() const { return {}; }
   template<auto Y = X>
-    constexpr constexpr_v<-Y> operator-() const { return {}; }
+    constexpr constant_wrapper<-Y> operator-() const { return {}; }
   template<auto Y = X>
-    constexpr constexpr_v<~Y> operator~() const { return {}; }
+    constexpr constant_wrapper<~Y> operator~() const { return {}; }
   template<auto Y = X>
-    constexpr constexpr_v<!Y> operator!() const { return {}; }
+    constexpr constant_wrapper<!Y> operator!() const { return {}; }
   template<auto Y = X>
-    constexpr constexpr_v<&Y> operator&() const { return {}; }
+    constexpr constant_wrapper<&Y> operator&() const { return {}; }
   template<auto Y = X>
-    constexpr constexpr_v<*Y> operator*() const { return {}; }
+    constexpr constant_wrapper<*Y> operator*() const { return {}; }
 
-  template<class... Args>
-    constexpr constexpr_v<X(Args::value...)> operator()(Args... args) const { return {}; }
-  template<class... Args>
-    constexpr constexpr_v<X[Args::value...]> operator[](Args... args) const { return {}; }
-
-  template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
-    friend constexpr constexpr_v<U::value + V::value> operator+(U, V) { return {}; }
-  template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
-    friend constexpr constexpr_v<U::value - V::value> operator-(U, V) { return {}; }
-  template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
-    friend constexpr constexpr_v<U::value * V::value> operator*(U, V) { return {}; }
-  template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
-    friend constexpr constexpr_v<U::value / V::value> operator/(U, V) { return {}; }
-  template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
-    friend constexpr constexpr_v<U::value % V::value> operator%(U, V) { return {}; }
+  template<auto Y = X, class... Args>
+    constexpr constant_wrapper<Y(Args::value...)> operator()(Args... args) const { return {}; }
+  template<auto Y = X, class... Args>
+    constexpr constant_wrapper<Y[Args::value...]> operator[](Args... args) const { return {}; }
+  constexpr value_type operator()() const requires (!std::invocable<value_type>) { return X; }
 
   template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
-    friend constexpr constexpr_v<(U::value << V::value)> operator<<(U, V) { return {}; }
+    friend constexpr constant_wrapper<U::value + V::value> operator+(U, V) { return {}; }
   template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
-    friend constexpr constexpr_v<(U::value >> V::value)> operator>>(U, V) { return {}; }
+    friend constexpr constant_wrapper<U::value - V::value> operator-(U, V) { return {}; }
   template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
-    friend constexpr constexpr_v<U::value & V::value> operator&(U, V) { return {}; }
+    friend constexpr constant_wrapper<U::value * V::value> operator*(U, V) { return {}; }
   template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
-    friend constexpr constexpr_v<U::value | V::value> operator|(U, V) { return {}; }
+    friend constexpr constant_wrapper<U::value / V::value> operator/(U, V) { return {}; }
   template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
-    friend constexpr constexpr_v<U::value ^ V::value> operator^(U, V) { return {}; }
+    friend constexpr constant_wrapper<U::value % V::value> operator%(U, V) { return {}; }
 
   template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
-    friend constexpr constexpr_v<U::value && V::value> operator&&(U, V) { return {}; }
+    friend constexpr constant_wrapper<(U::value << V::value)> operator<<(U, V) { return {}; }
   template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
-    friend constexpr constexpr_v<U::value || V::value> operator||(U, V) { return {}; }
+    friend constexpr constant_wrapper<(U::value >> V::value)> operator>>(U, V) { return {}; }
+  template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
+    friend constexpr constant_wrapper<U::value & V::value> operator&(U, V) { return {}; }
+  template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
+    friend constexpr constant_wrapper<U::value | V::value> operator|(U, V) { return {}; }
+  template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
+    friend constexpr constant_wrapper<U::value ^ V::value> operator^(U, V) { return {}; }
 
   template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
-    friend constexpr constexpr_v<(U::value <=> V::value)> operator<=>(U, V) { return {}; }
+    friend constexpr constant_wrapper<U::value && V::value> operator&&(U, V) { return {}; }
   template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
-    friend constexpr constexpr_v<(U::value == V::value)> operator==(U, V) { return {}; }
-  template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
-    friend constexpr constexpr_v<(U::value != V::value)> operator!=(U, V) { return {}; }
-  template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
-    friend constexpr constexpr_v<(U::value < V::value)> operator<(U, V) { return {}; }
-  template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
-    friend constexpr constexpr_v<(U::value > V::value)> operator>(U, V) { return {}; }
-  template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
-    friend constexpr constexpr_v<(U::value <= V::value)> operator<=(U, V) { return {}; }
-  template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
-    friend constexpr constexpr_v<(U::value >= V::value)> operator>=(U, V) { return {}; }
+    friend constexpr constant_wrapper<U::value || V::value> operator||(U, V) { return {}; }
 
   template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
-    friend constexpr constexpr_v<(U::value, V::value)> operator,(U, V) { return {}; }
+    friend constexpr constant_wrapper<(U::value <=> V::value)> operator<=>(U, V) { return {}; }
   template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
-    friend constexpr constexpr_v<(U::value ->* V::value)> operator->*(U, V) { return {}; }
+    friend constexpr constant_wrapper<(U::value == V::value)> operator==(U, V) { return {}; }
+  template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
+    friend constexpr constant_wrapper<(U::value != V::value)> operator!=(U, V) { return {}; }
+  template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
+    friend constexpr constant_wrapper<(U::value < V::value)> operator<(U, V) { return {}; }
+  template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
+    friend constexpr constant_wrapper<(U::value > V::value)> operator>(U, V) { return {}; }
+  template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
+    friend constexpr constant_wrapper<(U::value <= V::value)> operator<=(U, V) { return {}; }
+  template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
+    friend constexpr constant_wrapper<(U::value >= V::value)> operator>=(U, V) { return {}; }
 
-#if LEWG_SAYS_SO
   template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
-    friend constexpr constexpr_v<(U::value += V::value)> operator+=(U, V) { return {}; }
+    friend constexpr constant_wrapper<(U::value, V::value)> operator,(U, V) { return {}; }
   template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
-    friend constexpr constexpr_v<(U::value -= V::value)> operator-=(U, V) { return {}; }
+    friend constexpr constant_wrapper<(U::value ->* V::value)> operator->*(U, V) { return {}; }
+
+  template <auto Y = X>
+    constexpr constant_wrapper<++Y> operator++() { return {}; }
+  template <auto Y = X>
+    constexpr constant_wrapper<Y++> operator++(int) { return {}; }
+  template <auto Y = X>
+    constexpr constant_wrapper<--Y> operator--() { return {}; }
+  template <auto Y = X>
+    constexpr constant_wrapper<Y--> operator--(int) { return {}; }
+
   template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
-    friend constexpr constexpr_v<(U::value *= V::value)> operator*=(U, V) { return {}; }
+    friend constexpr constant_wrapper<(U::value += V::value)> operator+=(U, V) { return {}; }
   template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
-    friend constexpr constexpr_v<(U::value /= V::value)> operator/=(U, V) { return {}; }
+    friend constexpr constant_wrapper<(U::value -= V::value)> operator-=(U, V) { return {}; }
   template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
-    friend constexpr constexpr_v<(U::value %= V::value)> operator%=(U, V) { return {}; }
+    friend constexpr constant_wrapper<(U::value *= V::value)> operator*=(U, V) { return {}; }
   template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
-    friend constexpr constexpr_v<(U::value &= V::value)> operator&=(U, V) { return {}; }
+    friend constexpr constant_wrapper<(U::value /= V::value)> operator/=(U, V) { return {}; }
   template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
-    friend constexpr constexpr_v<(U::value |= V::value)> operator|=(U, V) { return {}; }
+    friend constexpr constant_wrapper<(U::value %= V::value)> operator%=(U, V) { return {}; }
   template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
-    friend constexpr constexpr_v<(U::value ^= V::value)> operator^=(U, V) { return {}; }
+    friend constexpr constant_wrapper<(U::value &= V::value)> operator&=(U, V) { return {}; }
   template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
-    friend constexpr constexpr_v<(U::value <<= V::value)> operator<<=(U, V) { return {}; }
+    friend constexpr constant_wrapper<(U::value |= V::value)> operator|=(U, V) { return {}; }
   template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
-    friend constexpr constexpr_v<(U::value >>= V::value)> operator>>=(U, V) { return {}; }
-#endif
+    friend constexpr constant_wrapper<(U::value ^= V::value)> operator^=(U, V) { return {}; }
+  template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
+    friend constexpr constant_wrapper<(U::value <<= V::value)> operator<<=(U, V) { return {}; }
+  template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
+    friend constexpr constant_wrapper<(U::value >>= V::value)> operator>>=(U, V) { return {}; }
 };
 
 template<auto X>
-  inline constexpr constexpr_v<X> c_{};
+  inline constexpr constant_wrapper<X> cw{};
 ```
 
-[2]{.pnum} The class template `constexpr_v` aids in metaprogramming by
+[2]{.pnum} The class template `constant_wrapper` aids in metaprogramming by
 ensuring that the evaluation of expressions comprised entirely of
-`constexpr_v`s are core constant expressions ([expr.const]), regardless of the
+`constant_wrapper`s are core constant expressions ([expr.const]), regardless of the
 context in which they appear.  In particular, this enables use of
-`constexpr_v` values that are passed as arguments to `constexpr` functions to
+`constant_wrapper` values that are passed as arguments to `constexpr` functions to
 be used as template parameters.
 
-[3]{.pnum} The variable template `c_` is provided as a convenient way to
-nominate `constexpr_v` values.
+[3]{.pnum} The variable template `cw` is provided as a convenient way to
+nominate `constant_wrapper` values.
 
 :::
 
@@ -877,7 +823,7 @@ Add to [version.syn]:
 :::add
 
 ```
-#define __cpp_lib_constexpr_v XXXXXXL // also in <type_traits>
+#define __cpp_lib_constant_wrapper XXXXXXL // also in <type_traits>
 ```
 
 :::
