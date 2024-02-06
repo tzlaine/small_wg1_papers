@@ -60,25 +60,53 @@ this may not be worthwhile).  This would need to be carefully considered.
 
 # Notes
 
-views containing an invocable F:
+views containing an invocable `F`:
 
-- transform_view
-- zip_transform_view
-- adjacent_transform_view
+- `transform_view` -- add `F` to iterator
+- `zip_transform_view` -- add `F` to iterator
+- `adjacent_transform_view` -- add `F` to iterator
 
 
-views containing a predicate Pred:
+views containing a predicate `Pred`:
 
-- filter_view
-- take_while_view -- not borrowed (does almost exaclty what drop_while_view does!)
-- drop_while_view -- already borrowed
-- chunk_by_view
+- `filter_view` -- add `Pred` + sentinel to iterator
+- `take_while_view` -- add `Pred` to sentinel
+- `chunk_by_view` -- add `Pred` + sentinel to iterator (and begin() for bidi ranges -- sentinel is not enough)
 
+- `drop_while_view` -- already borrowed
 
 Other things to consider:
 
-- Why isn't join_view borrowed if its V is?
+- Why isn't `join_view` borrowed if its `V` is?  It seems to be because of the
+  cached exposition-only `inner_` and `outer_` members:
 
-- Why aren't join_with_view, split_view, lazy_split_view, and
-  cartesian_product_view borrowed when they're constructed from however many
+```c++
+    non-propagating-cache<iterator_t<V>> outer_;            // exposition only, present only
+                                                            // when !forward_range<V>
+    non-propagating-cache<remove_cv_t<InnerRng>> inner_;    // exposition only, present only
+                                                            // if is_reference_v<InnerRng> is false
+```
+
+Those also make `join_view` problematic unless the user can guarantee that
+there is at most one outstanding iterator.  Otherwise, with two or more, the
+iterators will modify each other's behavior in undefined ways by stomping on
+each other's shared cache in the view.
+
+- Why aren't `join_with_view`, `split_view`, `lazy_split_view`, and
+  `cartesian_product_view` borrowed when they're constructed from however many
   borrowed ranges?
+
+`join_with_view` -- same as answer above to `join_view`.
+
+`lazy_split_view` -- seems to be a similar reason, but less cached state:
+
+```c++
+    non-propagating-cache<iterator_t<V>> current_;              // exposition only, present only
+                                                                // if forward_range<V> is false
+```
+
+`split_view` -- this one has no cached state; not sure why it's not just
+borrowed if `V` and `Pattern` are.
+
+`cartesian_product_view` -- this one actually make sense, since there's no upper
+bound on `sizeof...(Vs)`.
