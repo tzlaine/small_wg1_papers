@@ -90,7 +90,7 @@ Here is the part of `[range.range]` that describes `borrowed_range`:
 To increase the interoperability of the templates in `std::ranges` and to
 avoid unnecessary wrapping, we should make as many views `borrowed_range`s as
 is reasonable.  It is probably unreasonable to do so if there is a significant
-cost invovled.  To make a view a `borrowed_range` means moving its state out
+cost involved.  To make a view a `borrowed_range` means moving its state out
 of the view itself, and into the iterator instead.
 
 Note that moving state to the iterator is not sufficient to guarantee
@@ -112,6 +112,43 @@ potentially could be.  They are: `transform_view`, `zip_transform_view`,
 `join_view`, `join_with_view`, `split_view`, `lazy_split_view`, and
 `cartesian_product_view`.
 
+There is memory safety issue in this status quo, not just for these templates,
+but for all views that are not `borrowed_range`s.  Because the views contain
+state used by their iterators, including caches, their iterators share state
+and so are not regular.  If a view's `.begin()` is taken multiple times, the
+operation of each iterator is not independent of the other iterators.  It is
+possible to get undefined results when operating on the iterators, even on a
+single thread, because some operations latch state in the view that the
+iterator came from.  An operation on one iterator `i1` may latch state in the
+view that another iterator `i2` then reads, when `i2` expects the view's state
+to reflect only *its* (`i2`'s) sequence of operations.
+
+This is not a memory safety issue for all views, but it is true in the general
+case.  Due to the way that it does caching, `join_view` can invoke UB when
+more than one iterator is in play:
+
+```c++
+auto r = /* range of subranges containing 100 elements across all the subranges */;
+int count = 0;
+auto joined_r = r | std::ranges::join;
+for (auto sub : joined_r) {
+    ++count;
+    if (count == 88) {
+        // Updates the cache in joined_r to contain the first subrange in r, not the
+        // current subrange "sub".  This effectively backs up the iterator used by
+        // the for loop.  The next time operator++ is called on the loop's iterator,
+        // it will test its internal iterator against the end of the first subrange
+        // in r; this comparison of two unrelated iterators is very likely to be UB.
+        auto temporary = joined_r.begin();
+    }
+}
+assert(count == 100); // Error!
+```
+
+This is an unusual bit of code to be sure.  However, nothing anywhere tells
+the user that they're about to get language-level UB by writing
+`joined_r.begin()`.
+
 ## The easy ones
 
 Four of these are easy to change with little impact: `transform_view`,
@@ -130,56 +167,77 @@ small amount of state in `F`.  Note that since the change to the
 iterator/sentinel data members depends on `sizeof(F)`, the change is
 statically conditional.
 
-Another one seems easy to make borrowed with no changes at all.  `split_view`
-stores its view `V` and another range `Pattern` on which to do the splitting.
-If we defined its `enable_borrowed_range` specialization to be
-`enable_borrowed_range<V> && enable_borrowed_range<Pattern>`, it will be
-borrowed when it can be.
-
 ## The low-cost ones
 
+`filter_view` could get the same treatment as the easy ones above, but its
+iterator also needs to know where the end of the underlying view is, so the
+sentinel would also need to be added to the iterator.  This would typically
+increase the size of the iterator by the size of two pointers.
 
+`chunk_by_view` is mostly the same story as `filter_view`.  However, for
+bidirectional specializations of the view, the iterator's `operator--` would
+also need the beginning of the underlying view `V`.  This would typically
+increase the size of the iterator by the size of two or three pointers for
+forward and bidirectional views, respectively.
 
-## The probably-nots
+## The questionable ones
 
-TODO
+`split_view` stores its view `V` and another range `Pattern` on which to do
+the splitting.  If `Pattern` is a `borrowed_range` and `sizeof(Pattern)` is no
+more than the size of two pointers, the pattern could be copied into the
+iterator.  This would typically increase the size of the iterator by the size
+of two pointers.
 
-# Notes
+`lazy_split_view` is nearly the same story as `split_view`, except that it has
+an additional cache:
 
-views containing a predicate `Pred`:
+> ```c++
+>     @*non-propagating-cache*@<iterator_t<V>> current_;              // exposition only, present only
+>                                                                 // if forward_range<V> is false
+> ```
 
-- `filter_view` -- add `Pred` + sentinel to iterator
-- `chunk_by_view` -- add `Pred` + sentinel to iterator (and begin() for bidi ranges -- sentinel is not enough)
+As you can see, this is only present if `forward_range<V>` is `false` for a
+particular specialization of `lazy_split_view`.  Making the borrowed-ness
+dependent on `forward_range<V>` seems reasonable, especially since
+`forward_range<V>` will be `true` for vast majority of `lazy_split_view`
+specializations.
 
-Other things to consider:
+There is a wrinkle for conditioning the borrowed-ness of `split_view` and
+`lazy_split_view` on their `Pattern` template parameter.  The wrinkle is that
+`Pattern` will frequently be `single_view`, which is never a `borrowed_range`.
+This could be addressed by making `single_view` conditionally borrowed as
+well, if its `T` parameter were trivially copyable and small, say `sizeof(T)
+<= sizeof(void*) * 2`.
 
-- Why isn't `join_view` borrowed if its `V` is?  It seems to be because of the
-  cached exposition-only `inner_` and `outer_` members:
+`join_view` and `join_with_view` have these caches:
 
-```c++
-    non-propagating-cache<iterator_t<V>> outer_;            // exposition only, present only
-                                                            // when !forward_range<V>
-    non-propagating-cache<remove_cv_t<InnerRng>> inner_;    // exposition only, present only
-                                                            // if is_reference_v<InnerRng> is false
-```
+> ```c++
+>     non-propagating-cache<iterator_t<V>> outer_;            // exposition only, present only
+>                                                             // when !forward_range<V>
+>     non-propagating-cache<remove_cv_t<InnerRng>> inner_;    // exposition only, present only
+>                                                             // if is_reference_v<InnerRng> is false
+> ```
 
-Those also make `join_view` problematic unless the user can guarantee that
-there is at most one outstanding iterator.  Otherwise, with two or more, the
-iterators will modify each other's behavior in undefined ways by stomping on
-each other's shared cache in the view.
+Like `lazy_split_view`, they could be borrowed conditionally, when
+`forward_range<V>` is `true`; in that case, `inner_` could be moved into the
+iterator, at a typical cost of increasing the iterator size by the size of two
+pointers.
 
-- Why aren't `join_with_view`, `split_view`, `lazy_split_view`, and
-  `cartesian_product_view` borrowed when they're constructed from however many
-  borrowed ranges?
+# The other one
 
-`join_with_view` -- same as answer above to `join_view`.
+`cartesian_product_view` has an unbounded number of views it may be
+specialized with, so it's probably a poor candidate for moving stuff into the
+iterator.
 
-`lazy_split_view` -- seems to be a similar reason, but less cached state:
+# Cost/benefit analysis
 
-```c++
-    non-propagating-cache<iterator_t<V>> current_;              // exposition only, present only
-                                                                // if forward_range<V> is false
-```
+It seems like the easy ones seem like clear improvements.  The modifications
+are simple, and they're really no cost.  There's even a potential performance
+benefit, however meager it might be.
 
-`cartesian_product_view` -- this one actually make sense, since there's no upper
-bound on `sizeof...(Vs)`.
+The low-cost ones also seems like improvements, though they come with a cost,
+in terms of increased iterator size.
+
+The rest are indeed questionable.  They will require more in-depth
+modifications to the affected views.  However, the memory safety gains from
+changing `join_view` and `join_with_view` may justify the effort.
