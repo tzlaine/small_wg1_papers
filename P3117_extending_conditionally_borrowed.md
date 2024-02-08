@@ -113,15 +113,15 @@ potentially could be.  They are: `transform_view`, `zip_transform_view`,
 `cartesian_product_view`.
 
 There is memory safety issue in this status quo, not just for these templates,
-but for all views that are not `borrowed_range`s.  Because the views contain
-state used by their iterators, including caches, their iterators share state
-and so are not regular.  If a view's `.begin()` is taken multiple times, the
-operation of each iterator is not independent of the other iterators.  It is
-possible to get undefined results when operating on the iterators, even on a
-single thread, because some operations latch state in the view that the
-iterator came from.  An operation on one iterator `i1` may latch state in the
-view that another iterator `i2` then reads, when `i2` expects the view's state
-to reflect only *its* (`i2`'s) sequence of operations.
+but in the general case for views that are not `borrowed_range`s.  Because the
+views contain state used by their iterators, including caches, their iterators
+share state and so are not regular.  If a view's `.begin()` is taken multiple
+times, the operation of each iterator is not independent of the other
+iterators.  It is possible to get undefined results when operating on the
+iterators, even on a single thread, because some operations latch state in the
+view that the iterator came from.  An operation on one iterator `i1` may latch
+state in the view that another iterator `i2` then reads, when `i2` expects the
+view's state to reflect only *its* (`i2`'s) sequence of operations.
 
 This is not a memory safety issue for all views, but it is true in the general
 case.  Due to the way that it does caching, `join_view` can invoke UB when
