@@ -1,8 +1,9 @@
 // g++-13 -std=c++23 conditionally_borrowed.cpp -o borrowed
 
+#include <array>
+#include <iostream>
 #include <ranges>
 #include <vector>
-#include <iostream>
 
 
 namespace std::ranges::z {
@@ -93,6 +94,7 @@ namespace std::ranges::z {
 
 	  constexpr
 	  _Iterator(const _F_access& __access, _Base_iter __current)
+            requires __tidy_func<_Fp>
 	    : _M_current(std::move(__current)),
 	      _M_f_access(__access)
 	  { }
@@ -553,40 +555,70 @@ constexpr bool std::ranges::enable_borrowed_range<
     std::ranges::enable_borrowed_range<_Vp> && std::ranges::z::__tidy_func<_Pred>;
 
 
+template<typename F>
+struct fat_callable
+{
+    template<typename... Args>
+    auto operator()(Args &&... args) const
+    {
+        return f((Args &&) args...);
+    }
+    F f;
+    std::array<int, 256> extra_bytes;
+};
+
+
 int main()
 {
     std::vector<int> vec = {1, 2, 3, 4, 5, 6};
 
     {
-        auto old_view = vec | std::views::transform([](auto x) { return -x; });
+        auto negate = [](auto x) { return -x; };
+
+        auto old_view = vec | std::views::transform(negate);
         static_assert(!std::ranges::borrowed_range<decltype(old_view)>);
         for (auto x : old_view) {
             std::cout << x << "\n";
         }
         std::cout << "\n";
 
-        auto new_view =
-            vec | std::ranges::z::views::transform([](auto x) { return -x; });
+        auto new_view = vec | std::ranges::z::views::transform(negate);
         static_assert(std::ranges::borrowed_range<decltype(new_view)>);
         for (auto x : new_view) {
+            std::cout << x << "\n";
+        }
+        std::cout << "\n";
+
+        auto fat_new_view =
+            vec | std::ranges::z::views::transform(fat_callable(negate));
+        static_assert(!std::ranges::borrowed_range<decltype(fat_new_view)>);
+        for (auto x : fat_new_view) {
             std::cout << x << "\n";
         }
         std::cout << "\n";
     }
 
     {
-        auto old_view =
-            vec | std::views::take_while([](auto x) { return x < 4; });
+        auto lt_four = [](auto x) { return x < 4; };
+
+        auto old_view = vec | std::views::take_while(lt_four);
         static_assert(!std::ranges::borrowed_range<decltype(old_view)>);
         for (auto x : old_view) {
             std::cout << x << "\n";
         }
         std::cout << "\n";
 
-        auto new_view = vec | std::ranges::z::views::take_while(
-                                  [](auto x) { return x < 4; });
+        auto new_view = vec | std::ranges::z::views::take_while(lt_four);
         static_assert(std::ranges::borrowed_range<decltype(new_view)>);
         for (auto x : old_view) {
+            std::cout << x << "\n";
+        }
+        std::cout << "\n";
+
+        auto fat_new_view =
+            vec | std::ranges::z::views::take_while(fat_callable(lt_four));
+        static_assert(!std::ranges::borrowed_range<decltype(fat_new_view)>);
+        for (auto x : fat_new_view) {
             std::cout << x << "\n";
         }
         std::cout << "\n";
