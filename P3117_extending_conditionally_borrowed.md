@@ -131,14 +131,15 @@ more than one iterator is in play:
 auto r = /* range of subranges containing 100 elements across all the subranges */;
 int count = 0;
 auto joined_r = r | std::ranges::join;
-for (auto sub : joined_r) {
+for (auto && elem : joined_r) {
     ++count;
     if (count == 88) {
-        // Updates the cache in joined_r to contain the first subrange in r, not the
-        // current subrange "sub".  This effectively backs up the iterator used by
-        // the for loop.  The next time operator++ is called on the loop's iterator,
-        // it will test its internal iterator against the end of the first subrange
-        // in r; this comparison of two unrelated iterators is very likely to be UB.
+        // Updates the cache in joined_r to contain the first subrange in r, which is
+        // probably not the current subrange in which "elem" is found.  This
+        // effectively backs up the iterator used by the for loop.  The next time
+        // operator++ is called on the loop's iterator, it will test its internal
+        // iterator against the end of the first subrange in r; this comparison of two
+        // unrelated iterators is likely to be UB.
         auto temporary = joined_r.begin();
     }
 }
