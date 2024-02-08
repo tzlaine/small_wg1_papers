@@ -409,6 +409,137 @@ namespace std::ranges::z {
 
     inline constexpr _Transform transform;
   } // namespace views
+
+  template<view _Vp, typename _Pred>
+    requires input_range<_Vp> && is_object_v<_Pred>
+      && indirect_unary_predicate<const _Pred, iterator_t<_Vp>>
+    class take_while_view : public view_interface<take_while_view<_Vp, _Pred>>
+    {
+      template<bool _Const>
+	struct _Sentinel
+	{
+	private:
+	  using _Base = __detail::__maybe_const_t<_Const, _Vp>;
+
+	  sentinel_t<_Base> _M_end = sentinel_t<_Base>();
+
+          using _Pred_access =
+            conditional_t<__tidy_func<_Pred>, __detail::__box<_Pred>, const _Pred*>;
+
+          _Pred_access _M_pred;
+
+	public:
+	  _Sentinel() = default;
+
+	  constexpr explicit
+	  _Sentinel(sentinel_t<_Base> __end, const _Pred* __pred)
+            : _M_end(__end), _M_pred([&]{
+                if constexpr (__tidy_func<_Pred>)
+                  return *__pred;
+                else
+                  return __pred;
+              }())
+	  { }
+
+	  constexpr
+	  _Sentinel(_Sentinel<!_Const> __s)
+	    requires _Const && convertible_to<sentinel_t<_Vp>, sentinel_t<_Base>>
+	    : _M_end(__s._M_end), _M_pred(__s._M_pred)
+	  { }
+
+	  constexpr sentinel_t<_Base>
+	  base() const { return _M_end; }
+
+	  friend constexpr bool
+	  operator==(const iterator_t<_Base>& __x, const _Sentinel& __y)
+	  { return __y._M_end == __x || !std::__invoke(*__y._M_pred, *__x); }
+
+	  template<bool _OtherConst = !_Const,
+		   typename _Base2 = __detail::__maybe_const_t<_OtherConst, _Vp>>
+	    requires sentinel_for<sentinel_t<_Base>, iterator_t<_Base2>>
+	  friend constexpr bool
+	  operator==(const iterator_t<_Base2>& __x, const _Sentinel& __y)
+	  { return __y._M_end == __x || !std::__invoke(*__y._M_pred, *__x); }
+
+	  friend _Sentinel<!_Const>;
+	};
+
+      _Vp _M_base = _Vp();
+      [[no_unique_address]] __detail::__box<_Pred> _M_pred;
+
+    public:
+      take_while_view() requires (default_initializable<_Vp>
+				  && default_initializable<_Pred>)
+	= default;
+
+      constexpr
+      take_while_view(_Vp __base, _Pred __pred)
+	: _M_base(std::move(__base)), _M_pred(std::move(__pred))
+      { }
+
+      constexpr _Vp
+      base() const& requires copy_constructible<_Vp>
+      { return _M_base; }
+
+      constexpr _Vp
+      base() &&
+      { return std::move(_M_base); }
+
+      constexpr const _Pred&
+      pred() const
+      { return *_M_pred; }
+
+      constexpr auto
+      begin() requires (!__detail::__simple_view<_Vp>)
+      { return ranges::begin(_M_base); }
+
+      constexpr auto
+      begin() const requires range<const _Vp>
+	&& indirect_unary_predicate<const _Pred, iterator_t<const _Vp>>
+      { return ranges::begin(_M_base); }
+
+      constexpr auto
+      end() requires (!__detail::__simple_view<_Vp>)
+      { return _Sentinel<false>(ranges::end(_M_base),
+				std::__addressof(*_M_pred)); }
+
+      constexpr auto
+      end() const requires range<const _Vp>
+	&& indirect_unary_predicate<const _Pred, iterator_t<const _Vp>>
+      { return _Sentinel<true>(ranges::end(_M_base),
+			       std::__addressof(*_M_pred)); }
+    };
+
+  template<typename _Range, typename _Pred>
+    take_while_view(_Range&&, _Pred)
+      -> take_while_view<std::views::all_t<_Range>, _Pred>;
+
+  namespace views
+  {
+    namespace __detail
+    {
+      template<typename _Range, typename _Pred>
+	concept __can_take_while_view
+	  = requires { take_while_view(std::declval<_Range>(), std::declval<_Pred>()); };
+    } // namespace __detail
+
+      struct _TakeWhile : std::views::__adaptor::_RangeAdaptor<_TakeWhile>
+    {
+      template<viewable_range _Range, typename _Pred>
+	requires __detail::__can_take_while_view<_Range, _Pred>
+	constexpr auto
+	operator() [[nodiscard]] (_Range&& __r, _Pred&& __p) const
+	{
+	  return take_while_view(std::forward<_Range>(__r), std::forward<_Pred>(__p));
+	}
+
+      using _RangeAdaptor<_TakeWhile>::operator();
+      static constexpr int _S_arity = 2;
+      static constexpr bool _S_has_simple_extra_args = true;
+    };
+
+    inline constexpr _TakeWhile take_while;
+  } // namespace views
 }
 
 template<typename _Vp, typename _Fp>
@@ -416,25 +547,50 @@ constexpr bool std::ranges::enable_borrowed_range<
     std::ranges::z::transform_view<_Vp, _Fp>> =
     std::ranges::enable_borrowed_range<_Vp> && std::ranges::z::__tidy_func<_Fp>;
 
+template<typename _Vp, typename _Pred>
+constexpr bool std::ranges::enable_borrowed_range<
+    std::ranges::z::take_while_view<_Vp, _Pred>> =
+    std::ranges::enable_borrowed_range<_Vp> && std::ranges::z::__tidy_func<_Pred>;
+
 
 int main()
 {
     std::vector<int> vec = {1, 2, 3, 4, 5, 6};
 
-    auto old_view = vec | std::views::transform([](auto x) { return -x; });
-    static_assert(!std::ranges::borrowed_range<decltype(old_view)>);
-    for (auto x : old_view) {
-        std::cout << x << "\n";
-    }
-    std::cout << "\n";
+    {
+        auto old_view = vec | std::views::transform([](auto x) { return -x; });
+        static_assert(!std::ranges::borrowed_range<decltype(old_view)>);
+        for (auto x : old_view) {
+            std::cout << x << "\n";
+        }
+        std::cout << "\n";
 
-    auto new_view =
-        vec | std::ranges::z::views::transform([](auto x) { return -x; });
-    static_assert(std::ranges::borrowed_range<decltype(new_view)>);
-    for (auto x : new_view) {
-        std::cout << x << "\n";
+        auto new_view =
+            vec | std::ranges::z::views::transform([](auto x) { return -x; });
+        static_assert(std::ranges::borrowed_range<decltype(new_view)>);
+        for (auto x : new_view) {
+            std::cout << x << "\n";
+        }
+        std::cout << "\n";
     }
-    std::cout << "\n";
+
+    {
+        auto old_view =
+            vec | std::views::take_while([](auto x) { return x < 4; });
+        static_assert(!std::ranges::borrowed_range<decltype(old_view)>);
+        for (auto x : old_view) {
+            std::cout << x << "\n";
+        }
+        std::cout << "\n";
+
+        auto new_view = vec | std::ranges::z::views::take_while(
+                                  [](auto x) { return x < 4; });
+        static_assert(std::ranges::borrowed_range<decltype(new_view)>);
+        for (auto x : old_view) {
+            std::cout << x << "\n";
+        }
+        std::cout << "\n";
+    }
 
     return 0;
 }
