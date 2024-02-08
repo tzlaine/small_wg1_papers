@@ -224,7 +224,7 @@ Like `lazy_split_view`, they could be borrowed conditionally, when
 iterator, at a typical cost of increasing the iterator size by the size of two
 pointers.
 
-# The other one
+## The other one
 
 `cartesian_product_view` has an unbounded number of views it may be
 specialized with, so it's probably a poor candidate for moving stuff into the
