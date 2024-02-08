@@ -485,4 +485,13 @@ prevents using `unexpect_t` by simply writing `{}` when calling a function
 that takes an `unexpect_t` at that argument position.
 
 ## 6. Proposed changes to the wording of SD-9.
-TODO
+
+Append to "List of Standard Library Policies" section of SD-9:
+
+X.   (P3116) Place `explicit` on `bool` conversion operators.
+
+X+1. (P3116) Place `explicit` on constructors that may be called with a single
+     argument, when implicit conversion from that single argument is
+     undesirable.
+
+X+2. (P3116) Place `explicit` on nullary constructors of tag types.
