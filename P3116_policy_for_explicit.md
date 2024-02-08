@@ -19,8 +19,8 @@ Initial revision.
 
 # Motivation
 
-Based on the recently-adopted P2267R1: Library Evolution Policies, this paper
-makes the case for a policy for when and why to add `explicit` to member
+Based on the recently-adopted P2267R1: Library Evolution Policies, this
+paper makes the case for a policy for when and why to add `explicit` to member
 functions in standard library templates and types.
 
 There are 721 occurrences of the keyword `explicit` in the library clauses of
@@ -52,7 +52,7 @@ P2267R1: Library Evolution Policies defines requirements for a new policy.
 Below is a discussion of the required elements, based on section 5.1.1 of that
 paper, using the same numbering from that paper.
 
-## 1. A rationale, and 5. A rationale as to why adopting the policy will improve coherence and / or save time.
+## (1) A rationale, and (5) A rationale as to why adopting the policy will improve coherence and / or save time.
 
 We have consistent existing practice for how `explicit` is used in the
 standard library.  We also sometimes have to remind authors during design
@@ -70,11 +70,18 @@ to those categories.
   standard).  This appears to be addressed by LWG3451, and so this exception
   can be ignored.
 
-- The use of `explicit` with multi-parameter view constructors.  This is a
-  one-off, in that this is the only place that `explicit` is used on
-  multi-parameter constructors.  This does not seem like something that we
-  should encourage in future proposals, for the reasons outlined below, in the
-  section on the `[ranges]` clause.
+- The use of `explicit` with multi-parameter view constructors.  This seems to
+  be a special case; this one of only two places I know about `explicit` is
+  used on multi-parameter constructors (the other is next in this list).  This
+  does not seem like something that we should encourage in future proposals,
+  for the reasons outlined below, in the section on the `[ranges]` clause.
+
+- The conditional use of `explicit` with multi-parameter `span` constructors.
+  As described in [@P1976R2], the conditional use of `explicit` is intended to
+  make it less likely for the user to write UB into their code when
+  constructing a non-`dynamic_extent` `span` from a pointer and size or a pair
+  of iterators.  This also seems like a fairly particular use of `explicit`,
+  ill-suited to be turned into a broad rule.
 
 - The use of `explicit` on select conversion operators in classes in `[time]`.
   The usage there is to make an explicit conversion possible with a cast,
@@ -83,7 +90,12 @@ to those categories.
   this use of `explicit` part of the policy.  We can always add it later if it
   becomes common.
 
-## 2. A survey of the prior art of the topic, as appears in the standard.
+The take-away here is that the three rules proposed in this paper are applied
+with a high level of consistency in the standard today.  Though there are
+plenty of other uses of `explicit`, as outlined above, none of those uses is
+contrary to the three rules proposed.
+
+## (2) A survey of the prior art of the topic, as appears in the standard.
 
 Here is a breakdown of the use of `explicit` in the library clauses, clause by
 clause.
@@ -211,6 +223,19 @@ template<class... OtherIndexTypes>
   constexpr explicit mdspan(data_handle_type ptr, OtherIndexTypes... exts);
 ```
 
+Used conditionally on various `span` multi-argument constructors:
+
+```c++
+template<class It>
+  constexpr explicit(extent != dynamic_extent) span(It first, size_type count);
+template<class It, class End>
+  constexpr explicit(extent != dynamic_extent) span(It first, End last);
+  constexpr explicit(extent != dynamic_extent) span(R&& r);
+constexpr explicit(extent != dynamic_extent) span(std::initializer_list<value_type> il);
+template<class OtherElementType, size_t OtherExtent>
+  constexpr explicit(see below) span(const span<OtherElementType, OtherExtent>& s) noexcept;
+```
+
 Used in tag types like `sorted_t`.
 
 Used in `explicit operator bool() const noexcept`.
@@ -287,7 +312,6 @@ constexpr explicit take_view(V base, range_difference_t<V> count);
 constexpr explicit take_while_view(V base, Pred pred);
 constexpr explicit drop_view(V base, range_difference_t<V> count);
 constexpr explicit drop_while_view(V base, Pred pred);
-constexpr explicit join_view(V base);
 constexpr explicit join_with_view(V base, Pattern pattern);
 constexpr explicit lazy_split_view(R&& r, range_value_t<R> e);
 constexpr explicit split_view(V base, Pattern pattern);
@@ -299,7 +323,7 @@ constexpr explicit stride_view(V base, range_difference_t<V> stride);
 ```
 
 This differs from other templates in the standard.  There is an associated
-paper P2711R1: Making multi-param constructors of views explicit, which was
+paper [@P2711R1]: Making multi-param constructors of views explicit, which was
 discussed at the Kona 2022 meeting.
 
 The intention here is to eliminate the difference in user code between a
@@ -448,7 +472,7 @@ template<class F>
   explicit packaged_task(F&& f);
 ```
 
-## 3. A survey of the status quo for this topic, in the wider C++ community.
+## (3) A survey of the status quo for this topic, in the wider C++ community.
 
 I did not look at this in any depth.  Anecdotally, it seems very common to use
 `explicit` on constructors and `bool` conversion operators for disabling
@@ -457,7 +481,7 @@ the naming of a tag type at the point of construction outside of the standard.
 
 # Proposal
 
-## 4. A clear and concise definition of the policy proposed.
+## (4) A clear and concise definition of the policy proposed.
 
 When proposing new templates and types for the standard library, `explicit`
 should be used to prevent unwanted implicit conversions, or to force the user
@@ -484,7 +508,7 @@ point of its construction.  Example: `explicit unexpect_t() = default`, which
 prevents using `unexpect_t` by simply writing `{}` when calling a function
 that takes an `unexpect_t` at that argument position.
 
-## 6. Proposed changes to the wording of SD-9.
+## (6) Proposed changes to the wording of SD-9.
 
 Append to "List of Standard Library Policies" section of SD-9:
 
