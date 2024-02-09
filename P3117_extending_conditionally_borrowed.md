@@ -213,9 +213,9 @@ well, if its `T` parameter were trivially copyable and small, say `sizeof(T)
 `join_view` and `join_with_view` have these caches:
 
 > ```c++
->     non-propagating-cache<iterator_t<V>> outer_;            // exposition only, present only
+>     @*non-propagating-cache*@<iterator_t<V>> outer_;            // exposition only, present only
 >                                                             // when !forward_range<V>
->     non-propagating-cache<remove_cv_t<InnerRng>> inner_;    // exposition only, present only
+>     @*non-propagating-cache*@<remove_cv_t<InnerRng>> inner_;    // exposition only, present only
 >                                                             // if is_reference_v<InnerRng> is false
 > ```
 
