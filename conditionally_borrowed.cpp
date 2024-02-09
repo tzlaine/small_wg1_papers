@@ -3277,6 +3277,11 @@ struct fat_callable
     std::array<int, 256> extra_bytes;
 };
 
+// strike ub stuff
+// talk about sizes (don't forget about sizes when there are lots of adaptors
+// talk about timings andcode gen
+// split borrowed based on pattern trivial_copyabilty OR borrwoedness
+
 
 int main()
 {
