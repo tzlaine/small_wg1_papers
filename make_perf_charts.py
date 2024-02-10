@@ -74,4 +74,4 @@ for sample in samples:
     prev_name = name
     prev_prefix = prefix
     prev_iterations = iterations
-
+print_chart(curr_run, curr_run_names)
