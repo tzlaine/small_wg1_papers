@@ -78,11 +78,11 @@ def print_table(run, run_names):
     label = 'Run \\ `N`'
     longest = max(map(lambda x: len(x), run_names + [label]))
     sep = '+-' + '-' * longest + '-+'
-    hdr = f'| {label:{longest}} |'
+    hdr = f'| {label:<{longest}} |'
     hdr_sep = '+=' + '=' * longest + '=+'
     for x in all_iterations:
         sep += '-' * 9 + '+'
-        hdr += f'{x:8} |'
+        hdr += f'{x:<8} |'
         hdr_sep += ':' + '=' * 7 + ':+'
     print(f'=== {name} ===')
     print(sep)
@@ -92,7 +92,7 @@ def print_table(run, run_names):
     for name_,run_ in zip(run_names, runs):
         row = f'| {name_:{longest}} |'
         for x in run_:
-            row += f'{x:8} |'
+            row += f'{x:<8} |'
         print(row)
         print(sep)
 
