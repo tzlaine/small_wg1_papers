@@ -217,13 +217,37 @@ iterator.
 
 # Cost/benefit analysis
 
+`join_view` has the best bang-for-buck.  It does not even involve a code
+change to `join_view` itself, just the addition of the `enable_borrowed_range`
+specialization.
+
+## The easy ones
+
 It seems like the easy ones seem like clear improvements.  The modifications
-are simple, and they're really no cost.  There's even a potential performance
-benefit, however meager it might be.
+are simple, and they're nearly identical in performance to the status quo.  In
+these charts, "Old" is the status quo implementation of the view; "New" uses a
+version modified to be borrowable, where the invocable in use is small enough
+to make the view borrowable; and "Fat New" is the same modified implementation
+as "New", but with an invocable that *does not* allow the view to be
+borrowable.
 
-The low-cost ones also seems like improvements, though they come with a cost,
-in terms of increased iterator size.
+![](./transform.svg)
+![](./zip_transform.svg)
+![](./adjacent_transform.svg)
+![](./take_while.svg)
 
-The rest are indeed questionable.  They will require more in-depth
-modifications to the affected views.  However, the memory safety gains from
-changing `join_view` and `join_with_view` may justify the effort.
+The take-away here is that there is a neglible impact on performance for all
+the "easy ones".  In paricular, `take_while_view` produces performance numbers
+that are so similar to the status quo that the lines completely overlap.
+Where the numbers differ, the new implementations are alightly better for most
+sizes of input; the log scale doesn't really show that very well.
+
+## The low-cost ones
+
+TODO
+
+![](./filter.svg)
+![](./chunk_by.svg)
+![](./lazy_split.svg)
+![](./lazy_split.svg)
+![](./join_with.svg)
