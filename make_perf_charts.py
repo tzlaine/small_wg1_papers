@@ -16,6 +16,15 @@ samples = json.load(f)
 
 samples = samples['benchmarks']
 
+three_color_style = pygal.style.Style(
+  background='transparent',
+  plot_background='transparent',
+  colors=('#FF0000', '#00FF00', '#007F7F'))
+five_color_style = pygal.style.Style(
+  background='transparent',
+  plot_background='transparent',
+  colors=('#FF0000', '#FF7F00', '#00FF00', '#007F7F', '#0000FF'))
+
 def next_largest_power_10(x):
     return 10 ** math.ceil(math.log10(x))
 
@@ -35,12 +44,19 @@ def print_chart(run, run_names):
     run_names = map(lambda x: x[len(prefix):], run_names)
     run_names = list(map(lambda x: ' '.join(map(lambda y: y.title(), x.split('_'))), run_names))
     runs = list(chunk(run, len(all_iterations)))
-    chart = pygal.Line(logarithmic=True, y_title='Nanoseconds', x_title='Number of Elements')
+    style = three_color_style if len(run_names) == 3 else five_color_style
+    chart = pygal.Line(
+        style=style,
+        logarithmic=True,
+        y_title='Nanoseconds',
+        x_title='Number of Elements',
+        tooltip_border_radius=10,
+        legend_at_bottom=True)
     chart.title = f'{name}_view'
     chart.x_labels = list(map(lambda x: str(x), all_iterations))
     for name_,run_ in zip(run_names, runs):
         # print(name, name_, run_)
-        chart.add(name_, run_)
+        chart.add(name_, run_, show_dots=False)
     with open(f'{name}.svg', 'w') as out_f:
         out_f.write(str(chart.render(2)))
 
