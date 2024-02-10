@@ -90,10 +90,10 @@ Here is the part of `[range.range]` that describes `borrowed_range`:
 To increase the interoperability of the templates in `std::ranges` and to
 avoid unnecessary wrapping, we should make as many views `borrowed_range`s as
 is reasonable.  It is probably unreasonable to do so if there is a significant
-cost involved.  To make a view a `borrowed_range` means moving its state out
+cost involved.  To make a view a `borrowed_range` means copying its state out
 of the view itself, and into the iterator instead.
 
-Note that moving state to the iterator is not sufficient to guarantee
+Note that copying state to the iterator is not sufficient to guarantee
 borrowed-ness, though is it necessary.  Most views take an existing view `V`
 and do something with it, making a new view over the existing one.  For
 instance, `transform_view<V, F>` creates a view by transforming the elements
@@ -179,14 +179,14 @@ statically conditional.
 `filter_view` could get the same treatment as the easy ones above (the ones
 that require modification), but its iterator also needs to know where the end
 of the underlying view is, so the sentinel would also need to be added to the
-iterator.  This would typically increase the size of the iterator by the size
-of two pointers.
+iterator.  This would increase the size of the iterator by at most the size of
+two pointers.
 
 `chunk_by_view` is mostly the same story as `filter_view`.  However, for
 bidirectional specializations of the view, the iterator's `operator--` would
-also need the beginning of the underlying view `V`.  This would typically
-increase the size of the iterator by the size of two or three pointers for
-forward and bidirectional views, respectively.
+also need the beginning of the underlying view `V`.  This would increase the
+size of the iterator by at most the size of two or three pointers for forward
+and bidirectional views, respectively.
 
 `split_view` and `join_with_view` each take a view `V` and a view `Pattern` to
 use to do the join or split, respectively.  Clearly, to be borrowable `V` must
@@ -212,18 +212,46 @@ Pattern>>` is `false`.  This means its borrowability depends on `V`,
 ## The other one
 
 `cartesian_product_view` has an unbounded number of views it may be
-specialized with, so it's probably a poor candidate for moving stuff into the
+specialized with, so it's probably a poor candidate for copying stuff into the
 iterator.
 
-# Cost/benefit analysis
+# Proposed changes
+
+TODO
+
+# Implementation experience
+
+One of the authors implemented the changes suggested above, for all the views
+discussed.  The implementation was done by taking the libstdc++
+implementations, copying them into a new header, in a new new namespace under
+`std::ranges`, and altering them.  The implementation can be found
+[here](https://github.com/tzlaine/small_wg1_papers/tree/master/conditionally_borrowed).
+The header is accompanied by a test file, and a small perf test.  The
+implementation was very straightforward.
+
+# Costs versus benefits
 
 `join_view` has the best bang-for-buck.  It does not even involve a code
 change to `join_view` itself, just the addition of the `enable_borrowed_range`
 specialization.
 
-## The easy ones
+## The other easy ones
 
-TODO
+It seems like the easy ones seem like clear improvements.  The modifications
+are simple, and they're nearly identical in performance to the status quo.  In
+these tables and charts, "old" is the status quo implementation of the view;
+"new" uses a version modified to be borrowable, where the invocable in use is
+small enough to make the view borrowable; and "fat new" is the same modified
+implementation as "new", but with an invocable that *does not* allow the view
+to be borrowable.
+
+Above we mentioned expectations for increased size of iterators.  It turns out
+that in some cases, copying the invocable into the iterator actually
+*decreases* the size of the iterator.  This is because before the change, the
+iterator had a pointer back to the view.  If it instead contains the invocable
+directly, and the invocable is stored in a `@*movable-box*@` marked
+`[[no_unique_address]]`, the compiler can just use it without storing it in
+some cases.
 
 +---------------------------+----------------------------+----------------------------+--------------------------------+
 | View                      | `sizeof(old.begin())`      | `sizeof(new.begin())`      | `sizeof(fat_new.begin())`      |
@@ -237,28 +265,80 @@ TODO
 | `take_while_view`         | 8                          |  8                         | 8                              |
 +---------------------------+----------------------------+----------------------------+--------------------------------+
 
-It seems like the easy ones seem like clear improvements.  The modifications
-are simple, and they're nearly identical in performance to the status quo.  In
-these charts, "Old" is the status quo implementation of the view; "New" uses a
-version modified to be borrowable, where the invocable in use is small enough
-to make the view borrowable; and "Fat New" is the same modified implementation
-as "New", but with an invocable that *does not* allow the view to be
-borrowable.
+So, there's no size penalty for adding conditional borrowability to these four
+views.  Here are some performance charts.  After each one, we've listed the
+raw data, since the logarithmic scale makes it hard to see exact differences.
+Unfortunately, with a linear scale, the differences are even less
+comprehensible.
+
+Here are the first of the performance numbers.  All performance numbers were
+generated using Google Benchmark on a GCC 13 `-O3` build.  All table numbers
+are in nanoseconds.
 
 ![](./transform.svg)
+
++-----------+---------+---------+---------+---------+---------+---------+
+| Run \ `N` |      10 |     100 |    1000 |   10000 |  100000 | 1000000 |
++===========+:=======:+:=======:+:=======:+:=======:+:=======:+:=======:+
+| Old       |       3 |      10 |      91 |     927 |   14714 |  157813 |
++-----------+---------+---------+---------+---------+---------+---------+
+| New       |       4 |      13 |     117 |    1115 |   14711 |  160760 |
++-----------+---------+---------+---------+---------+---------+---------+
+| Fat New   |       4 |      12 |      94 |     946 |   14802 |  157828 |
++-----------+---------+---------+---------+---------+---------+---------+
+
 ![](./zip_transform.svg)
+
++-----------+---------+---------+---------+---------+---------+---------+
+| Run \ `N` |      10 |     100 |    1000 |   10000 |  100000 | 1000000 |
++===========+:=======:+:=======:+:=======:+:=======:+:=======:+:=======:+
+| Old       |       4 |      14 |     119 |    1219 |   16323 |  172855 |
++-----------+---------+---------+---------+---------+---------+---------+
+| New       |       4 |      15 |     118 |    1128 |   15212 |  162041 |
++-----------+---------+---------+---------+---------+---------+---------+
+| Fat New   |       5 |      11 |      92 |    1196 |   16083 |  173267 |
++-----------+---------+---------+---------+---------+---------+---------+
+
 ![](./adjacent_transform.svg)
+
++-----------+---------+---------+---------+---------+---------+---------+
+| Run \ `N` |      10 |     100 |    1000 |   10000 |  100000 | 1000000 |
++===========+:=======:+:=======:+:=======:+:=======:+:=======:+:=======:+
+| Old       |       4 |      12 |      93 |    1199 |   16199 |  178819 |
++-----------+---------+---------+---------+---------+---------+---------+
+| New       |       4 |      12 |      92 |    1217 |   15990 |  171407 |
++-----------+---------+---------+---------+---------+---------+---------+
+| Fat New   |       4 |      12 |      93 |    1217 |   15815 |  172544 |
++-----------+---------+---------+---------+---------+---------+---------+
+
 ![](./take_while.svg)
 
-The take-away here is that there is a neglible impact on performance for all
-the "easy ones".  In paricular, `take_while_view` produces performance numbers
-that are so similar to the status quo that the lines completely overlap.
-Where the numbers differ, the new implementations are alightly better for most
-sizes of input; the log scale doesn't really show that very well.
++-----------+---------+---------+---------+---------+---------+---------+
+| Run \ `N` |      10 |     100 |    1000 |   10000 |  100000 | 1000000 |
++===========+:=======:+:=======:+:=======:+:=======:+:=======:+:=======:+
+| Old       |       3 |      18 |     174 |    1711 |   17337 |  175469 |
++-----------+---------+---------+---------+---------+---------+---------+
+| New       |       3 |      18 |     176 |    1705 |   17180 |  175326 |
++-----------+---------+---------+---------+---------+---------+---------+
+| Fat New   |       3 |      18 |     177 |    1698 |   17295 |  176765 |
++-----------+---------+---------+---------+---------+---------+---------+
+
+The take-away here is that there is a negligible impact on performance for
+changing these four views.  In particular, `take_while_view` produces
+performance numbers that are so similar to the status quo that the lines
+completely overlap.  Where the numbers differ, the new implementations are
+slightly better for most sizes of input.
 
 ## The low-cost ones
 
-TODO
+The low-cost ones are more ofa mixed bag than the easy ones.  Let's first look
+at `filter_view` and `chunk_by_view`.  We'll look at the others together,
+since they are more like each other than these two.
+
+Let's look at sizes.  As before, the size penalty is sometimes less, when the
+invocable is small.  Unlike before, there is a size penalty here when the
+invocable does not fit.  That's mainly because we also copied `base_.end()`
+(from the view's `V base_`) into the iterator.
 
 +---------------------------+----------------------------+----------------------------+--------------------------------+
 | View                      | `sizeof(old.begin())`      | `sizeof(new.begin())`      | `sizeof(fat_new.begin())`      |
@@ -268,12 +348,50 @@ TODO
 | `chunk_by_view`           | 24                         | 32                         | 40                             |
 +---------------------------+----------------------------+----------------------------+--------------------------------+
 
-TODO
-
 ![](./filter.svg)
+
++-----------+---------+---------+---------+---------+---------+---------+
+| Run \ `N` |      10 |     100 |    1000 |   10000 |  100000 | 1000000 |
++===========+:=======:+:=======:+:=======:+:=======:+:=======:+:=======:+
+| Old       |       9 |      93 |     988 |   28475 |  324653 | 3280019 |
++-----------+---------+---------+---------+---------+---------+---------+
+| New       |      11 |     104 |    1386 |   34734 |  386109 | 3865245 |
++-----------+---------+---------+---------+---------+---------+---------+
+| Fat New   |      12 |     111 |    1099 |   29161 |  327035 | 3335268 |
++-----------+---------+---------+---------+---------+---------+---------+
+
 ![](./chunk_by.svg)
 
-TODO
++-----------+---------+---------+---------+---------+---------+---------+
+| Run \ `N` |      10 |     100 |    1000 |   10000 |  100000 | 1000000 |
++===========+:=======:+:=======:+:=======:+:=======:+:=======:+:=======:+
+| Old       |      23 |     216 |    2376 |   42229 |  438928 | 4424799 |
++-----------+---------+---------+---------+---------+---------+---------+
+| New       |      16 |     150 |    1528 |   33707 |  367695 | 3729119 |
++-----------+---------+---------+---------+---------+---------+---------+
+| Fat New   |      16 |     160 |    1526 |   35283 |  365044 | 3703705 |
++-----------+---------+---------+---------+---------+---------+---------+
+
+As you can see, there is a small but significant performance penalty for
+`filter_view`.  For `chunk_view`, however, making it borrowable is a
+significant perf boost, even if the invocable is too large to get stashed in
+the iterator.  This means that simply having `base_.end()` in the iterator is
+beneficial.  Who knew?
+
+### The multi-view low-cost views
+
+These views are together because they are similar to each other in the data
+they operate on.  Each one takes a view `V` like any other view, but also
+another view `Pattern`, that is used to do the split or join.  The range
+adaptor for each of these views also accepts a single element instead of the
+pattern, from which it will construct a `single_view` from that element.
+
+In the tables below, "old" is an iterator from the status quo implementation;
+"new" is an iterator from a view with a `ranges::subrange` given for
+`Pattern`; "new single" is an iterator from a view with a single element (in
+the form of a `single_view` given for `Pattern`; and "fat new" is an iterator
+from a view with a non-trivially-copyable `Pattern` (an `owning_view` was
+used).
 
 +---------------------------+----------------------------+----------------------------+-----------------------------------+--------------------------------+
 | View                      | `sizeof(old.begin())`      | `sizeof(new.begin())`      | `sizeof(new_single.begin())`      | `sizeof(fat_new.begin())`      |
@@ -285,6 +403,109 @@ TODO
 | `join_with_view`          | 32                         | 48                         | 40                                | 40                             |
 +---------------------------+----------------------------+----------------------------+-----------------------------------+--------------------------------+
 
-![](./lazy_split.svg)
+There is definitely a size penalty for modifying these views to be borrowable.
+`new` is always a single pointer larger than `fat_new`, because `fat_new` uses
+a pointer to the view when the pattern is not copied into the iterator.
+`fat_new` is therefore basically like `old`, except that it has `base_.end()`
+copied into it as well.  `new_single` can be smaller than `new` when the
+`single_view` is small, such as in `v | ranges::split_view('-')`.  In that
+case, storage of the `single_view` actually gets optimized away by the
+compiler, like we saw with simple invocables previously.
+
+Now, the performance numbers.  In these charts and tables, "old" and "new"
+still refer to the status quo and conditionally borrowed implementations,
+respectively.  "Owned" indicates that an `owning_view` was used for `Pattern`;
+"subrange" indicates that a `ranges::subrange` was used for `Pattern`; and
+"single" indicates that a `single_view` (always <= `sizeof(void*)`) was used
+for `Pattern`.
+
 ![](./split.svg)
+
++----------------------+---------+---------+---------+---------+---------+---------+
+| Run \ `N`            |      10 |     100 |    1000 |   10000 |  100000 | 1000000 |
++======================+:=======:+:=======:+:=======:+:=======:+:=======:+:=======:+
+| Old Owned Pattern    |      21 |      89 |     462 |    3211 |   36950 |  388447 |
++----------------------+---------+---------+---------+---------+---------+---------+
+| Old Subrange Pattern |      19 |      84 |     404 |    3315 |   36488 |  394279 |
++----------------------+---------+---------+---------+---------+---------+---------+
+| Old Single           |      15 |      91 |     485 |    3301 |   37417 |  407012 |
++----------------------+---------+---------+---------+---------+---------+---------+
+| New Owned Pattern    |      20 |      99 |     444 |    3354 |   36560 |  391778 |
++----------------------+---------+---------+---------+---------+---------+---------+
+| New Subrange Pattern |      20 |      90 |     443 |    3345 |   36013 |  404278 |
++----------------------+---------+---------+---------+---------+---------+---------+
+| New Single           |      19 |      73 |     414 |    3353 |   36350 |  383636 |
++----------------------+---------+---------+---------+---------+---------+---------+
+
 ![](./join_with.svg)
+
++----------------------+---------+---------+---------+---------+---------+---------+
+| Run \ `N`            |      10 |     100 |    1000 |   10000 |  100000 | 1000000 |
++======================+:=======:+:=======:+:=======:+:=======:+:=======:+:=======:+
+| Old Owned Pattern    |      13 |      80 |     539 |    6177 |   59575 |  625030 |
++----------------------+---------+---------+---------+---------+---------+---------+
+| Old Subrange Pattern |      13 |      68 |     685 |    6634 |   52002 |  548042 |
++----------------------+---------+---------+---------+---------+---------+---------+
+| Old Single           |      12 |      63 |     531 |    4633 |   52861 |  578949 |
++----------------------+---------+---------+---------+---------+---------+---------+
+| New Owned Pattern    |      11 |      44 |     321 |    1899 |   19805 |  233189 |
++----------------------+---------+---------+---------+---------+---------+---------+
+| New Subrange Pattern |      13 |      55 |     320 |    2022 |   21655 |  234532 |
++----------------------+---------+---------+---------+---------+---------+---------+
+| New Single           |      79 |      96 |     761 |    7374 |   70770 |  620282 |
++----------------------+---------+---------+---------+---------+---------+---------+
+
+`split_view` and `join_with_view` both show mixed results, but tend to do
+better on larger values of `N`.  For both of these views, you have options
+that are better or worse than the status quo's equivalent.  So, by profiling
+and changing the range given for `Pattern` accordingly, users can meet or beat
+the previous performance numbers.
+
+![](./lazy_split.svg)
+
++----------------------+---------+---------+---------+---------+---------+---------+
+| Run \ `N`            |      10 |     100 |    1000 |   10000 |  100000 | 1000000 |
++======================+:=======:+:=======:+:=======:+:=======:+:=======:+:=======:+
+| Old Owned Pattern    |      25 |     218 |    2472 |   22743 |  224713 | 2302364 |
++----------------------+---------+---------+---------+---------+---------+---------+
+| Old Subrange Pattern |      26 |     218 |    2248 |   20687 |  204262 | 2062595 |
++----------------------+---------+---------+---------+---------+---------+---------+
+| Old Single           |      13 |      84 |     793 |    5979 |   56787 |  650747 |
++----------------------+---------+---------+---------+---------+---------+---------+
+| New Owned Pattern    |      21 |     176 |    1963 |   16970 |  164141 | 1669101 |
++----------------------+---------+---------+---------+---------+---------+---------+
+| New Subrange Pattern |      11 |      95 |    1090 |    8871 |   87545 |  895048 |
++----------------------+---------+---------+---------+---------+---------+---------+
+| New Single           |      13 |      98 |    1312 |   12310 |  118646 | 1234266 |
++----------------------+---------+---------+---------+---------+---------+---------+
+
+The results for `lazy_split_view` is disappointing, in that the best results
+are available only from one of the "Old" runs.
+
+For all three views, it is surprising that "New Single" performs so poorly.
+If the implementation is changed so that `Pattern` is never copied into the
+iterator, "New Single" performs about as well as the other "New" runs.  So,
+the problem really is the storage of the `single_view`, and not the storage of
+`base_.end()`.  So far, it is a very mysterious result.
+
+## Costs/benefits conclusion
+
+The size penalty is low-to-none (and occasionally negative) for all of these
+views' iterators.  Further, the correlation of iterator size to performance
+seems to be very low.  We feel that we can safely ignore the size penalty.
+
+The perf numbers above come from modifying only one implementation.  However,
+they are promising in that, except for `lazy_split_view`, there were no
+definite performance penalties.  All other perf regressions were for a certain
+range of `N`, a certain size of callable or `Pattern`, etc.  In other words,
+the user has a means of meeting or exceeding the perf results of the status
+quo, by doing some profiling and some code tweaks.
+
+The fact that the results were mixed indicates that the perf differences were
+probably largely specific to the testing methodology, specifics of libstdc++,
+etc.  Similarly mixed results will probably be found for other implementations
+as well.
+
+The two notable exceptions are `lazy_split_view`, whose status quo
+`single_view` run is better than all the modified runs, and `chunk_by_view`,
+which is *way* better with the proposed changes.

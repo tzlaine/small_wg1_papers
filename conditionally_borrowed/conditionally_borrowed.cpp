@@ -20,8 +20,6 @@ struct fat_callable
     std::array<int, 256> extra_bytes;
 };
 
-// TODO: talk about sizes (don't forget about sizes when there are lots of adaptors
-// TODO: talk about timings and code gen
 // TODO: concat_view
 
 int main()

@@ -84,6 +84,7 @@ def print_table(run, run_names):
         sep += '-' * 9 + '+'
         hdr += f'{x:8} |'
         hdr_sep += ':' + '=' * 7 + ':+'
+    print(f'=== {name} ===')
     print(sep)
     print(hdr)
     print(hdr_sep)
