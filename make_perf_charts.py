@@ -16,14 +16,23 @@ samples = json.load(f)
 
 samples = samples['benchmarks']
 
-three_color_style = pygal.style.Style(
-  background='transparent',
-  plot_background='transparent',
-  colors=('#FF0000', '#00FF00', '#007F7F'))
-five_color_style = pygal.style.Style(
-  background='transparent',
-  plot_background='transparent',
-  colors=('#FF0000', '#FF7F00', '#00FF00', '#007F7F', '#0000FF'))
+styles = {}
+
+def get_style(run_names):
+    key = ''.join(run_names)
+    return styles[key]
+
+styles[''.join(['Old', 'New', 'Fat New'])] = \
+    pygal.style.Style(
+        background='transparent',
+        plot_background='transparent',
+        colors=('#FF0000', '#00FF00', '#007F7F'))
+styles[''.join(['Old Owned Pattern', 'Old Subrange Pattern', 'Old Single',
+                'New Owned Pattern', 'New Subrange Pattern', 'New Single'])] = \
+    pygal.style.Style(
+        background='transparent',
+        plot_background='transparent',
+        colors=('#FF0000', '#FF3F00', '#FF7F00', '#00FF00', '#007F7F', '#0000FF'))
 
 def next_largest_power_10(x):
     return 10 ** math.ceil(math.log10(x))
@@ -38,13 +47,17 @@ def common_prefix(names):
     prefixes = itertools.takewhile(lambda x: all(x[0] == y for y in x), zipped)
     return ''.join(x[0] for x in prefixes)
 
-def print_chart(run, run_names):
+def names_and_runs(run, run_names):
     prefix = common_prefix(run_names)
     name = prefix[:-1] if prefix.endswith('_') else prefix
     run_names = map(lambda x: x[len(prefix):], run_names)
     run_names = list(map(lambda x: ' '.join(map(lambda y: y.title(), x.split('_'))), run_names))
     runs = list(chunk(run, len(all_iterations)))
-    style = three_color_style if len(run_names) == 3 else five_color_style
+    return (name, run_names, runs)
+
+def print_chart(run, run_names):
+    name, run_names, runs = names_and_runs(run, run_names)
+    style = get_style(run_names)
     chart = pygal.Line(
         style=style,
         logarithmic=True,
@@ -59,6 +72,31 @@ def print_chart(run, run_names):
         chart.add(name_, run_, show_dots=False)
     with open(f'{name}.svg', 'w') as out_f:
         out_f.write(str(chart.render(2)))
+
+def print_table(run, run_names):
+    name, run_names, runs = names_and_runs(run, run_names)
+    label = 'Run \\ `N`'
+    longest = max(map(lambda x: len(x), run_names + [label]))
+    sep = '+-' + '-' * longest + '-+'
+    hdr = f'| {label:{longest}} |'
+    hdr_sep = '+=' + '=' * longest + '=+'
+    for x in all_iterations:
+        sep += '-' * 9 + '+'
+        hdr += f'{x:8} |'
+        hdr_sep += ':' + '=' * 7 + ':+'
+    print(sep)
+    print(hdr)
+    print(hdr_sep)
+
+    for name_,run_ in zip(run_names, runs):
+        row = f'| {name_:{longest}} |'
+        for x in run_:
+            row += f'{x:8} |'
+        print(row)
+        print(sep)
+
+    print('\n')
+
 
 all_iterations = []
 
@@ -82,6 +120,7 @@ for sample in samples:
 
     if prefix != prev_prefix and len(curr_run):
         print_chart(curr_run, curr_run_names)
+        print_table(curr_run, curr_run_names)
         curr_run = []
         curr_run_names = []
     curr_run.append(cpu_time)
@@ -91,3 +130,4 @@ for sample in samples:
     prev_prefix = prefix
     prev_iterations = iterations
 print_chart(curr_run, curr_run_names)
+print_table(curr_run, curr_run_names)

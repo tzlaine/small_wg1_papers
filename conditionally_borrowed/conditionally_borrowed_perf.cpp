@@ -146,6 +146,29 @@ void BM_join_with_old_subrange_pattern(benchmark::State & state)
         benchmark::DoNotOptimize(std::ranges::copy(view, out.begin()));
     }
 }
+void BM_join_with_old_single(benchmark::State & state)
+{
+    auto const vec = make_int_vec(state.range(0));
+    using subrange_t = std::ranges::subrange<std::vector<int>::const_iterator>;
+
+    std::vector<subrange_t> subranges;
+    const int rand_range = state.range(0) < 100 ? 3 : state.range(0) / 10;
+    int back = 0;
+    while (back < state.range(0)) {
+        int lo = back + std::rand() % rand_range;
+        lo = (std::min)(lo, state.range(0));
+        int hi = lo + std::rand() % rand_range;
+        hi = (std::min)(hi, state.range(0));
+        back = hi;
+        subranges.push_back(subrange_t{vec.begin() + lo, vec.begin() + hi});
+    }
+
+    auto out = std::vector<int>(state.range(0) * 5);
+    auto view = subranges | std::ranges::views::join_with(99);
+    while (state.KeepRunning()) {
+        benchmark::DoNotOptimize(std::ranges::copy(view, out.begin()));
+    }
+}
 void BM_join_with_new_owned_pattern(benchmark::State & state)
 {
     auto const vec = make_int_vec(state.range(0));
@@ -404,6 +427,31 @@ void BM_lazy_split_old_subrange_pattern(benchmark::State & state)
         }
     }
 }
+void BM_lazy_split_old_single(benchmark::State & state)
+{
+    auto vec = make_int_vec(state.range(0));
+
+    std::vector<int> pattern({99});
+
+    const int rand_range = state.range(0) < 100 ? 3 : state.range(0) / 10;
+    auto dest = vec.begin();
+    while (dest != vec.end()) {
+        auto prev_dest = dest;
+        std::ranges::advance(dest, std::rand() % rand_range, vec.end());
+        std::fill(prev_dest, dest, 0);
+        if (dest != vec.end())
+            *dest++ = 99;
+    }
+
+    auto out = std::vector<int>(state.range(0));
+    auto view = vec | std::ranges::views::lazy_split(99);
+    while (state.KeepRunning()) {
+        auto dest = out.begin();
+        for (auto && chunk : view) {
+            benchmark::DoNotOptimize(dest = std::ranges::copy(chunk, dest).out);
+        }
+    }
+}
 void BM_lazy_split_new_owned_pattern(benchmark::State & state)
 {
     auto vec = make_int_vec(state.range(0));
@@ -531,6 +579,31 @@ void BM_split_old_subrange_pattern(benchmark::State & state)
         }
     }
 }
+void BM_split_old_single(benchmark::State & state)
+{
+    auto vec = make_int_vec(state.range(0));
+
+    std::vector<int> pattern({99});
+
+    const int rand_range = state.range(0) < 100 ? 3 : state.range(0) / 10;
+    auto dest = vec.begin();
+    while (dest != vec.end()) {
+        auto prev_dest = dest;
+        std::ranges::advance(dest, std::rand() % rand_range, vec.end());
+        std::fill(prev_dest, dest, 0);
+        if (dest != vec.end())
+            *dest++ = 99;
+    }
+
+    auto out = std::vector<int>(state.range(0));
+    auto view = vec | std::ranges::views::split(99);
+    while (state.KeepRunning()) {
+        auto dest = out.begin();
+        for (auto && chunk : view) {
+            benchmark::DoNotOptimize(dest = std::ranges::copy(chunk, dest).out);
+        }
+    }
+}
 void BM_split_new_owned_pattern(benchmark::State & state)
 {
     auto vec = make_int_vec(state.range(0));
@@ -621,6 +694,7 @@ BENCHMARK(BM_chunk_by_fat_new) POWER_10_ARGS;
 
 BENCHMARK(BM_join_with_old_owned_pattern) POWER_10_ARGS;
 BENCHMARK(BM_join_with_old_subrange_pattern) POWER_10_ARGS;
+BENCHMARK(BM_join_with_old_single) POWER_10_ARGS;
 BENCHMARK(BM_join_with_new_owned_pattern) POWER_10_ARGS;
 BENCHMARK(BM_join_with_new_subrange_pattern) POWER_10_ARGS;
 BENCHMARK(BM_join_with_new_single) POWER_10_ARGS;
@@ -643,12 +717,14 @@ BENCHMARK(BM_take_while_fat_new) POWER_10_ARGS;
 
 BENCHMARK(BM_lazy_split_old_owned_pattern) POWER_10_ARGS;
 BENCHMARK(BM_lazy_split_old_subrange_pattern) POWER_10_ARGS;
+BENCHMARK(BM_lazy_split_old_single) POWER_10_ARGS;
 BENCHMARK(BM_lazy_split_new_owned_pattern) POWER_10_ARGS;
 BENCHMARK(BM_lazy_split_new_subrange_pattern) POWER_10_ARGS;
 BENCHMARK(BM_lazy_split_new_single) POWER_10_ARGS;
 
 BENCHMARK(BM_split_old_owned_pattern) POWER_10_ARGS;
 BENCHMARK(BM_split_old_subrange_pattern) POWER_10_ARGS;
+BENCHMARK(BM_split_old_single) POWER_10_ARGS;
 BENCHMARK(BM_split_new_owned_pattern) POWER_10_ARGS;
 BENCHMARK(BM_split_new_subrange_pattern) POWER_10_ARGS;
 BENCHMARK(BM_split_new_single) POWER_10_ARGS;
