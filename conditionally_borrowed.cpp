@@ -3,13 +3,20 @@
 #include <array>
 #include <iostream>
 #include <ranges>
+#include <sstream>
 #include <vector>
 
+// Some subsequent operations on 'it' will reach back into 'v' for some if
+// 'it' needs to know the end of the v.base_.  Even though we made a copy of
+// ranges::end(v) -- 'last' -- we are not protected.
 
 namespace std::ranges::z {
   template<typename _F>
     constexpr bool __tidy_func =
       is_trivially_copyable_v<_F> && sizeof(_F) <= sizeof(void*);
+  template<typename _V>
+    constexpr bool __tidy_view =
+      is_trivially_copyable_v<_V> && sizeof(_V) <= sizeof(void*) * 2;
 
   template<input_range... _Vs>
     requires (view<_Vs> && ...) && (sizeof...(_Vs) > 0)
@@ -493,7 +500,7 @@ namespace std::ranges::z {
 
     __ziperator<_Const> _M_inner;
 
-    const _Fp& __f() const
+    constexpr const _Fp& __f() const
     {
         if constexpr (__tidy_func<_Fp>)
             return *_M_f_access;
@@ -1144,7 +1151,7 @@ namespace std::ranges::z {
 
     _InnerIter<_Const> _M_inner;
 
-    const _Fp& __f() const
+    constexpr const _Fp& __f() const
     {
         if constexpr (__tidy_func<_Fp>)
             return *_M_f_access;
@@ -1500,7 +1507,7 @@ namespace std::ranges::z {
     iterator_t<_Vp> _M_next = iterator_t<_Vp>();
     [[no_unique_address]] sentinel_t<_Vp> _M_end = sentinel_t<_Vp>();
 
-    const _Pred& __pred() const
+    constexpr const _Pred& __pred() const
     {
       if constexpr (__tidy_func<_Pred>)
          return *_M_pred_access;
@@ -1779,71 +1786,6 @@ namespace std::ranges::z {
 
     static constexpr bool _S_ref_is_glvalue = join_with_view::_S_ref_is_glvalue<_Const>;
 
-    _Parent* _M_parent = nullptr;
-    _OuterIter _M_outer_it = _OuterIter();
-    variant<_PatternIter, _InnerIter> _M_inner_it;
-
-    constexpr
-    _Iterator(_Parent& __parent, iterator_t<_Base> __outer)
-    : _M_parent(std::__addressof(__parent)), _M_outer_it(std::move(__outer))
-    {
-      if (_M_outer_it != ranges::end(_M_parent->_M_base))
-	{
-	  auto&& __inner = _M_update_inner(_M_outer_it);
-	  _M_inner_it.template emplace<1>(ranges::begin(__inner));
-	  _M_satisfy();
-	}
-    }
-
-    constexpr auto&&
-    _M_update_inner(const _OuterIter& __x)
-    {
-      if constexpr (_S_ref_is_glvalue)
-	return *__x;
-      else
-	return _M_parent->_M_inner._M_emplace_deref(__x);
-    }
-
-    constexpr auto&&
-    _M_get_inner(const _OuterIter& __x)
-    {
-      if constexpr (_S_ref_is_glvalue)
-	return *__x;
-      else
-	return *_M_parent->_M_inner;
-    }
-
-    constexpr void
-    _M_satisfy()
-    {
-      while (true)
-	{
-	  if (_M_inner_it.index() == 0)
-	    {
-	      if (std::get<0>(_M_inner_it) != ranges::end(_M_parent->_M_pattern))
-		break;
-
-	      auto&& __inner = _M_update_inner(_M_outer_it);
-	      _M_inner_it.template emplace<1>(ranges::begin(__inner));
-	    }
-	  else
-	    {
-	      auto&& __inner = _M_get_inner(_M_outer_it);
-	      if (std::get<1>(_M_inner_it) != ranges::end(__inner))
-		break;
-
-	      if (++_M_outer_it == ranges::end(_M_parent->_M_base))
-		{
-		  if constexpr (_S_ref_is_glvalue)
-		    _M_inner_it.template emplace<0>();
-		  break;
-		}
-
-	      _M_inner_it.template emplace<0>(ranges::begin(_M_parent->_M_pattern));
-	    }
-	}
-    }
-
     static auto
     _S_iter_concept()
     {
@@ -1858,6 +1800,93 @@ namespace std::ranges::z {
 	return forward_iterator_tag{};
       else
 	return input_iterator_tag{};
+    }
+
+    static constexpr bool _S_store_pattern =
+        __tidy_view<_Pattern> &&
+        derived_from<decltype(_S_iter_concept()), std::forward_iterator_tag>;
+
+    using _Pattern_access = conditional_t<_S_store_pattern, _Pattern, _Parent*>;
+
+    [[no_unique_address]] _Pattern_access _M_pattern_access = _Pattern_access();
+    _OuterIter _M_outer_it = _OuterIter();
+    variant<_PatternIter, _InnerIter> _M_inner_it;
+    [[no_unique_address]] sentinel_t<_Base> _M_end = sentinel_t<_Base>();
+
+    constexpr _Pattern& __pattern()
+    {
+      if constexpr (_S_store_pattern)
+        return _M_pattern_access;
+      else
+        return _M_pattern_access->_M_pattern;
+    }
+
+    constexpr
+    _Iterator(_Parent& __parent, iterator_t<_Base> __outer)
+    : _M_pattern_access([&]{
+        if constexpr (_S_store_pattern)
+          return __parent._M_pattern;
+        else
+          return std::__addressof(__parent);
+      }()),
+      _M_outer_it(std::move(__outer)),
+      _M_end(ranges::end(__parent._M_base))
+    {
+      if (_M_outer_it != _M_end)
+	{
+	  auto&& __inner = _M_update_inner(_M_outer_it);
+	  _M_inner_it.template emplace<1>(ranges::begin(__inner));
+	  _M_satisfy();
+	}
+    }
+
+    constexpr auto&&
+    _M_update_inner(const _OuterIter& __x)
+    {
+      if constexpr (_S_ref_is_glvalue)
+	return *__x;
+      else
+	return _M_pattern_access->_M_inner._M_emplace_deref(__x);
+    }
+
+    constexpr auto&&
+    _M_get_inner(const _OuterIter& __x)
+    {
+      if constexpr (_S_ref_is_glvalue)
+	return *__x;
+      else
+	return *_M_pattern_access->_M_inner;
+    }
+
+    constexpr void
+    _M_satisfy()
+    {
+      while (true)
+	{
+	  if (_M_inner_it.index() == 0)
+	    {
+	      if (std::get<0>(_M_inner_it) != ranges::end(__pattern()))
+		break;
+
+	      auto&& __inner = _M_update_inner(_M_outer_it);
+	      _M_inner_it.template emplace<1>(ranges::begin(__inner));
+	    }
+	  else
+	    {
+	      auto&& __inner = _M_get_inner(_M_outer_it);
+	      if (std::get<1>(_M_inner_it) != ranges::end(__inner))
+		break;
+
+	      if (++_M_outer_it == _M_end)
+		{
+		  if constexpr (_S_ref_is_glvalue)
+		    _M_inner_it.template emplace<0>();
+		  break;
+		}
+
+	      _M_inner_it.template emplace<0>(ranges::begin(__pattern()));
+	    }
+	}
     }
 
     friend join_with_view;
@@ -1879,8 +1908,9 @@ namespace std::ranges::z {
 	&& convertible_to<iterator_t<_Vp>, _OuterIter>
 	&& convertible_to<iterator_t<_InnerRange>, _InnerIter>
 	&& convertible_to<iterator_t<_Pattern>, _PatternIter>
-    : _M_parent(__i._M_parent),
-      _M_outer_it(std::move(__i._M_outer_it))
+    : _M_pattern_access(__i._M_pattern_access),
+      _M_outer_it(std::move(__i._M_outer_it)),
+      _M_end(__i._M_end)
     {
       if (__i._M_inner_it.index() == 0)
 	_M_inner_it.template emplace<0>(std::get<0>(std::move(__i._M_inner_it)));
@@ -1930,7 +1960,7 @@ namespace std::ranges::z {
 	&& __detail::__bidirectional_common<_InnerBase>
 	&& __detail::__bidirectional_common<_PatternBase>
     {
-      if (_M_outer_it == ranges::end(_M_parent->_M_base))
+      if (_M_outer_it == _M_end)
 	{
 	  auto&& __inner = *--_M_outer_it;
 	  _M_inner_it.template emplace<1>(ranges::end(__inner));
@@ -1941,7 +1971,7 @@ namespace std::ranges::z {
 	  if (_M_inner_it.index() == 0)
 	    {
 	      auto& __it = std::get<0>(_M_inner_it);
-	      if (__it == ranges::begin(_M_parent->_M_pattern))
+	      if (__it == ranges::begin(__pattern()))
 		{
 		  auto&& __inner = *--_M_outer_it;
 		  _M_inner_it.template emplace<1>(ranges::end(__inner));
@@ -1954,7 +1984,7 @@ namespace std::ranges::z {
 	      auto& __it = std::get<1>(_M_inner_it);
 	      auto&& __inner = *_M_outer_it;
 	      if (__it == ranges::begin(__inner))
-		_M_inner_it.template emplace<0>(ranges::end(_M_parent->_M_pattern));
+		_M_inner_it.template emplace<0>(ranges::end(__pattern()));
 	      else
 		break;
 	    }
@@ -2117,7 +2147,7 @@ namespace std::ranges::z {
 
         [[no_unique_address]] _Pred_access _M_pred_access;
 
-        const _Pred& __pred() const
+        constexpr const _Pred& __pred() const
         {
           if constexpr (__tidy_func<_Pred>)
              return *_M_pred_access;
@@ -2398,7 +2428,7 @@ namespace std::ranges::z {
 
           [[no_unique_address]] _F_access _M_f_access;
 
-          const _Fp& __f() const
+          constexpr const _Fp& __f() const
           {
               if constexpr (__tidy_func<_Fp>)
                   return *_M_f_access;
@@ -2857,284 +2887,352 @@ namespace std::ranges::z {
     inline constexpr _TakeWhile take_while;
   } // namespace views
 
-  template<input_range _Vp>
-    requires view<_Vp> && input_range<range_reference_t<_Vp>>
-    class join_view : public view_interface<join_view<_Vp>>
+  template<input_range _Vp, forward_range _Pattern>
+    requires view<_Vp> && view<_Pattern>
+      && indirectly_comparable<iterator_t<_Vp>, iterator_t<_Pattern>,
+			       ranges::equal_to>
+      && (forward_range<_Vp> || __detail::__tiny_range<_Pattern>)
+    class lazy_split_view : public view_interface<lazy_split_view<_Vp, _Pattern>>
     {
     private:
-      using _InnerRange = range_reference_t<_Vp>;
-
       template<bool _Const>
 	using _Base = __detail::__maybe_const_t<_Const, _Vp>;
 
       template<bool _Const>
-	using _Outer_iter = iterator_t<_Base<_Const>>;
+	struct _InnerIter;
 
       template<bool _Const>
-	using _Inner_iter = iterator_t<range_reference_t<_Base<_Const>>>;
-
-      template<bool _Const>
-	static constexpr bool _S_ref_is_glvalue
-	  = is_reference_v<range_reference_t<_Base<_Const>>>;
-
-      template<bool _Const>
-	struct __iter_cat
-	{ };
-
-      template<bool _Const>
-	requires _S_ref_is_glvalue<_Const>
-	  && forward_range<_Base<_Const>>
-	  && forward_range<range_reference_t<_Base<_Const>>>
-	struct __iter_cat<_Const>
+	struct _OuterIter
+	  : __detail::__lazy_split_view_outer_iter_cat<_Base<_Const>>
 	{
 	private:
-	  static constexpr auto
-	  _S_iter_cat()
+	  using _Parent = __detail::__maybe_const_t<_Const, lazy_split_view>;
+	  using _Base = lazy_split_view::_Base<_Const>;
+
+	  constexpr bool
+	  __at_end() const
+	  { return __current() == _M_end && !_M_trailing_empty; }
+
+	  // [range.lazy.split.outer] p1
+	  //  Many of the following specifications refer to the notional member
+	  //  current of outer-iterator.  current is equivalent to current_ if
+	  //  V models forward_range, and parent_->current_ otherwise.
+	  constexpr auto&
+	  __current() noexcept
 	  {
-	    using _Outer_iter = join_view::_Outer_iter<_Const>;
-	    using _Inner_iter = join_view::_Inner_iter<_Const>;
-	    using _OuterCat = typename iterator_traits<_Outer_iter>::iterator_category;
-	    using _InnerCat = typename iterator_traits<_Inner_iter>::iterator_category;
-	    if constexpr (derived_from<_OuterCat, bidirectional_iterator_tag>
-			  && derived_from<_InnerCat, bidirectional_iterator_tag>
-			  && common_range<range_reference_t<_Base<_Const>>>)
-	      return bidirectional_iterator_tag{};
-	    else if constexpr (derived_from<_OuterCat, forward_iterator_tag>
-			       && derived_from<_InnerCat, forward_iterator_tag>)
-	      return forward_iterator_tag{};
+	    if constexpr (forward_range<_Vp>)
+	      return _M_current;
 	    else
-	      return input_iterator_tag{};
-	  }
-	public:
-	  using iterator_category = decltype(_S_iter_cat());
-	};
-
-      template<bool _Const>
-	struct _Sentinel;
-
-      template<bool _Const>
-	struct _Iterator : __iter_cat<_Const>
-	{
-	private:
-	  using _Parent = __detail::__maybe_const_t<_Const, join_view>;
-	  using _Base = join_view::_Base<_Const>;
-
-	  static constexpr bool _S_ref_is_glvalue
-	    = join_view::_S_ref_is_glvalue<_Const>;
-
-	  constexpr void
-	  _M_satisfy()
-	  {
-	    auto __update_inner = [this] (const iterator_t<_Base>& __x) -> auto&& {
-	      if constexpr (_S_ref_is_glvalue)
-		return *__x;
-	      else
-		return _M_inner_range._M_emplace_deref(__x);
-	    };
-
-	    for (; _M_outer != _M_end; ++_M_outer)
-	      {
-		auto&& __inner = __update_inner(_M_outer);
-		_M_inner = ranges::begin(__inner);
-		if (_M_inner != ranges::end(__inner))
-		  return;
-	      }
-
-	    if constexpr (_S_ref_is_glvalue)
-	      _M_inner.reset();
+	      return *_M_pattern_access->_M_current;
 	  }
 
-	  static constexpr auto
-	  _S_iter_concept()
+	  constexpr auto&
+	  __current() const noexcept
 	  {
-	    if constexpr (_S_ref_is_glvalue
-			  && bidirectional_range<_Base>
-			  && bidirectional_range<range_reference_t<_Base>>
-			  && common_range<range_reference_t<_Base>>)
-	      return bidirectional_iterator_tag{};
-	    else if constexpr (_S_ref_is_glvalue
-			       && forward_range<_Base>
-			       && forward_range<range_reference_t<_Base>>)
-	      return forward_iterator_tag{};
+	    if constexpr (forward_range<_Vp>)
+	      return _M_current;
 	    else
-	      return input_iterator_tag{};
+	      return *_M_pattern_access->_M_current;
 	  }
 
-	  using _Outer_iter = join_view::_Outer_iter<_Const>;
-	  using _Inner_iter = join_view::_Inner_iter<_Const>;
+          using _Pattern_access =
+            conditional_t<__tidy_view<_Pattern> && forward_range<_Base>, _Pattern, _Parent*>;
 
-	  _Outer_iter _M_outer = _Outer_iter();
-	  optional<_Inner_iter> _M_inner;
-          [[no_unique_address]]
-	    __detail::__non_propagating_cache<remove_cv_t<_InnerRange>> _M_inner_range;
-          [[no_unique_address]] sentinel_t<_Vp> _M_end = sentinel_t<_Vp>();
+          [[no_unique_address]] _Pattern_access _M_pattern_access = _Pattern_access();
+          [[no_unique_address]] sentinel_t<_Base> _M_end = sentinel_t<_Base>();
+
+	  [[no_unique_address]]
+	    __detail::__maybe_present_t<forward_range<_Vp>,
+					iterator_t<_Base>> _M_current;
+	  bool _M_trailing_empty = false;
+
+          constexpr const _Pattern& __pattern() const
+          {
+            if constexpr (__tidy_view<_Pattern> && forward_range<_Base>)
+              return _M_pattern_access;
+            else
+              return _M_pattern_access->_M_pattern;
+          }
 
 	public:
-	  using iterator_concept = decltype(_S_iter_concept());
-	  // iterator_category defined in __join_view_iter_cat
-	  using value_type = range_value_t<range_reference_t<_Base>>;
-	  using difference_type
-	    = common_type_t<range_difference_t<_Base>,
-			    range_difference_t<range_reference_t<_Base>>>;
+	  using iterator_concept = __conditional_t<forward_range<_Base>,
+						   forward_iterator_tag,
+						   input_iterator_tag>;
+	  // iterator_category defined in __lazy_split_view_outer_iter_cat
+	  using difference_type = range_difference_t<_Base>;
 
-	  _Iterator()
-            requires default_initializable<_Outer_iter> && default_initializable<sentinel_t<_Vp>>
-          = default;
+	  struct value_type : view_interface<value_type>
+	  {
+	  private:
+	    _OuterIter _M_i = _OuterIter();
 
-	  constexpr
-	  _Iterator(_Parent* __parent, _Outer_iter __outer)
-	    : _M_outer(std::move(__outer)), _M_end(ranges::end(__parent->_M_base))
-	  { _M_satisfy(); }
+	  public:
+	    value_type() = default;
 
-	  constexpr
-	  _Iterator(_Iterator<!_Const> __i)
-	    requires _Const
-	      && convertible_to<iterator_t<_Vp>, _Outer_iter>
-	      && convertible_to<iterator_t<_InnerRange>, _Inner_iter>
-	    : _M_outer(std::move(__i._M_outer)), _M_inner(std::move(__i._M_inner)),
-              _M_end(__i._M_end)
+	    constexpr explicit
+	    value_type(_OuterIter __i)
+	      : _M_i(std::move(__i))
+	    { }
+
+	    constexpr _InnerIter<_Const>
+	    begin() const
+	    { return _InnerIter<_Const>{_M_i}; }
+
+	    constexpr default_sentinel_t
+	    end() const noexcept
+	    { return default_sentinel; }
+	  };
+
+          _OuterIter() requires default_initializable<sentinel_t<_Base>> = default;
+
+	  constexpr explicit
+	  _OuterIter(_Parent* __parent) requires (!forward_range<_Base>)
+            : _M_pattern_access(__parent),
+              _M_end(ranges::end(__parent->_M_base))
 	  { }
 
-	  constexpr decltype(auto)
+	  constexpr
+	  _OuterIter(_Parent* __parent, iterator_t<_Base> __current)
+	    requires forward_range<_Base>
+	    : _M_pattern_access([&]{
+                if constexpr (__tidy_view<_Pattern>)
+                  return __parent->_M_pattern;
+                else
+                  return __parent;
+              }()),
+              _M_end(ranges::end(__parent->_M_base)),
+	      _M_current(std::move(__current))
+	  { }
+
+	  constexpr
+	  _OuterIter(_OuterIter<!_Const> __i)
+	    requires _Const
+	      && convertible_to<iterator_t<_Vp>, iterator_t<_Base>>
+            : _M_pattern_access(__i._M_pattern_access), _M_end(__i._M_end),
+              _M_current(std::move(__i._M_current)),
+	      _M_trailing_empty(__i._M_trailing_empty)
+	  { }
+
+	  constexpr value_type
 	  operator*() const
-	  { return **_M_inner; }
+	  { return value_type{*this}; }
 
-	  // _GLIBCXX_RESOLVE_LIB_DEFECTS
-	  // 3500. join_view::iterator::operator->() is bogus
-	  constexpr _Inner_iter
-	  operator->() const
-	    requires __detail::__has_arrow<_Inner_iter>
-	      && copyable<_Inner_iter>
-	  { return *_M_inner; }
-
-	  constexpr _Iterator&
+	  constexpr _OuterIter&
 	  operator++()
 	  {
-	    auto&& __inner_range = [this] () -> auto&& {
-	      if constexpr (_S_ref_is_glvalue)
-		return *_M_outer;
-	      else
-		return *_M_inner_range;
-	    }();
-	    if (++*_M_inner == ranges::end(__inner_range))
+	    // _GLIBCXX_RESOLVE_LIB_DEFECTS
+	    // 3505. lazy_split_view::outer-iterator::operator++ misspecified
+	    if (__current() == _M_end)
 	      {
-		++_M_outer;
-		_M_satisfy();
+		_M_trailing_empty = false;
+		return *this;
 	      }
+	    const auto [__pbegin, __pend] = subrange{__pattern()};
+	    if (__pbegin == __pend)
+	      ++__current();
+	    else if constexpr (__detail::__tiny_range<_Pattern>)
+	      {
+		__current() = ranges::find(std::move(__current()), _M_end,
+					   *__pbegin);
+		if (__current() != _M_end)
+		  {
+		    ++__current();
+		    if (__current() == _M_end)
+		      _M_trailing_empty = true;
+		  }
+	      }
+	    else
+	      do
+		{
+		  auto [__b, __p]
+		    = ranges::mismatch(__current(), _M_end, __pbegin, __pend);
+		  if (__p == __pend)
+		    {
+		      __current() = __b;
+		      if (__current() == _M_end)
+			_M_trailing_empty = true;
+		      break;
+		    }
+		} while (++__current() != _M_end);
 	    return *this;
 	  }
 
-	  constexpr void
+	  constexpr decltype(auto)
 	  operator++(int)
-	  { ++*this; }
-
-	  constexpr _Iterator
-	  operator++(int)
-	    requires _S_ref_is_glvalue && forward_range<_Base>
-	      && forward_range<range_reference_t<_Base>>
 	  {
-	    auto __tmp = *this;
-	    ++*this;
-	    return __tmp;
-	  }
-
-	  constexpr _Iterator&
-	  operator--()
-	    requires _S_ref_is_glvalue && bidirectional_range<_Base>
-	      && bidirectional_range<range_reference_t<_Base>>
-	      && common_range<range_reference_t<_Base>>
-	  {
-	    if (_M_outer == _M_end)
-	      _M_inner = ranges::end(*--_M_outer);
-	    while (*_M_inner == ranges::begin(*_M_outer))
-	      *_M_inner = ranges::end(*--_M_outer);
-	    --*_M_inner;
-	    return *this;
-	  }
-
-	  constexpr _Iterator
-	  operator--(int)
-	    requires _S_ref_is_glvalue && bidirectional_range<_Base>
-	      && bidirectional_range<range_reference_t<_Base>>
-	      && common_range<range_reference_t<_Base>>
-	  {
-	    auto __tmp = *this;
-	    --*this;
-	    return __tmp;
+	    if constexpr (forward_range<_Base>)
+	      {
+		auto __tmp = *this;
+		++*this;
+		return __tmp;
+	      }
+	    else
+	      ++*this;
 	  }
 
 	  friend constexpr bool
-	  operator==(const _Iterator& __x, const _Iterator& __y)
-	    requires _S_ref_is_glvalue
-	      && equality_comparable<_Outer_iter>
-	      && equality_comparable<_Inner_iter>
+	  operator==(const _OuterIter& __x, const _OuterIter& __y)
+	    requires forward_range<_Base>
 	  {
-	    return (__x._M_outer == __y._M_outer
-		    && __x._M_inner == __y._M_inner);
+	    return __x._M_current == __y._M_current
+	      && __x._M_trailing_empty == __y._M_trailing_empty;
 	  }
 
-	  friend constexpr decltype(auto)
-	  iter_move(const _Iterator& __i)
-	  noexcept(noexcept(ranges::iter_move(*__i._M_inner)))
-	  { return ranges::iter_move(*__i._M_inner); }
+	  friend constexpr bool
+	  operator==(const _OuterIter& __x, default_sentinel_t)
+	  { return __x.__at_end(); };
 
-	  friend constexpr void
-	  iter_swap(const _Iterator& __x, const _Iterator& __y)
-	    noexcept(noexcept(ranges::iter_swap(*__x._M_inner, *__y._M_inner)))
-	    requires indirectly_swappable<_Inner_iter>
-	  { return ranges::iter_swap(*__x._M_inner, *__y._M_inner); }
-
-	  friend _Iterator<!_Const>;
-	  template<bool> friend struct _Sentinel;
+	  friend _OuterIter<!_Const>;
+	  friend _InnerIter<_Const>;
 	};
 
       template<bool _Const>
-	struct _Sentinel
+	struct _InnerIter
+	  : __detail::__lazy_split_view_inner_iter_cat<_Base<_Const>>
 	{
 	private:
-	  using _Parent = __detail::__maybe_const_t<_Const, join_view>;
-	  using _Base = join_view::_Base<_Const>;
+	  using _Base = lazy_split_view::_Base<_Const>;
 
-	  template<bool _Const2>
-	    constexpr bool
-	    __equal(const _Iterator<_Const2>& __i) const
-	    { return __i._M_outer == _M_end; }
+	  constexpr bool
+	  __at_end() const
+	  {
+	    auto [__pcur, __pend] = subrange{_M_i.__pattern()};
+	    auto __end = _M_i._M_end;
+	    if constexpr (__detail::__tiny_range<_Pattern>)
+	      {
+		const auto& __cur = _M_i_current();
+		if (__cur == __end)
+		  return true;
+		if (__pcur == __pend)
+		  return _M_incremented;
+		return *__cur == *__pcur;
+	      }
+	    else
+	      {
+		auto __cur = _M_i_current();
+		if (__cur == __end)
+		  return true;
+		if (__pcur == __pend)
+		  return _M_incremented;
+		do
+		  {
+		    if (*__cur != *__pcur)
+		      return false;
+		    if (++__pcur == __pend)
+		      return true;
+		  } while (++__cur != __end);
+		return false;
+	      }
+	  }
 
-	  sentinel_t<_Base> _M_end = sentinel_t<_Base>();
+	  constexpr auto&
+	  _M_i_current() noexcept
+	  { return _M_i.__current(); }
+
+	  constexpr auto&
+	  _M_i_current() const noexcept
+	  { return _M_i.__current(); }
+
+	  _OuterIter<_Const> _M_i = _OuterIter<_Const>();
+	  bool _M_incremented = false;
 
 	public:
-	  _Sentinel() = default;
+	  using iterator_concept
+	    = typename _OuterIter<_Const>::iterator_concept;
+	  // iterator_category defined in __lazy_split_view_inner_iter_cat
+	  using value_type = range_value_t<_Base>;
+	  using difference_type = range_difference_t<_Base>;
+
+	  _InnerIter() = default;
 
 	  constexpr explicit
-	  _Sentinel(_Parent* __parent)
-	    : _M_end(ranges::end(__parent->_M_base))
+	  _InnerIter(_OuterIter<_Const> __i)
+	    : _M_i(std::move(__i))
 	  { }
 
-	  constexpr
-	  _Sentinel(_Sentinel<!_Const> __s)
-	    requires _Const && convertible_to<sentinel_t<_Vp>, sentinel_t<_Base>>
-	    : _M_end(std::move(__s._M_end))
-	  { }
+	  constexpr const iterator_t<_Base>&
+	  base() const& noexcept
+	  { return _M_i_current(); }
 
-	  template<bool _Const2>
-	    requires sentinel_for<sentinel_t<_Base>,
-		       iterator_t<__detail::__maybe_const_t<_Const2, _Vp>>>
-	    friend constexpr bool
-	    operator==(const _Iterator<_Const2>& __x, const _Sentinel& __y)
-	    { return __y.__equal(__x); }
+	  constexpr iterator_t<_Base>
+	  base() && requires forward_range<_Vp>
+	  { return std::move(_M_i_current()); }
 
-	  friend _Sentinel<!_Const>;
+	  constexpr decltype(auto)
+	  operator*() const
+	  { return *_M_i_current(); }
+
+	  constexpr _InnerIter&
+	  operator++()
+	  {
+	    _M_incremented = true;
+	    if constexpr (!forward_range<_Base>)
+	      if constexpr (_Pattern::size() == 0)
+		return *this;
+	    ++_M_i_current();
+	    return *this;
+	  }
+
+	  constexpr decltype(auto)
+	  operator++(int)
+	  {
+	    if constexpr (forward_range<_Base>)
+	      {
+		auto __tmp = *this;
+		++*this;
+		return __tmp;
+	      }
+	    else
+	      ++*this;
+	  }
+
+	  friend constexpr bool
+	  operator==(const _InnerIter& __x, const _InnerIter& __y)
+	    requires forward_range<_Base>
+	  { return __x._M_i == __y._M_i; }
+
+	  friend constexpr bool
+	  operator==(const _InnerIter& __x, default_sentinel_t)
+	  { return __x.__at_end(); }
+
+	  friend constexpr decltype(auto)
+	  iter_move(const _InnerIter& __i)
+	    noexcept(noexcept(ranges::iter_move(__i._M_i_current())))
+	  { return ranges::iter_move(__i._M_i_current()); }
+
+	  friend constexpr void
+	  iter_swap(const _InnerIter& __x, const _InnerIter& __y)
+	    noexcept(noexcept(ranges::iter_swap(__x._M_i_current(),
+						__y._M_i_current())))
+	    requires indirectly_swappable<iterator_t<_Base>>
+	  { ranges::iter_swap(__x._M_i_current(), __y._M_i_current()); }
 	};
 
       _Vp _M_base = _Vp();
+      _Pattern _M_pattern = _Pattern();
+      [[no_unique_address]]
+	__detail::__maybe_present_t<!forward_range<_Vp>,
+	  __detail::__non_propagating_cache<iterator_t<_Vp>>> _M_current;
+
 
     public:
-      join_view() requires default_initializable<_Vp> = default;
+      lazy_split_view() requires (default_initializable<_Vp>
+				  && default_initializable<_Pattern>)
+	= default;
 
-      constexpr explicit
-      join_view(_Vp __base)
-	: _M_base(std::move(__base))
+      constexpr
+      lazy_split_view(_Vp __base, _Pattern __pattern)
+	: _M_base(std::move(__base)), _M_pattern(std::move(__pattern))
       { }
+
+      template<input_range _Range>
+	requires constructible_from<_Vp, std::views::all_t<_Range>>
+	  && constructible_from<_Pattern, single_view<range_value_t<_Range>>>
+	constexpr
+	lazy_split_view(_Range&& __r, range_value_t<_Range> __e)
+	  : _M_base(std::views::all(std::forward<_Range>(__r))),
+	    _M_pattern(std::views::single(std::move(__e)))
+	{ }
 
       constexpr _Vp
       base() const& requires copy_constructible<_Vp>
@@ -3147,76 +3245,306 @@ namespace std::ranges::z {
       constexpr auto
       begin()
       {
-	constexpr bool __use_const
-	  = (__detail::__simple_view<_Vp>
-	     && is_reference_v<range_reference_t<_Vp>>);
-	return _Iterator<__use_const>{this, ranges::begin(_M_base)};
-      }
-
-      constexpr auto
-      begin() const
-	requires input_range<const _Vp>
-	  && is_reference_v<range_reference_t<const _Vp>>
-      {
-	return _Iterator<true>{this, ranges::begin(_M_base)};
-      }
-
-      constexpr auto
-      end()
-      {
-	if constexpr (forward_range<_Vp> && is_reference_v<_InnerRange>
-		      && forward_range<_InnerRange>
-		      && common_range<_Vp> && common_range<_InnerRange>)
-	  return _Iterator<__detail::__simple_view<_Vp>>{this,
-							 ranges::end(_M_base)};
+	if constexpr (forward_range<_Vp>)
+	  {
+	    constexpr bool __simple
+	      = __detail::__simple_view<_Vp> && __detail::__simple_view<_Pattern>;
+	    return _OuterIter<__simple>{this, ranges::begin(_M_base)};
+	  }
 	else
-	  return _Sentinel<__detail::__simple_view<_Vp>>{this};
+	  {
+	    _M_current = ranges::begin(_M_base);
+	    return _OuterIter<false>{this};
+	  }
+      }
+
+      constexpr auto
+      begin() const requires forward_range<_Vp> && forward_range<const _Vp>
+      {
+	return _OuterIter<true>{this, ranges::begin(_M_base)};
+      }
+
+      constexpr auto
+      end() requires forward_range<_Vp> && common_range<_Vp>
+      {
+	constexpr bool __simple
+	  = __detail::__simple_view<_Vp> && __detail::__simple_view<_Pattern>;
+	return _OuterIter<__simple>{this, ranges::end(_M_base)};
       }
 
       constexpr auto
       end() const
-	requires input_range<const _Vp>
-	  && is_reference_v<range_reference_t<const _Vp>>
       {
-	if constexpr (forward_range<const _Vp>
-		      && is_reference_v<range_reference_t<const _Vp>>
-		      && forward_range<range_reference_t<const _Vp>>
-		      && common_range<const _Vp>
-		      && common_range<range_reference_t<const _Vp>>)
-	  return _Iterator<true>{this, ranges::end(_M_base)};
+	if constexpr (forward_range<_Vp>
+		      && forward_range<const _Vp>
+		      && common_range<const _Vp>)
+	  return _OuterIter<true>{this, ranges::end(_M_base)};
 	else
-	  return _Sentinel<true>{this};
+	  return default_sentinel;
       }
     };
 
-  template<typename _Range>
-    explicit join_view(_Range&&) -> join_view<std::views::all_t<_Range>>;
+  template<typename _Range, typename _Pattern>
+    lazy_split_view(_Range&&, _Pattern&&)
+      -> lazy_split_view<std::views::all_t<_Range>, std::views::all_t<_Pattern>>;
+
+  template<input_range _Range>
+    lazy_split_view(_Range&&, range_value_t<_Range>)
+      -> lazy_split_view<std::views::all_t<_Range>, single_view<range_value_t<_Range>>>;
 
   namespace views
   {
     namespace __detail
     {
-      template<typename _Range>
-	concept __can_join_view
-	  = requires { join_view<std::views::all_t<_Range>>{std::declval<_Range>()}; };
+      template<typename _Range, typename _Pattern>
+	concept __can_lazy_split_view
+	  = requires { lazy_split_view(std::declval<_Range>(), std::declval<_Pattern>()); };
     } // namespace __detail
 
-    struct _Join : std::views::__adaptor::_RangeAdaptorClosure
+    struct _LazySplit : std::views::__adaptor::_RangeAdaptor<_LazySplit>
     {
-      template<viewable_range _Range>
-	requires __detail::__can_join_view<_Range>
+      template<viewable_range _Range, typename _Pattern>
+	requires __detail::__can_lazy_split_view<_Range, _Pattern>
 	constexpr auto
-	operator() [[nodiscard]] (_Range&& __r) const
+	operator() [[nodiscard]] (_Range&& __r, _Pattern&& __f) const
 	{
-	  // _GLIBCXX_RESOLVE_LIB_DEFECTS
-	  // 3474. Nesting join_views is broken because of CTAD
-	  return join_view<std::views::all_t<_Range>>{std::forward<_Range>(__r)};
+	  return lazy_split_view(std::forward<_Range>(__r), std::forward<_Pattern>(__f));
 	}
 
-      static constexpr bool _S_has_simple_call_op = true;
+      using _RangeAdaptor<_LazySplit>::operator();
+      static constexpr int _S_arity = 2;
+      // The pattern argument of views::lazy_split is not always simple -- it can be
+      // a non-view range, the value category of which affects whether the call
+      // is well-formed.  But a scalar or a view pattern argument is surely
+      // simple.
+      template<typename _Pattern>
+	static constexpr bool _S_has_simple_extra_args
+	  = is_scalar_v<_Pattern> || (view<_Pattern>
+				      && copy_constructible<_Pattern>);
     };
 
-    inline constexpr _Join join;
+    inline constexpr _LazySplit lazy_split;
+  } // namespace views
+
+  template<forward_range _Vp, forward_range _Pattern>
+    requires view<_Vp> && view<_Pattern>
+      && indirectly_comparable<iterator_t<_Vp>, iterator_t<_Pattern>,
+			       ranges::equal_to>
+  class split_view : public view_interface<split_view<_Vp, _Pattern>>
+  {
+  private:
+    _Vp _M_base = _Vp();
+    _Pattern _M_pattern = _Pattern();
+    __detail::__non_propagating_cache<subrange<iterator_t<_Vp>>> _M_cached_begin;
+
+    struct _Iterator;
+    struct _Sentinel;
+
+  public:
+    split_view() requires (default_initializable<_Vp>
+			   && default_initializable<_Pattern>)
+      = default;
+
+    constexpr
+    split_view(_Vp __base, _Pattern __pattern)
+      : _M_base(std::move(__base)), _M_pattern(std::move(__pattern))
+    { }
+
+    template<forward_range _Range>
+      requires constructible_from<_Vp, std::views::all_t<_Range>>
+	&& constructible_from<_Pattern, single_view<range_value_t<_Range>>>
+    constexpr
+    split_view(_Range&& __r, range_value_t<_Range> __e)
+      : _M_base(std::views::all(std::forward<_Range>(__r))),
+	_M_pattern(std::views::single(std::move(__e)))
+    { }
+
+    constexpr _Vp
+    base() const& requires copy_constructible<_Vp>
+    { return _M_base; }
+
+    constexpr _Vp
+    base() &&
+    { return std::move(_M_base); }
+
+    constexpr _Iterator
+    begin()
+    {
+      if (!_M_cached_begin)
+        _M_cached_begin = _S_find_next(
+          ranges::begin(_M_base), ranges::end(_M_base), _M_pattern);
+      return {this, ranges::begin(_M_base), *_M_cached_begin};
+    }
+
+    constexpr auto
+    end()
+    {
+      if constexpr (common_range<_Vp>)
+	return _Iterator{this, ranges::end(_M_base), {}};
+      else
+	return _Sentinel{this};
+    }
+
+    static constexpr subrange<iterator_t<_Vp>>
+    _S_find_next(iterator_t<_Vp> __it, iterator_t<_Vp> __end, const _Pattern& __pattern)
+    {
+      auto [__b, __e] = ranges::search(subrange(__it, __end), __pattern);
+      if (__b != __end && ranges::empty(__pattern))
+	{
+	  ++__b;
+	  ++__e;
+	}
+      return {__b, __e};
+    }
+
+  private:
+    struct _Iterator
+    {
+    private:
+      using _Pattern_access =
+        conditional_t<__tidy_view<_Pattern>, _Pattern, split_view*>;
+
+      [[no_unique_address]] _Pattern_access _M_pattern_access = _Pattern_access();
+      iterator_t<_Vp> _M_cur = iterator_t<_Vp>();
+      subrange<iterator_t<_Vp>> _M_next = subrange<iterator_t<_Vp>>();
+      [[no_unique_address]] sentinel_t<_Vp> _M_end = sentinel_t<_Vp>();
+      bool _M_trailing_empty = false;
+
+      friend struct _Sentinel;
+
+      constexpr const _Pattern& __pattern() const
+      {
+        if constexpr (__tidy_view<_Pattern>)
+          return _M_pattern_access;
+        else
+          return _M_pattern_access->_M_pattern;
+      }
+
+    public:
+      using iterator_concept = forward_iterator_tag;
+      using iterator_category = input_iterator_tag;
+      using value_type = subrange<iterator_t<_Vp>>;
+      using difference_type = range_difference_t<_Vp>;
+
+      _Iterator() = default;
+
+      constexpr
+      _Iterator(split_view* __parent,
+		iterator_t<_Vp> __current,
+		subrange<iterator_t<_Vp>> __next)
+        : _M_pattern_access([&]{
+            if constexpr (__tidy_view<_Pattern>)
+              return __parent->_M_pattern;
+            else
+              return __parent;
+          }()),
+	  _M_cur(std::move(__current)),
+	  _M_next(std::move(__next)),
+	  _M_end(ranges::end(__parent->_M_base))
+      { }
+
+      constexpr iterator_t<_Vp>
+      base() const
+      { return _M_cur; }
+
+      constexpr value_type
+      operator*() const
+      { return {_M_cur, _M_next.begin()}; }
+
+      constexpr _Iterator&
+      operator++()
+      {
+	_M_cur = _M_next.begin();
+	if (_M_cur != _M_end)
+	  {
+	    _M_cur = _M_next.end();
+	    if (_M_cur == _M_end)
+	      {
+		_M_trailing_empty = true;
+		_M_next = {_M_cur, _M_cur};
+	      }
+	    else
+              _M_next = split_view::_S_find_next(_M_cur, _M_end, __pattern());
+	  }
+	else
+	  _M_trailing_empty = false;
+	return *this;
+      }
+
+      constexpr _Iterator
+      operator++(int)
+      {
+	auto __tmp = *this;
+	++*this;
+	return __tmp;
+      }
+
+      friend constexpr bool
+      operator==(const _Iterator& __x, const _Iterator& __y)
+      {
+	return __x._M_cur == __y._M_cur
+	  && __x._M_trailing_empty == __y._M_trailing_empty;
+      }
+    };
+
+    struct _Sentinel
+    {
+    private:
+      sentinel_t<_Vp> _M_end = sentinel_t<_Vp>();
+
+      constexpr bool
+      _M_equal(const _Iterator& __x) const
+      { return __x._M_cur == _M_end && !__x._M_trailing_empty; }
+
+    public:
+      _Sentinel() = default;
+
+      constexpr explicit
+      _Sentinel(split_view* __parent)
+	: _M_end(ranges::end(__parent->_M_base))
+      { }
+
+      friend constexpr bool
+      operator==(const _Iterator& __x, const _Sentinel& __y)
+      { return __y._M_equal(__x); }
+    };
+  };
+
+  template<typename _Range, typename _Pattern>
+    split_view(_Range&&, _Pattern&&)
+      -> split_view<std::views::all_t<_Range>, std::views::all_t<_Pattern>>;
+
+  template<forward_range _Range>
+    split_view(_Range&&, range_value_t<_Range>)
+      -> split_view<std::views::all_t<_Range>, single_view<range_value_t<_Range>>>;
+
+  namespace views
+  {
+    namespace __detail
+    {
+      template<typename _Range, typename _Pattern>
+	concept __can_split_view
+	  = requires { split_view(std::declval<_Range>(), std::declval<_Pattern>()); };
+    } // namespace __detail
+
+    struct _Split : std::views::__adaptor::_RangeAdaptor<_Split>
+    {
+      template<viewable_range _Range, typename _Pattern>
+	requires __detail::__can_split_view<_Range, _Pattern>
+	constexpr auto
+	operator() [[nodiscard]] (_Range&& __r, _Pattern&& __f) const
+	{
+	  return split_view(std::forward<_Range>(__r), std::forward<_Pattern>(__f));
+	}
+
+      using _RangeAdaptor<_Split>::operator();
+      static constexpr int _S_arity = 2;
+      template<typename _Pattern>
+	static constexpr bool _S_has_simple_extra_args
+	  = _LazySplit::_S_has_simple_extra_args<_Pattern>;
+    };
+
+    inline constexpr _Split split;
   } // namespace views
 }
 
@@ -3244,6 +3572,13 @@ constexpr bool std::ranges::enable_borrowed_range<
     std::ranges::z::chunk_by_view<_Vp, _Pred>> =
     std::ranges::enable_borrowed_range<_Vp> && std::ranges::z::__tidy_func<_Pred>;
 
+template<typename _Vp, typename _Pattern>
+constexpr bool std::ranges::enable_borrowed_range<
+    std::ranges::z::join_with_view<_Vp, _Pattern>> =
+    std::ranges::enable_borrowed_range<_Vp> &&
+    std::ranges::forward_range<std::ranges::z::join_with_view<_Vp, _Pattern>> &&
+    (std::ranges::enable_borrowed_range<_Pattern> || std::ranges::z::__tidy_view<_Pattern>);
+
 template<typename _Vp, typename _Pred>
 constexpr bool std::ranges::enable_borrowed_range<
     std::ranges::z::filter_view<_Vp, _Pred>> =
@@ -3259,10 +3594,23 @@ constexpr bool std::ranges::enable_borrowed_range<
     std::ranges::z::take_while_view<_Vp, _Pred>> =
     std::ranges::enable_borrowed_range<_Vp> && std::ranges::z::__tidy_func<_Pred>;
 
+template<typename _Vp, typename _Pattern>
+constexpr bool std::ranges::enable_borrowed_range<
+    std::ranges::z::lazy_split_view<_Vp, _Pattern>> =
+    std::ranges::enable_borrowed_range<_Vp> &&
+    std::ranges::forward_range<std::ranges::z::lazy_split_view<_Vp, _Pattern>> &&
+    (std::ranges::enable_borrowed_range<_Pattern> || std::ranges::z::__tidy_view<_Pattern>);
+
+template<typename _Vp, typename _Pattern>
+constexpr bool std::ranges::enable_borrowed_range<
+    std::ranges::z::split_view<_Vp, _Pattern>> =
+    std::ranges::enable_borrowed_range<_Vp> &&
+    (std::ranges::enable_borrowed_range<_Pattern> || std::ranges::z::__tidy_view<_Pattern>);
+
 template<typename _Vp>
-constexpr bool
-    std::ranges::enable_borrowed_range<std::ranges::z::join_view<_Vp>> =
-        std::ranges::enable_borrowed_range<_Vp>;
+constexpr bool std::ranges::enable_borrowed_range<std::ranges::join_view<_Vp>> =
+    std::ranges::enable_borrowed_range<_Vp> &&
+    std::ranges::forward_range<std::ranges::join_view<_Vp>>;
 
 
 template<typename F>
@@ -3279,8 +3627,8 @@ struct fat_callable
 
 // strike ub stuff
 // talk about sizes (don't forget about sizes when there are lots of adaptors
-// talk about timings andcode gen
-// split borrowed based on pattern trivial_copyabilty OR borrwoedness
+// talk about timings and code gen
+// split borrowed based on pattern trivial_copyabilty OR borrowedness
 
 
 int main()
@@ -3294,6 +3642,7 @@ int main()
         auto minus = [](auto x, auto y) { return x - y; };
 
         auto old_view = std::views::zip_transform(minus, vec, vec2);
+        std::cout << "borrowed<old_view> = " << std::ranges::borrowed_range<decltype(old_view)> << "\n";
         std::cout << "sizeof(old_view.begin()) = " << sizeof(old_view.begin()) << "\n";
         static_assert(!std::ranges::borrowed_range<decltype(old_view)>);
         for (auto x : old_view) {
@@ -3302,6 +3651,7 @@ int main()
         std::cout << "\n";
 
         auto new_view = std::ranges::z::views::zip_transform(minus, vec, vec2);
+        std::cout << "borrowed<new_view> = " << std::ranges::borrowed_range<decltype(new_view)> << "\n";
         std::cout << "sizeof(new_view.begin()) = " << sizeof(new_view.begin()) << "\n";
         static_assert(std::ranges::borrowed_range<decltype(new_view)>);
         auto new_it = new_view.begin();
@@ -3313,6 +3663,7 @@ int main()
 
         auto fat_new_view = std::ranges::z::views::zip_transform(
             fat_callable(minus), vec, vec2);
+        std::cout << "borrowed<fat_new_view> = " << std::ranges::borrowed_range<decltype(fat_new_view)> << "\n";
         std::cout << "sizeof(fat_new_view.begin()) = " << sizeof(fat_new_view.begin()) << "\n";
         static_assert(!std::ranges::borrowed_range<decltype(fat_new_view)>);
         auto fat_new_it = fat_new_view.begin();
@@ -3329,6 +3680,7 @@ int main()
         auto lt = [](auto x, auto y) { return x < y; };
 
         auto old_view = vec2 | std::views::chunk_by(lt);
+        std::cout << "borrowed<old_view> = " << std::ranges::borrowed_range<decltype(old_view)> << "\n";
         std::cout << "sizeof(old_view.begin()) = " << sizeof(old_view.begin()) << "\n";
         static_assert(!std::ranges::borrowed_range<decltype(old_view)>);
         for (auto chunk : old_view) {
@@ -3340,6 +3692,7 @@ int main()
         std::cout << "\n";
 
         auto new_view = vec2 | std::ranges::z::views::chunk_by(lt);
+        std::cout << "borrowed<new_view> = " << std::ranges::borrowed_range<decltype(new_view)> << "\n";
         std::cout << "sizeof(new_view.begin()) = " << sizeof(new_view.begin()) << "\n";
         static_assert(std::ranges::borrowed_range<decltype(new_view)>);
         for (auto chunk : new_view) {
@@ -3352,6 +3705,7 @@ int main()
 
         auto fat_new_view =
             vec2 | std::ranges::z::views::chunk_by(fat_callable(lt));
+        std::cout << "borrowed<fat_new_view> = " << std::ranges::borrowed_range<decltype(fat_new_view)> << "\n";
         std::cout << "sizeof(fat_new_view.begin()) = " << sizeof(fat_new_view.begin()) << "\n";
         static_assert(!std::ranges::borrowed_range<decltype(fat_new_view)>);
         for (auto chunk : fat_new_view) {
@@ -3374,7 +3728,13 @@ int main()
 
         std::vector<int> pattern = {8, 9};
 
+#if 0
+        auto ints = std::istringstream{"1 2 3 4 5 6"};
+        auto old_view = std::views::istream<int>(ints) | std::ranges::z::views::join_with(pattern);
+#else
         auto old_view = subranges | std::views::join_with(pattern);
+#endif
+        std::cout << "borrowed<old_view> = " << std::ranges::borrowed_range<decltype(old_view)> << "\n";
         std::cout << "sizeof(old_view.begin()) = " << sizeof(old_view.begin()) << "\n";
         static_assert(!std::ranges::borrowed_range<decltype(old_view)>);
         for (auto x : old_view) {
@@ -3382,10 +3742,41 @@ int main()
         }
         std::cout << "\n";
 
-        auto new_view = subranges | std::ranges::z::views::join_with(pattern);
+        auto new_view = subranges | std::ranges::z::views::join_with(std::ranges::subrange(pattern));
+        std::cout << "borrowed<new_view> = " << std::ranges::borrowed_range<decltype(new_view)> << "\n";
         std::cout << "sizeof(new_view.begin()) = " << sizeof(new_view.begin()) << "\n";
-        // TODO static_assert(std::ranges::borrowed_range<decltype(new_view)>);
+        static_assert(std::ranges::borrowed_range<decltype(new_view)>);
         for (auto x : new_view) {
+            std::cout << x << "\n";
+        }
+        std::cout << "\n";
+
+        auto new_view_single = subranges | std::ranges::z::views::join_with(99);
+        std::cout << "borrowed<new_view_single> = " << std::ranges::borrowed_range<decltype(new_view_single)> << "\n";
+        std::cout << "sizeof(new_view_single.begin()) = " << sizeof(new_view_single.begin()) << "\n";
+        static_assert(std::ranges::borrowed_range<decltype(new_view_single)>);
+        for (auto x : new_view_single) {
+            std::cout << x << "\n";
+        }
+        std::cout << "\n";
+
+#if 0
+        auto ints = std::istringstream{"1 2 3 4 5 6"};
+        auto input_view_single = std::views::istream<int>(ints) | std::ranges::z::views::join_with(99);
+        std::cout << "borrowed<input_view_single> = " << std::ranges::borrowed_range<decltype(input_view_single)> << "\n";
+        std::cout << "sizeof(input_view_single.begin()) = " << sizeof(input_view_single.begin()) << "\n";
+        static_assert(!std::ranges::borrowed_range<decltype(input_view_single)>);
+        for (auto x : input_view_single) {
+            std::cout << x << "\n";
+        }
+        std::cout << "\n";
+#endif
+
+        auto fat_new_view = subranges | std::ranges::z::views::join_with(pattern);
+        std::cout << "borrowed<fat_new_view> = " << std::ranges::borrowed_range<decltype(fat_new_view)> << "\n";
+        std::cout << "sizeof(fat_new_view.begin()) = " << sizeof(fat_new_view.begin()) << "\n";
+        static_assert(!std::ranges::borrowed_range<decltype(fat_new_view)>);
+        for (auto x : fat_new_view) {
             std::cout << x << "\n";
         }
         std::cout << "\n";
@@ -3397,6 +3788,7 @@ int main()
         auto minus = [](auto x, auto y) { return x - y; };
 
         auto old_view = vec | std::views::adjacent_transform<2>(minus);
+        std::cout << "borrowed<old_view> = " << std::ranges::borrowed_range<decltype(old_view)> << "\n";
         std::cout << "sizeof(old_view.begin()) = " << sizeof(old_view.begin()) << "\n";
         static_assert(!std::ranges::borrowed_range<decltype(old_view)>);
         for (auto x : old_view) {
@@ -3406,6 +3798,7 @@ int main()
 
         auto new_view =
             vec | std::ranges::z::views::adjacent_transform<2>(minus);
+        std::cout << "borrowed<new_view> = " << std::ranges::borrowed_range<decltype(new_view)> << "\n";
         std::cout << "sizeof(new_view.begin()) = " << sizeof(new_view.begin()) << "\n";
         static_assert(std::ranges::borrowed_range<decltype(new_view)>);
         auto new_it = new_view.begin();
@@ -3417,6 +3810,7 @@ int main()
 
         auto fat_new_view = vec | std::ranges::z::views::adjacent_transform<2>(
                                       fat_callable(minus));
+        std::cout << "borrowed<fat_new_view> = " << std::ranges::borrowed_range<decltype(fat_new_view)> << "\n";
         std::cout << "sizeof(fat_new_view.begin()) = " << sizeof(fat_new_view.begin()) << "\n";
         static_assert(!std::ranges::borrowed_range<decltype(fat_new_view)>);
         auto fat_new_it = fat_new_view.begin();
@@ -3433,6 +3827,7 @@ int main()
         auto even = [](auto x) { return x % 2 == 0; };
 
         auto old_view = vec | std::views::filter(even);
+        std::cout << "borrowed<old_view> = " << std::ranges::borrowed_range<decltype(old_view)> << "\n";
         std::cout << "sizeof(old_view.begin()) = " << sizeof(old_view.begin()) << "\n";
         static_assert(!std::ranges::borrowed_range<decltype(old_view)>);
         for (auto x : old_view) {
@@ -3441,6 +3836,7 @@ int main()
         std::cout << "\n";
 
         auto new_view = vec | std::ranges::z::views::filter(even);
+        std::cout << "borrowed<new_view> = " << std::ranges::borrowed_range<decltype(new_view)> << "\n";
         std::cout << "sizeof(new_view.begin()) = " << sizeof(new_view.begin()) << "\n";
         static_assert(std::ranges::borrowed_range<decltype(new_view)>);
         for (auto x : new_view) {
@@ -3450,6 +3846,7 @@ int main()
 
         auto fat_new_view =
             vec | std::ranges::z::views::filter(fat_callable(even));
+        std::cout << "borrowed<fat_new_view> = " << std::ranges::borrowed_range<decltype(fat_new_view)> << "\n";
         std::cout << "sizeof(fat_new_view.begin()) = " << sizeof(fat_new_view.begin()) << "\n";
         static_assert(!std::ranges::borrowed_range<decltype(fat_new_view)>);
         for (auto x : fat_new_view) {
@@ -3464,6 +3861,7 @@ int main()
         auto negate = [](auto x) { return -x; };
 
         auto old_view = vec | std::views::transform(negate);
+        std::cout << "borrowed<old_view> = " << std::ranges::borrowed_range<decltype(old_view)> << "\n";
         std::cout << "sizeof(old_view.begin()) = " << sizeof(old_view.begin()) << "\n";
         static_assert(!std::ranges::borrowed_range<decltype(old_view)>);
         for (auto x : old_view) {
@@ -3472,6 +3870,7 @@ int main()
         std::cout << "\n";
 
         auto new_view = vec | std::ranges::z::views::transform(negate);
+        std::cout << "borrowed<new_view> = " << std::ranges::borrowed_range<decltype(new_view)> << "\n";
         std::cout << "sizeof(new_view.begin()) = " << sizeof(new_view.begin()) << "\n";
         static_assert(std::ranges::borrowed_range<decltype(new_view)>);
         auto new_it = new_view.begin();
@@ -3483,6 +3882,7 @@ int main()
 
         auto fat_new_view =
             vec | std::ranges::z::views::transform(fat_callable(negate));
+        std::cout << "borrowed<fat_new_view> = " << std::ranges::borrowed_range<decltype(fat_new_view)> << "\n";
         std::cout << "sizeof(fat_new_view.begin()) = " << sizeof(fat_new_view.begin()) << "\n";
         static_assert(!std::ranges::borrowed_range<decltype(fat_new_view)>);
         auto fat_new_it = fat_new_view.begin();
@@ -3499,6 +3899,7 @@ int main()
         auto lt_four = [](auto x) { return x < 4; };
 
         auto old_view = vec | std::views::take_while(lt_four);
+        std::cout << "borrowed<old_view> = " << std::ranges::borrowed_range<decltype(old_view)> << "\n";
         std::cout << "sizeof(old_view.begin()) = " << sizeof(old_view.begin()) << "\n";
         static_assert(!std::ranges::borrowed_range<decltype(old_view)>);
         for (auto x : old_view) {
@@ -3507,23 +3908,150 @@ int main()
         std::cout << "\n";
 
         auto new_view = vec | std::ranges::z::views::take_while(lt_four);
+        std::cout << "borrowed<new_view> = " << std::ranges::borrowed_range<decltype(new_view)> << "\n";
         std::cout << "sizeof(new_view.begin()) = " << sizeof(new_view.begin()) << "\n";
         static_assert(std::ranges::borrowed_range<decltype(new_view)>);
         auto new_it = new_view.begin();
         new_it += 1;
-        for (auto x : old_view) {
+        for (auto x : new_view) {
             std::cout << x << "\n";
         }
         std::cout << "\n";
 
         auto fat_new_view =
             vec | std::ranges::z::views::take_while(fat_callable(lt_four));
+        std::cout << "borrowed<fat_new_view> = " << std::ranges::borrowed_range<decltype(fat_new_view)> << "\n";
         std::cout << "sizeof(fat_new_view.begin()) = " << sizeof(fat_new_view.begin()) << "\n";
         static_assert(!std::ranges::borrowed_range<decltype(fat_new_view)>);
         auto fat_new_it = fat_new_view.begin();
         fat_new_it += 1;
         for (auto x : fat_new_view) {
             std::cout << x << "\n";
+        }
+        std::cout << "\n";
+    }
+
+    {
+        std::cout << "=== lazy_split_view ===\n\n";
+
+        std::vector<int> pattern({3});
+
+        auto old_view = vec | std::views::lazy_split(pattern);
+        std::cout << "borrowed<old_view> = " << std::ranges::borrowed_range<decltype(old_view)> << "\n";
+        std::cout << "sizeof(old_view.begin()) = " << sizeof(old_view.begin()) << "\n";
+        for (auto subrng : old_view) {
+            for (auto x : subrng) {
+                std::cout << x << ' ';
+            }
+            std::cout << "\n";
+        }
+        std::cout << "\n";
+
+        auto new_view =
+            vec | std::ranges::z::views::lazy_split(std::ranges::subrange(pattern));
+        std::cout << "borrowed<new_view> = " << std::ranges::borrowed_range<decltype(new_view)> << "\n";
+        std::cout << "sizeof(new_view.begin()) = " << sizeof(new_view.begin()) << "\n";
+        static_assert(std::ranges::borrowed_range<decltype(new_view)>);
+        for (auto subrng : new_view) {
+            for (auto x : subrng) {
+                std::cout << x << ' ';
+            }
+            std::cout << "\n";
+        }
+        std::cout << "\n";
+
+        auto new_view_single = vec | std::ranges::z::views::lazy_split(3);
+        std::cout << "borrowed<new_view_single> = " << std::ranges::borrowed_range<decltype(new_view_single)> << "\n";
+        std::cout << "sizeof(new_view_single.begin()) = "
+                  << sizeof(new_view_single.begin()) << "\n";
+        static_assert(std::ranges::borrowed_range<decltype(new_view_single)>);
+        for (auto subrng : new_view_single) {
+            for (auto x : subrng) {
+                std::cout << x << ' ';
+            }
+            std::cout << "\n";
+        }
+        std::cout << "\n";
+
+        auto ints = std::istringstream{"1 2 3 4 5 6"};
+        auto input_view_single = std::views::istream<int>(ints) |
+                                 std::ranges::z::views::lazy_split(3);
+        std::cout << "borrowed<input_view_single> = " << std::ranges::borrowed_range<decltype(input_view_single)> << "\n";
+        std::cout << "sizeof(input_view_single.begin()) = "
+                  << sizeof(input_view_single.begin()) << "\n";
+        static_assert(!std::ranges::borrowed_range<decltype(input_view_single)>);
+        for (auto subrng : input_view_single) {
+            for (auto x : subrng) {
+                std::cout << x << ' ';
+            }
+            std::cout << "\n";
+        }
+        std::cout << "\n";
+
+        auto fat_new_view = vec | std::ranges::z::views::lazy_split(pattern);
+        std::cout << "borrowed<fat_new_view> = " << std::ranges::borrowed_range<decltype(fat_new_view)> << "\n";
+        std::cout << "sizeof(fat_new_view.begin()) = " << sizeof(fat_new_view.begin()) << "\n";
+        static_assert(!std::ranges::borrowed_range<decltype(fat_new_view)>);
+        for (auto subrng : fat_new_view) {
+            for (auto x : subrng) {
+                std::cout << x << ' ';
+            }
+            std::cout << "\n";
+        }
+        std::cout << "\n";
+    }
+
+    {
+        std::cout << "=== split_view ===\n\n";
+
+        std::vector<int> pattern({3});
+
+        auto old_view = vec | std::views::split(pattern);
+        std::cout << "borrowed<old_view> = " << std::ranges::borrowed_range<decltype(old_view)> << "\n";
+        std::cout << "sizeof(old_view.begin()) = " << sizeof(old_view.begin()) << "\n";
+        for (auto subrng : old_view) {
+            for (auto x : subrng) {
+                std::cout << x << ' ';
+            }
+            std::cout << "\n";
+        }
+        std::cout << "\n";
+
+        auto new_view =
+            vec | std::ranges::z::views::split(std::ranges::subrange(pattern));
+        std::cout << "borrowed<new_view> = " << std::ranges::borrowed_range<decltype(new_view)> << "\n";
+        std::cout << "sizeof(new_view.begin()) = " << sizeof(new_view.begin()) << "\n";
+        static_assert(std::ranges::borrowed_range<decltype(new_view)>);
+        for (auto subrng : new_view) {
+            for (auto x : subrng) {
+                std::cout << x << ' ';
+            }
+            std::cout << "\n";
+        }
+        std::cout << "\n";
+
+        auto new_view_single = vec | std::ranges::z::views::split(3);
+        std::cout << "borrowed<new_view_single> = " << std::ranges::borrowed_range<decltype(new_view_single)> << "\n";
+        std::cout << "sizeof(new_view_single.begin()) = "
+                  << sizeof(new_view_single.begin()) << "\n";
+        static_assert(std::ranges::borrowed_range<decltype(new_view_single)>);
+        for (auto subrng : new_view_single) {
+            for (auto x : subrng) {
+                std::cout << x << ' ';
+            }
+            std::cout << "\n";
+        }
+        std::cout << "\n";
+
+        auto fat_new_view = vec | std::ranges::z::views::split(pattern);
+        std::cout << "borrowed<fat_new_view> = " << std::ranges::borrowed_range<decltype(fat_new_view)> << "\n";
+        std::cout << "sizeof(fat_new_view.begin()) = " << sizeof(fat_new_view.begin()) << "\n";
+        static_assert(!std::ranges::borrowed_range<decltype(fat_new_view)>);
+        for (auto subrng : fat_new_view) {
+            for (auto x : subrng) {
+                std::cout << x << ' ';
+            }
+            std::cout << "\n";
         }
         std::cout << "\n";
     }
@@ -3537,18 +4065,11 @@ int main()
             {vec.begin() + 3, vec.begin() + 4},
             {vec.begin() + 4, vec.begin() + 6}};
 
-        auto old_view = subranges | std::views::join;
-        std::cout << "sizeof(old_view.begin()) = " << sizeof(old_view.begin()) << "\n";
-        static_assert(!std::ranges::borrowed_range<decltype(old_view)>);
-        for (auto x : old_view) {
-            std::cout << x << "\n";
-        }
-        std::cout << "\n";
-
-        auto new_view = subranges | std::ranges::z::views::join;
-        std::cout << "sizeof(new_view.begin()) = " << sizeof(new_view.begin()) << "\n";
-        static_assert(std::ranges::borrowed_range<decltype(new_view)>);
-        for (auto x : old_view) {
+        auto view = subranges | std::ranges::views::join;
+        std::cout << "borrowed<view> = " << std::ranges::borrowed_range<decltype(view)> << "\n";
+        std::cout << "sizeof(view.begin()) = " << sizeof(view.begin()) << "\n";
+        static_assert(std::ranges::borrowed_range<decltype(view)>);
+        for (auto x : view) {
             std::cout << x << "\n";
         }
         std::cout << "\n";
