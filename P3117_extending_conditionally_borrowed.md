@@ -217,7 +217,119 @@ iterator.
 
 # Proposed changes
 
-TODO
+All these changes are in `std::ranges`.
+
+## Specialize `enable_borrowed_range` for `join_view`
+
+```c++
+template<typename T>
+  constexpr bool enable_borrowed_range<join_view<T>> =
+    enable_borrowed_range<T> && forward_range<join_view<T>>;
+```
+
+## Create implementation-only traits
+
+```c++
+template<typename F>
+  constexpr bool @*tidy-func*@ = is_trivially_copyable_v<F> && sizeof(F) <= sizeof(void*);
+template<typename V>
+  constexpr bool @*tidy-view*@ = is_trivially_copyable_v<V> && sizeof(V) <= sizeof(void*) * 2;
+```
+
+`@*tidy-func*@` evaluates to `true` when an invocable is a candidate for
+copying into a view's iterators.  `@*tidy-view*@` evaluates to `true` when a
+view is a candidate for copying into a view's iterators.
+
+## The easy ones
+
+`transform_view`, `zip_transform_view`, `adjacent_transform_view`, and
+`take_while_view` all have the same kind of changes, except that
+`take_while_view`'s sentinel is changed, not its iterator.  Using
+`transform_view` as an example:
+
+In [range.transform.iterator]{.sref}:
+
+```diff
+namespace std::ranges {
+  template<input_range V, move_constructible F>
+    requires view<V> && is_object_v<F> &&
+             regular_invocable<F&, range_reference_t<V>> &&
+             can-reference<invoke_result_t<F&, range_reference_t<V>>>
+  template<bool Const>
+  class transform_view<V, F>::iterator {
+  private:
+    using Parent = @*maybe-const*@<Const, transform_view>;          // exposition only
+    using Base = @*maybe-const*@<Const, V>;                         // exposition only
+    iterator_t<Base> current_ = iterator_t<Base>();             // exposition only
+-    Parent* parent_ = nullptr;                                  // exposition only
++
++    @*f-access*@ = conditional_t<@*tidy-func*@<F>, @*movable-box*@<F>, Parent*>;
++
++    [[no_unique_address]] @*f-access*@ @*f_access_*@;
++
++    constexpr const F& @*f*@() const
++    {
++        if constexpr (@*tidy-func*@<_Fp>)
++            return *@*f_access_*@;
++        else
++            return *@*f_access_*@->_M_fun;
++    }
+```
+
+Then, change every place that previously used `@*parent_*@->@*fun_*@` to use
+`@*f*@()` instead.  Then, replace the initialization of `@*parent_*@` in
+constructors with the conditional initialization of `@*f_access_*@` with
+`parent.@*fun_*@` if `@*tidy-func*@<F>` is `true`, and `addressof(parent)`
+otherwise.
+
+Finally, add the `enable_borrowed_range` specialization:
+
+```c++
+template<typename V, typename F>
+  constexpr bool enable_borrowed_range<transform_view<V, F>> = enable_borrowed_range<V> && @*tidy-func*@<F>;
+```
+
+## `filter_view`
+
+`filter_view::iterator` gets the same changes as described above for
+`transform_view::iterator`.  Additionally, it gets `@*base_*@.end()` from the
+`filter_view` copied in to it.  This copy of the end-iterator is
+unconditional.  `filter_view` gets a `enable_borrowed_range` specialization as
+well.
+
+## `chunk_by_view`
+
+`chunk_by_view::iterator` gets the same changes as `filter_view::iterator`,
+plus it also has `@*base_*@.begin()` from the `chunk_by_view` stored in it.
+Again, this happens unconditionally.  `chunk_by_view` gets a
+`enable_borrowed_range` specialization as well.
+
+## `lazy_split_view`, `split_view`, and `join_with_view`
+
+These three are pretty similar to ech other.  Instead of the iterator
+conditionally storing a copy of an invocable, each conditionally stores a copy
+of the view's `Pattern`.  The condition is different as well; instead of
+`@*tidy-func*@<F>`, the condition is `(borrowed_range<Pattern> ||
+@*tidy-view*@<Pattern>) && forward_range<VIEW>`, where `VIEW` is the full
+specialization of `lazy_split_view`, `split_view`, or `join_with_view`.  The
+`Pattern` is never stored in the iterator when the whole view is an input
+range, the cache in the view must be used regardless; this makes the view
+non-borrowable.  `split_view` does not have such a cache, so it doesn't use
+the `&& forward_range<VIEW>` part of the condition.
+
+Otherwise, the changes are the same as before -- conditionally copy `Pattern`
+into the iterator, and unconditionally copy the view's `base_.end()` into the
+iterator.
+
+All three views get `enable_borrowed_range` specialization like this, except
+that the `split_view` one has no `forward_range` requirement:
+
+```c++
+template<typename V, typename Pattern>
+constexpr bool enable_borrowed_range<lazy_split_view<V, Pattern>> =
+    enable_borrowed_range<V> && (enable_borrowed_range<Pattern> || @*tidy-view*@<Pattern>) &&
+    forward_range<lazy_split_view<V, Pattern>>;
+```
 
 # Implementation experience
 
