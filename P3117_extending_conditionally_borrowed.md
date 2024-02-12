@@ -21,10 +21,10 @@ Initial revision.
 
 # Motivation
 
-In P2017R1, we made some range adaptors conditionally borrowed.  But we didn't
+In [@P2017R1], we made some range adaptors conditionally borrowed.  But we didn't
 touch adaptors that had callables - like `views::transform`.  It turns out to
 be very useful to have a borrowable version of `views::transform`.  Indeed,
-P2728R6 even adds a dedicated new range adaptor (`views::project`) which is
+[@P2728R6] even adds a dedicated new range adaptor (`views::project`) which is
 simply a version of `views::transform` that can be borrowed (because its
 callable must be a constant).
 
@@ -40,7 +40,7 @@ as well, which seems like a more useful approach as well as not requiring new
 names for every adaptor.
 
 The main question then is what the criteria should be for when
-transform_view<R, F> should be a borrowed range (when R is):
+`transform_view<R, F>` should be a borrowed range (when `R` is):
 
 - `is_empty_v<F>` (range-v3 already does this - not for conditionally borrowed,
   but just to decide whether to store the callable by value in the iterator)
@@ -68,7 +68,7 @@ non-`borrowed_range`.  In other cases, an rvalue range might be wrapped in a
 `owning_view` to turn it into a view, if it was not already a
 `borrowed_range`.  So `std::vector<int>({1,2,3,4,5,6,7,8,9}) | take(3)` would
 take the rvalue `vector`, wrap it in an `owning_view`, and the result is a
-non-`borrowed_range` that is expensive to copy.
+non-`borrowed_range` that is move-only.
 
 Here is the part of `[range.range]` that describes `borrowed_range`:
 
@@ -160,7 +160,7 @@ template<typename T>
 
 Four more views are easy to change with little impact: `transform_view`,
 `zip_transform_view`, `adjacent_transform_view`, and `take_while_view`.  Each
-of these views stores the its invocable in the view, and has an iterator type
+of these views stores its invocable in the view, and has an iterator type
 that contains a pointer back to the view.  However, as stated in the
 Motivation section, if the invocable ("`F f`" for the first three, "`Pred
 pred`" for `take_while_view`, just "`f`" hereafter) has a size no larger than
@@ -193,9 +193,9 @@ use to do the join or split, respectively.  Clearly, to be borrowable `V` must
 be borrowable.  If `Pattern` is borrowable as well, then the entire
 `split_view`/`join_with_view` is too.  However, even if `Pattern` is not
 borrowable, if we could copy `Pattern` into the iterator, that would work just
-as well.  A `Pattern` that is trivially copyable and no larger than `sizeof(T)
-<= sizeof(void*) * 2` is acceptable to copy, since a `borrowed_range`
-`Pattern` will typically be about the size of two pointers.
+as well.  A `Pattern` that is trivially copyable and no larger than 
+`sizeof(Pattern) <= sizeof(void*) * 2` is acceptable to copy, since a 
+`borrowed_range` `Pattern` will typically be about the size of two pointers.
 
 `lazy_split_view` is nearly the same story as `split_view`, except that it has
 an additional cache:
@@ -263,11 +263,12 @@ namespace std::ranges {
     iterator_t<Base> current_ = iterator_t<Base>();             // exposition only
 -    Parent* parent_ = nullptr;                                  // exposition only
 +
-+    @*f-access*@ = conditional_t<@*tidy-func*@<F>, @*movable-box*@<F>, Parent*>;
++    using @*f-access*@ =
++      conditional_t<@*tidy-func*@<F>, @*movable-box*@<F>, Parent*>;    // exposition only
 +
-+    [[no_unique_address]] @*f-access*@ @*f_access_*@;
++    [[no_unique_address]] @*f-access*@ @*f_access_*@;                  // exposition only
 +
-+    constexpr const F& @*f*@() const
++    constexpr const F& @*f*@() const                               // exposition only
 +    {
 +        if constexpr (@*tidy-func*@<_Fp>)
 +            return *@*f_access_*@;
