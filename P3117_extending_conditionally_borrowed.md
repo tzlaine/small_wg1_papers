@@ -21,12 +21,14 @@ Initial revision.
 
 # Motivation
 
-In [@P2017R1], we made some range adaptors conditionally borrowed.  But we didn't
-touch adaptors that had callables - like `views::transform`.  It turns out to
-be very useful to have a borrowable version of `views::transform`.  Indeed,
-[@P2728R6] even adds a dedicated new range adaptor (`views::project`) which is
-simply a version of `views::transform` that can be borrowed (because its
-callable must be a constant).
+In [@P2017R1], we made some range adaptors conditionally borrowed.  But we
+didn't touch adaptors that had callables - like `views::transform`.  It turns
+out to be very useful to have a borrowable version of `views::transform`.
+Indeed,
+[P2728R6](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2023/p2728r6.html)
+even adds a dedicated new range adaptor (`views::project`) which is simply a
+version of `views::transform` that can be borrowed (because its callable must
+be a constant).
 
 But rather than add a dedicated view for this specific case, which requires a
 new name but really only helps `views::transform`, we can generalize
@@ -138,9 +140,11 @@ probably a good idea, independent of borrowability concerns.
 
 ## The easy ones
 
-`join_view` is easiest of all -- it requires no modifications at all, it just
-needs its borrowability predicated on its being a `forward_range`.  That's
-because `join_view` and `join_with_view` have these caches:
+`join_view` is easiest of all.  The only modifications it requires are to copy
+the view's `base_.end()` into the iterator, and specialize
+`enable_borrowed_range`.  `join_view`'s borrowability is predicated on its
+being a `forward_range`.  That's because `join_view` and `join_with_view` have
+these caches:
 
 > ```c++
 >     @*non-propagating-cache*@<iterator_t<V>> outer_;            // exposition only, present only
@@ -160,11 +164,11 @@ template<typename T>
 
 Four more views are easy to change with little impact: `transform_view`,
 `zip_transform_view`, `adjacent_transform_view`, and `take_while_view`.  Each
-of these views stores its invocable in the view, and has an iterator type
-that contains a pointer back to the view.  However, as stated in the
-Motivation section, if the invocable ("`F f`" for the first three, "`Pred
-pred`" for `take_while_view`, just "`f`" hereafter) has a size no larger than
-a pointer and is trivially copyable, we could just replace the iterator's (or
+of these views stores its invocable in the view, and has an iterator type that
+contains a pointer back to the view.  However, as stated in the Motivation
+section, if the invocable ("`F f`" for the first three, "`Pred pred`" for
+`take_while_view`, just "`f`" hereafter) has a size no larger than a pointer
+and is trivially copyable, we could just replace the iterator's (or
 sentinel's, in the case of `take_while_view`) back-pointer to the view with a
 copy a `f`.  This would enable borrowed-ness, and also would make these views
 slightly more efficient by removing an indirection.  We could have insisted
@@ -219,7 +223,10 @@ iterator.
 
 All these changes are in `std::ranges`.
 
-## Specialize `enable_borrowed_range` for `join_view`
+## `join_view`
+
+Change `join_view::iterator` to store the `join_view`'s `base_.end()` instead
+of a pointer to the `join_view`.  Then, add this specialization:
 
 ```c++
 template<typename T>
@@ -250,30 +257,38 @@ view is a candidate for copying into a view's iterators.
 In [range.transform.iterator]{.sref}:
 
 ```diff
-namespace std::ranges {
-  template<input_range V, move_constructible F>
-    requires view<V> && is_object_v<F> &&
-             regular_invocable<F&, range_reference_t<V>> &&
-             can-reference<invoke_result_t<F&, range_reference_t<V>>>
-  template<bool Const>
-  class transform_view<V, F>::iterator {
-  private:
-    using Parent = @*maybe-const*@<Const, transform_view>;          // exposition only
-    using Base = @*maybe-const*@<Const, V>;                         // exposition only
-    iterator_t<Base> current_ = iterator_t<Base>();             // exposition only
--    Parent* parent_ = nullptr;                                  // exposition only
+ namespace std::ranges {
+   template<input_range V, move_constructible F>
+     requires view<V> && is_object_v<F> &&
+              regular_invocable<F&, range_reference_t<V>> &&
+              can-reference<invoke_result_t<F&, range_reference_t<V>>>
+   template<bool Const>
+   class transform_view<V, F>::iterator {
+   private:
+     using Parent = @*maybe-const*@<Const, transform_view>;          // @*exposition only*@
+     using Base = @*maybe-const*@<Const, V>;                         // @*exposition only*@
+     iterator_t<Base> current_ = iterator_t<Base>();             // @*exposition only*@
+-    Parent* parent_ = nullptr;                                  // @*exposition only*@
 +
 +    using @*f-access*@ =
-+      conditional_t<@*tidy-func*@<F>, @*movable-box*@<F>, Parent*>;    // exposition only
++      conditional_t<@*tidy-func*@<F>, @*movable-box*@<F>, Parent*>;     // @*exposition only*@
 +
-+    [[no_unique_address]] @*f-access*@ @*f_access_*@;                  // exposition only
++    [[no_unique_address]] @*f-access*@ @*f_access_*@;                   // @*exposition only*@
 +
-+    constexpr const F& @*f*@() const                               // exposition only
++    constexpr @*maybe-const*@<Const, F>& @*f*@()                        // @*exposition only*@
 +    {
-+        if constexpr (@*tidy-func*@<_Fp>)
++        if constexpr (@*tidy-func*@<F>)
 +            return *@*f_access_*@;
 +        else
-+            return *@*f_access_*@->_M_fun;
++            return *@*f_access_*@->@*fun_*@;
++    }
++
++    constexpr const F& @*f*@() const                                // @*exposition only*@
++    {
++        if constexpr (@*tidy-func*@<F>)
++            return *@*f_access_*@;
++        else
++            return *@*f_access_*@->@*fun_*@;
 +    }
 ```
 
@@ -290,13 +305,55 @@ template<typename V, typename F>
   constexpr bool enable_borrowed_range<transform_view<V, F>> = enable_borrowed_range<V> && @*tidy-func*@<F>;
 ```
 
+Note that `const`ness of the reference returned by `@*f*@()` differs from
+`*@*f_access_*@->@*fun_*@` in only one case; when the iterator is a constant
+but `Const` is `false`, `@*f*@()` returns a `const F&`, whereas
+`*@*f_access_*@->@*fun_*@` is an `F&` expression.  We don't think this matters
+in practice.  Consider a `transform_view` `xform`.  For this to matter, you
+would have to call `xform.begin()` (the non-`const` overload), and then assign
+the result to a constant, or bind it to a `const &`.  Then, you would need to
+use the callable in the iterator, by calling `operator*` or `operator[]`, both
+of which are `const`.  You would not be able to advance the iterator, so no
+use in a for loop.  You'd have an iterator that you could use to get
+`*xform.begin()`, `xform.begin()[3]`, etc., and that's it.  Users are very
+unlikely to write code like this -- as soon as they want to use this iterator
+in a for loop, they're going to make a mutable copy of it, and loop using that.
+
 ## `filter_view`
 
-`filter_view::iterator` gets the same changes as described above for
-`transform_view::iterator`.  Additionally, it gets `@*base_*@.end()` from the
-`filter_view` copied in to it.  This copy of the end-iterator is
-unconditional.  `filter_view` gets a `enable_borrowed_range` specialization as
-well.
+`filter_view::iterator` gets a similar change as the one for
+`transform_view::iterator`, slightly modified.  The difference is that the
+nested type, data member, and member function look like this:
+
+```c++
+using @*pred-access*@ =
+  conditional_t<@*tidy-func*@<Pred>, @*movable-box*@<Pred>, filter_view*>;
+
+[[no_unique_address]] @*pred-access*@ @*pred_access_*@;
+
+constexpr Pred& @*pred*@()
+{
+  if constexpr (@*tidy-func*@<Pred>)
+    return *@*pred_access_*@;
+  else
+    return *@*pred_access_*@->@*pred_*@;
+}
+```
+
+Note the absence of `@*maybe-const*@`, or `@*pred*@() const`.
+`filter_view::iterator` has no `const` variant, and it uses its predicate
+exclusively within non-`const` member functions.
+
+Additionally, `filter_view::iterator` has `@*base_*@.end()` from the
+`filter_view` stored in it.  Again, the `base_` iterator copy happens
+unconditionally.  `filter_view` gets an `enable_borrowed_range` specialization
+as well:
+
+```c++
+template<typename V, typename Pred>
+constexpr bool enable_borrowed_range<filter_view<V, Pred>> =
+    enable_borrowed_range<V> && @*tidy_func*@<Pred>;
+```
 
 ## `chunk_by_view`
 
@@ -307,16 +364,45 @@ Again, this happens unconditionally.  `chunk_by_view` gets a
 
 ## `lazy_split_view`, `split_view`, and `join_with_view`
 
-These three are pretty similar to ech other.  Instead of the iterator
+These three are pretty similar to each other.  Instead of the iterator
 conditionally storing a copy of an invocable, each conditionally stores a copy
-of the view's `Pattern`.  The condition is different as well; instead of
-`@*tidy-func*@<F>`, the condition is `(borrowed_range<Pattern> ||
-@*tidy-view*@<Pattern>) && forward_range<VIEW>`, where `VIEW` is the full
-specialization of `lazy_split_view`, `split_view`, or `join_with_view`.  The
-`Pattern` is never stored in the iterator when the whole view is an input
-range, the cache in the view must be used regardless; this makes the view
-non-borrowable.  `split_view` does not have such a cache, so it doesn't use
-the `&& forward_range<VIEW>` part of the condition.
+of the view's `Pattern`:
+
+```c++
+constexpr bool @*store-pattern*@ = @*see below*@;                // @*exposition only*@
+
+using @*pattern-access*@ =
+  conditional_t<@*store-pattern*@, Pattern, Parent*>;        // @*exposition only*@
+
+[[no_unique_address]] @*pattern-access*@ @*pattern_access_*@;    // @*exposition only*@
+
+// This mutable overload is for join_with_view only.
+constexpr @*maybe-const*@<Const, Pattern>& @*pattern*@()         // @*exposition only*@
+{
+  if constexpr (@*store-pattern*@)
+    return @*pattern_access_*@;
+  else
+    return @*pattern_access_*@->@*pattern_*@;
+}
+constexpr const Pattern& @*pattern*@() const                 // @*exposition only*@
+{
+  if constexpr (@*store-pattern*@)
+    return @*pattern_access_*@;
+  else
+    return @*pattern_access_*@->@*pattern_*@;
+}
+```
+
+`@*store-pattern*@` is true if the iterator is a `forward_iterator` and
+`@*tidy-view*@<Pattern>` is `true`; it is `false` otherwise.
+
+The `Pattern` is never stored in the iterator when the whole view is an input
+range, since the cache in the view must be used regardless; this makes the
+view non-borrowable.  `split_view` does not have such a cache, so it doesn't
+use the `forward_range` part of the condition.  Also, only `join_with_view`
+needs the mutable overload of `@*pattern*@()`, because it produces it in its
+output; the other two only read the values out of the pattern, so it makes no
+difference if the pattern is `const` or not.
 
 Otherwise, the changes are the same as before -- conditionally copy `Pattern`
 into the iterator, and unconditionally copy the view's `base_.end()` into the
@@ -344,14 +430,48 @@ implementation was very straightforward.
 
 # Costs versus benefits
 
-`join_view` has the best bang-for-buck.  It does not even involve a code
-change to `join_view` itself, just the addition of the `enable_borrowed_range`
-specialization.
+`join_view` has the simplest proposed change.  It just gets a copy of the
+end-iterator for the underlying view `V`, and the addition of the
+`enable_borrowed_range` specialization.
+
+Since it only adds an end iterator to `join_view::iterator`, it is a
+convenient case to test the performance impact of this change.  For simple
+cases, like just doing a single join operation, the `join_view` changes had no
+performance impact that the authors could measure.  However, the case is
+different when you pipe together several view adaptors.
+
+For the chart and table below, "Old" indicates the status quo implementation;
+"New" indicates the implementation modified by the authors.  This view was
+used:
+
+```c++
+auto view = subranges | views::join | views::transform(identity) | views::split(99) | views::join;
+```
+
+These are the first of the performance numbers; more follow below.  All
+performance numbers were generated using Google Benchmark on a GCC 13 `-O3`
+build.  All table numbers are in nanoseconds.
+
+![](./join.svg)
+
++-----------+---------+---------+---------+---------+---------+---------+
+| Run \ `N` |10       |100      |1000     |10000    |100000   |1000000  |
++===========+:=======:+:=======:+:=======:+:=======:+:=======:+:=======:+
+| Old       |46       |109      |835      |6664     |69190    |595838   |
++-----------+---------+---------+---------+---------+---------+---------+
+| New       |98       |161      |674      |5314     |62558    |606272   |
++-----------+---------+---------+---------+---------+---------+---------+
+
+The numbers are pretty terrible at small sizes of `N`, gradually converging as
+`N` grows.  This is likely due to the large size of `join_view::iterator` for
+this deeply-nested view type; for "Old", `sizeof(view.end()) == 192`, whereas
+for "New", `sizeof(view.end()) == 408`.  If this view were not a
+`common_range`, `sizeof(view.end())` would be much smaller in both cases.
 
 ## The other easy ones
 
-It seems like the easy ones seem like clear improvements.  The modifications
-are simple, and they're nearly identical in performance to the status quo.  In
+The other easy ones seem like clear improvements.  The modifications are
+simple, and they're nearly identical in performance to the status quo.  In
 these tables and charts, "old" is the status quo implementation of the view;
 "new" uses a version modified to be borrowable, where the invocable in use is
 small enough to make the view borrowable; and "fat new" is the same modified
@@ -384,9 +504,9 @@ raw data, since the logarithmic scale makes it hard to see exact differences.
 Unfortunately, with a linear scale, the differences are even less
 comprehensible.
 
-Here are the first of the performance numbers.  All performance numbers were
-generated using Google Benchmark on a GCC 13 `-O3` build.  All table numbers
-are in nanoseconds.
+For each view, there are two charts.  The first the result of using a very
+simple lambda as the callable.  The second uses a pointer to a function with a
+body identical to the lambda.
 
 ![](./transform.svg)
 
@@ -398,6 +518,18 @@ are in nanoseconds.
 | New       |4        |13       |117      |1115     |14711    |160760   |
 +-----------+---------+---------+---------+---------+---------+---------+
 | Fat New   |4        |12       |94       |946      |14802    |157828   |
++-----------+---------+---------+---------+---------+---------+---------+
+
+![](./ptr_transform.svg)
+
++-----------+---------+---------+---------+---------+---------+---------+
+| Run \ `N` |10       |100      |1000     |10000    |100000   |1000000  |
++===========+:=======:+:=======:+:=======:+:=======:+:=======:+:=======:+
+| Old       |11       |108      |1039     |10343    |104773   |1041585  |
++-----------+---------+---------+---------+---------+---------+---------+
+| New       |4        |17       |162      |1558     |15530    |156805   |
++-----------+---------+---------+---------+---------+---------+---------+
+| Fat New   |11       |108      |1037     |10314    |103725   |1040596  |
 +-----------+---------+---------+---------+---------+---------+---------+
 
 ![](./zip_transform.svg)
@@ -412,6 +544,18 @@ are in nanoseconds.
 | Fat New   |5        |11       |92       |1196     |16083    |173267   |
 +-----------+---------+---------+---------+---------+---------+---------+
 
+![](./ptr_zip_transform.svg)
+
++-----------+---------+---------+---------+---------+---------+---------+
+| Run \ `N` |10       |100      |1000     |10000    |100000   |1000000  |
++===========+:=======:+:=======:+:=======:+:=======:+:=======:+:=======:+
+| Old       |13       |128      |1243     |12410    |124728   |1247042  |
++-----------+---------+---------+---------+---------+---------+---------+
+| New       |11       |107      |1037     |10346    |103790   |1042682  |
++-----------+---------+---------+---------+---------+---------+---------+
+| Fat New   |12       |110      |1040     |10359    |104147   |1048073  |
++-----------+---------+---------+---------+---------+---------+---------+
+
 ![](./adjacent_transform.svg)
 
 +-----------+---------+---------+---------+---------+---------+---------+
@@ -422,6 +566,18 @@ are in nanoseconds.
 | New       |4        |12       |92       |1217     |15990    |171407   |
 +-----------+---------+---------+---------+---------+---------+---------+
 | Fat New   |4        |12       |93       |1217     |15815    |172544   |
++-----------+---------+---------+---------+---------+---------+---------+
+
+![](./ptr_adjacent_transform.svg)
+
++-----------+---------+---------+---------+---------+---------+---------+
+| Run \ `N` |10       |100      |1000     |10000    |100000   |1000000  |
++===========+:=======:+:=======:+:=======:+:=======:+:=======:+:=======:+
+| Old       |11       |109      |1054     |10340    |104192   |1044660  |
++-----------+---------+---------+---------+---------+---------+---------+
+| New       |11       |109      |1039     |10399    |104172   |1045590  |
++-----------+---------+---------+---------+---------+---------+---------+
+| Fat New   |10       |107      |1036     |10321    |103684   |1040870  |
 +-----------+---------+---------+---------+---------+---------+---------+
 
 ![](./take_while.svg)
@@ -436,16 +592,17 @@ are in nanoseconds.
 | Fat New   |3        |18       |177      |1698     |17295    |176765   |
 +-----------+---------+---------+---------+---------+---------+---------+
 
-The take-away here is that there is a negligible impact on performance for
-changing these four views.  In particular, `take_while_view` produces
+The take-away here is that changing these four views yields a negligible
+impact on performance for the lambda case, and modest to dramatic improvements
+in the function pointer case.  In particular, `take_while_view` produces
 performance numbers that are so similar to the status quo that the lines
-completely overlap.  Where the numbers differ, the new implementations are
-slightly better for most sizes of input.
+completely overlap.  Where the numbers differ only slightly, the new
+implementations are slightly better for most sizes of input.
 
 ## The low-cost ones
 
-The low-cost ones are more ofa mixed bag than the easy ones.  Let's first look
-at `filter_view` and `chunk_by_view`.  We'll look at the others together,
+The low-cost ones are more of a mixed bag than the easy ones.  Let's first
+look at `filter_view` and `chunk_by_view`.  We'll look at the others together,
 since they are more like each other than these two.
 
 Let's look at sizes.  As before, the size penalty is sometimes less, when the
@@ -473,6 +630,18 @@ invocable does not fit.  That's mainly because we also copied `base_.end()`
 | Fat New   |12       |111      |1099     |29161    |327035   |3335268  |
 +-----------+---------+---------+---------+---------+---------+---------+
 
+![](./ptr_filter.svg)
+
++-----------+---------+---------+---------+---------+---------+---------+
+| Run \ `N` |10       |100      |1000     |10000    |100000   |1000000  |
++===========+:=======:+:=======:+:=======:+:=======:+:=======:+:=======:+
+| Old       |16       |179      |2381     |41636    |437130   |4367355  |
++-----------+---------+---------+---------+---------+---------+---------+
+| New       |6        |157      |2124     |34282    |360168   |3611216  |
++-----------+---------+---------+---------+---------+---------+---------+
+| Fat New   |13       |152      |2179     |37559    |388305   |3883130  |
++-----------+---------+---------+---------+---------+---------+---------+
+
 ![](./chunk_by.svg)
 
 +-----------+---------+---------+---------+---------+---------+---------+
@@ -483,6 +652,18 @@ invocable does not fit.  That's mainly because we also copied `base_.end()`
 | New       |16       |150      |1528     |33707    |367695   |3729119  |
 +-----------+---------+---------+---------+---------+---------+---------+
 | Fat New   |16       |160      |1526     |35283    |365044   |3703705  |
++-----------+---------+---------+---------+---------+---------+---------+
+
+![](./ptr_chunk_by.svg)
+
++-----------+---------+---------+---------+---------+---------+---------+
+| Run \ `N` |10       |100      |1000     |10000    |100000   |1000000  |
++===========+:=======:+:=======:+:=======:+:=======:+:=======:+:=======:+
+| Old       |26       |266      |3331     |45865    |469879   |4718487  |
++-----------+---------+---------+---------+---------+---------+---------+
+| New       |20       |262      |3132     |43524    |452269   |4514382  |
++-----------+---------+---------+---------+---------+---------+---------+
+| Fat New   |19       |231      |2952     |42788    |443756   |4395832  |
 +-----------+---------+---------+---------+---------+---------+---------+
 
 As you can see, there is a small but significant performance penalty for

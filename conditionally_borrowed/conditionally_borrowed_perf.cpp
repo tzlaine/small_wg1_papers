@@ -2,8 +2,8 @@
 
 #include <benchmark/benchmark.h>
 
-#include <string>
 #include <algorithm>
+#include <string>
 
 
 template<typename F>
@@ -162,6 +162,58 @@ void BM_ptr_chunk_by_fat_new(benchmark::State & state)
         for (auto && chunk : view) {
             benchmark::DoNotOptimize(dest = std::ranges::copy(chunk, dest).out);
         }
+    }
+}
+
+auto identity = [](auto x) { return x; };
+
+void BM_join_old(benchmark::State & state)
+{
+    auto const vec = make_int_vec(state.range(0));
+    using subrange_t = std::ranges::subrange<std::vector<int>::const_iterator>;
+
+    std::vector<subrange_t> subranges;
+    const int rand_range = state.range(0) < 100 ? 3 : state.range(0) / 10;
+    int back = 0;
+    while (back < state.range(0)) {
+        int lo = back + std::rand() % rand_range;
+        lo = (std::min)(lo, state.range(0));
+        int hi = lo + std::rand() % rand_range;
+        hi = (std::min)(hi, state.range(0));
+        back = hi;
+        subranges.push_back(subrange_t{vec.begin() + lo, vec.begin() + hi});
+    }
+
+    auto out = std::vector<int>(state.range(0) * 5);
+    auto view = subranges | std::views::join | std::views::transform(identity) |
+                std::views::split(99) | std::views::join;
+    while (state.KeepRunning()) {
+        benchmark::DoNotOptimize(std::ranges::copy(view, out.begin()));
+    }
+}
+void BM_join_new(benchmark::State & state)
+{
+    auto const vec = make_int_vec(state.range(0));
+    using subrange_t = std::ranges::subrange<std::vector<int>::const_iterator>;
+
+    std::vector<subrange_t> subranges;
+    const int rand_range = state.range(0) < 100 ? 3 : state.range(0) / 10;
+    int back = 0;
+    while (back < state.range(0)) {
+        int lo = back + std::rand() % rand_range;
+        lo = (std::min)(lo, state.range(0));
+        int hi = lo + std::rand() % rand_range;
+        hi = (std::min)(hi, state.range(0));
+        back = hi;
+        subranges.push_back(subrange_t{vec.begin() + lo, vec.begin() + hi});
+    }
+
+    auto out = std::vector<int>(state.range(0) * 5);
+    auto view = subranges | std::ranges::z::views::join |
+                std::views::transform(identity) |
+                std::ranges::z::views::split(99) | std::ranges::z::views::join;
+    while (state.KeepRunning()) {
+        benchmark::DoNotOptimize(std::ranges::copy(view, out.begin()));
     }
 }
 
@@ -858,6 +910,9 @@ BENCHMARK(BM_chunk_by_fat_new) POWER_10_ARGS;
 BENCHMARK(BM_ptr_chunk_by_old) POWER_10_ARGS;
 BENCHMARK(BM_ptr_chunk_by_new) POWER_10_ARGS;
 BENCHMARK(BM_ptr_chunk_by_fat_new) POWER_10_ARGS;
+
+BENCHMARK(BM_join_old) POWER_10_ARGS;
+BENCHMARK(BM_join_new) POWER_10_ARGS;
 
 BENCHMARK(BM_join_with_old_owned_pattern) POWER_10_ARGS;
 BENCHMARK(BM_join_with_old_subrange_pattern) POWER_10_ARGS;

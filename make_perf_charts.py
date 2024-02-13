@@ -22,6 +22,11 @@ def get_style(run_names):
     key = ''.join(run_names)
     return styles[key]
 
+styles[''.join(['Old', 'New'])] = \
+    pygal.style.Style(
+        background='transparent',
+        plot_background='transparent',
+        colors=('#FF0000', '#0000FF'))
 styles[''.join(['Old', 'New', 'Fat New'])] = \
     pygal.style.Style(
         background='transparent',
@@ -65,7 +70,12 @@ def print_chart(run, run_names):
         x_title='Number of Elements',
         tooltip_border_radius=10,
         legend_at_bottom=True)
-    chart.title = f'{name}_view'
+    title = name
+    if title.startswith('ptr_'):
+        title = title[len('ptr_'):] + '_view (Function Pointer)'
+    else:
+        title += '_view'
+    chart.title = title
     chart.x_labels = list(map(lambda x: str(x), all_iterations))
     for name_,run_ in zip(run_names, runs):
         # print(name, name_, run_)
