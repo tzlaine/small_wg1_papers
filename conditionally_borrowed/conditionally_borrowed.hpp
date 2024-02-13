@@ -494,12 +494,19 @@ namespace std::ranges::z {
 
     __ziperator<_Const> _M_inner;
 
+    constexpr __detail::__maybe_const_t<_Const, _Fp>& __f()
+    {
+      if constexpr (__tidy_func<_Fp>)
+        return *_M_f_access;
+      else
+        return *_M_f_access->_M_fun;
+    }
     constexpr const _Fp& __f() const
     {
-        if constexpr (__tidy_func<_Fp>)
-            return *_M_f_access;
-        else
-            return *_M_f_access->_M_fun;
+      if constexpr (__tidy_func<_Fp>)
+        return *_M_f_access;
+      else
+        return *_M_f_access->_M_fun;
     }
 
     constexpr
@@ -1145,12 +1152,19 @@ namespace std::ranges::z {
 
     _InnerIter<_Const> _M_inner;
 
+    constexpr __detail::__maybe_const_t<_Const, _Fp>& __f()
+    {
+      if constexpr (__tidy_func<_Fp>)
+        return *_M_f_access;
+      else
+        return *_M_f_access->_M_fun;
+    }
     constexpr const _Fp& __f() const
     {
-        if constexpr (__tidy_func<_Fp>)
-            return *_M_f_access;
-        else
-            return *_M_f_access->_M_fun;
+      if constexpr (__tidy_func<_Fp>)
+        return *_M_f_access;
+      else
+        return *_M_f_access->_M_fun;
     }
 
     constexpr
@@ -1501,10 +1515,10 @@ namespace std::ranges::z {
     iterator_t<_Vp> _M_next = iterator_t<_Vp>();
     [[no_unique_address]] sentinel_t<_Vp> _M_end = sentinel_t<_Vp>();
 
-    constexpr const _Pred& __pred() const
+    constexpr _Pred& __pred()
     {
       if constexpr (__tidy_func<_Pred>)
-         return *_M_pred_access;
+        return *_M_pred_access;
       else
         return *_M_pred_access->_M_pred;
     }
@@ -1807,7 +1821,14 @@ namespace std::ranges::z {
     variant<_PatternIter, _InnerIter> _M_inner_it;
     [[no_unique_address]] sentinel_t<_Base> _M_end = sentinel_t<_Base>();
 
-    constexpr _Pattern& __pattern()
+    constexpr __detail::__maybe_const_t<_Const, _Pattern>& __pattern()
+    {
+      if constexpr (_S_store_pattern)
+        return _M_pattern_access;
+      else
+        return _M_pattern_access->_M_pattern;
+    }
+    constexpr const _Pattern& __pattern() const
     {
       if constexpr (_S_store_pattern)
         return _M_pattern_access;
@@ -2141,10 +2162,10 @@ namespace std::ranges::z {
 
         [[no_unique_address]] _Pred_access _M_pred_access;
 
-        constexpr const _Pred& __pred() const
+        constexpr _Pred& __pred()
         {
           if constexpr (__tidy_func<_Pred>)
-             return *_M_pred_access;
+            return *_M_pred_access;
           else
             return *_M_pred_access->_M_pred;
         }
@@ -2422,12 +2443,19 @@ namespace std::ranges::z {
 
           [[no_unique_address]] _F_access _M_f_access;
 
+          constexpr __detail::__maybe_const_t<_Const, _Fp>& __f()
+          {
+            if constexpr (__tidy_func<_Fp>)
+              return *_M_f_access;
+            else
+              return *_M_f_access->_M_fun;
+          }
           constexpr const _Fp& __f() const
           {
-              if constexpr (__tidy_func<_Fp>)
-                  return *_M_f_access;
-              else
-                  return *_M_f_access->_M_fun;
+            if constexpr (__tidy_func<_Fp>)
+              return *_M_f_access;
+            else
+              return *_M_f_access->_M_fun;
           }
 
 	  constexpr
@@ -2879,6 +2907,378 @@ namespace std::ranges::z {
     };
 
     inline constexpr _TakeWhile take_while;
+  } // namespace views
+
+  template<input_range _Vp>
+    requires view<_Vp> && input_range<range_reference_t<_Vp>>
+    class join_view : public view_interface<join_view<_Vp>>
+    {
+    private:
+      using _InnerRange = range_reference_t<_Vp>;
+
+      template<bool _Const>
+	using _Base = __detail::__maybe_const_t<_Const, _Vp>;
+
+      template<bool _Const>
+	using _Outer_iter = iterator_t<_Base<_Const>>;
+
+      template<bool _Const>
+	using _Inner_iter = iterator_t<range_reference_t<_Base<_Const>>>;
+
+      template<bool _Const>
+	static constexpr bool _S_ref_is_glvalue
+	  = is_reference_v<range_reference_t<_Base<_Const>>>;
+
+      template<bool _Const>
+	struct __iter_cat
+	{ };
+
+      template<bool _Const>
+	requires _S_ref_is_glvalue<_Const>
+	  && forward_range<_Base<_Const>>
+	  && forward_range<range_reference_t<_Base<_Const>>>
+	struct __iter_cat<_Const>
+	{
+	private:
+	  static constexpr auto
+	  _S_iter_cat()
+	  {
+	    using _Outer_iter = join_view::_Outer_iter<_Const>;
+	    using _Inner_iter = join_view::_Inner_iter<_Const>;
+	    using _OuterCat = typename iterator_traits<_Outer_iter>::iterator_category;
+	    using _InnerCat = typename iterator_traits<_Inner_iter>::iterator_category;
+	    if constexpr (derived_from<_OuterCat, bidirectional_iterator_tag>
+			  && derived_from<_InnerCat, bidirectional_iterator_tag>
+			  && common_range<range_reference_t<_Base<_Const>>>)
+	      return bidirectional_iterator_tag{};
+	    else if constexpr (derived_from<_OuterCat, forward_iterator_tag>
+			       && derived_from<_InnerCat, forward_iterator_tag>)
+	      return forward_iterator_tag{};
+	    else
+	      return input_iterator_tag{};
+	  }
+	public:
+	  using iterator_category = decltype(_S_iter_cat());
+	};
+
+      template<bool _Const>
+	struct _Sentinel;
+
+      template<bool _Const>
+	struct _Iterator : __iter_cat<_Const>
+	{
+	private:
+	  using _Parent = __detail::__maybe_const_t<_Const, join_view>;
+	  using _Base = join_view::_Base<_Const>;
+
+	  static constexpr bool _S_ref_is_glvalue
+	    = join_view::_S_ref_is_glvalue<_Const>;
+
+	  constexpr void
+	  _M_satisfy()
+	  {
+	    auto __update_inner = [this] (const iterator_t<_Base>& __x) -> auto&& {
+	      if constexpr (_S_ref_is_glvalue)
+		return *__x;
+	      else
+		return _M_parent->_M_inner._M_emplace_deref(__x);
+	    };
+
+	    for (; _M_outer != _M_end; ++_M_outer)
+	      {
+		auto&& __inner = __update_inner(_M_outer);
+		_M_inner = ranges::begin(__inner);
+		if (_M_inner != ranges::end(__inner))
+		  return;
+	      }
+
+	    if constexpr (_S_ref_is_glvalue)
+	      _M_inner.reset();
+	  }
+
+	  static constexpr auto
+	  _S_iter_concept()
+	  {
+	    if constexpr (_S_ref_is_glvalue
+			  && bidirectional_range<_Base>
+			  && bidirectional_range<range_reference_t<_Base>>
+			  && common_range<range_reference_t<_Base>>)
+	      return bidirectional_iterator_tag{};
+	    else if constexpr (_S_ref_is_glvalue
+			       && forward_range<_Base>
+			       && forward_range<range_reference_t<_Base>>)
+	      return forward_iterator_tag{};
+	    else
+	      return input_iterator_tag{};
+	  }
+
+	  using _Outer_iter = join_view::_Outer_iter<_Const>;
+	  using _Inner_iter = join_view::_Inner_iter<_Const>;
+
+	  _Outer_iter _M_outer = _Outer_iter();
+	  optional<_Inner_iter> _M_inner;
+	  [[no_unique_address]]
+	    __detail::__maybe_present_t<!forward_range<_Base> || !_S_ref_is_glvalue,
+                                        _Parent*> _M_parent;
+          sentinel_t<_Base> _M_end = sentinel_t<_Base>();
+
+	public:
+	  using iterator_concept = decltype(_S_iter_concept());
+	  // iterator_category defined in __join_view_iter_cat
+	  using value_type = range_value_t<range_reference_t<_Base>>;
+	  using difference_type
+	    = common_type_t<range_difference_t<_Base>,
+			    range_difference_t<range_reference_t<_Base>>>;
+
+	  _Iterator()
+            requires default_initializable<_Outer_iter> &&
+            default_initializable<sentinel_t<_Base>>
+            = default;
+
+	  constexpr
+	  _Iterator(_Parent* __parent, _Outer_iter __outer)
+	    : _M_outer(std::move(__outer)),
+	      _M_end(ranges::end(__parent->_M_base))
+	  {
+              if constexpr (!_S_ref_is_glvalue)
+                _M_parent = __parent;
+              _M_satisfy();
+          }
+
+	  constexpr
+	  _Iterator(_Iterator<!_Const> __i)
+	    requires _Const
+	      && convertible_to<iterator_t<_Vp>, _Outer_iter>
+	      && convertible_to<iterator_t<_InnerRange>, _Inner_iter>
+	    : _M_outer(std::move(__i._M_outer)), _M_inner(std::move(__i._M_inner)),
+	      _M_parent(__i._M_parent),
+	      _M_end(__i._M_end)
+	  { }
+
+	  constexpr decltype(auto)
+	  operator*() const
+	  { return **_M_inner; }
+
+	  // _GLIBCXX_RESOLVE_LIB_DEFECTS
+	  // 3500. join_view::iterator::operator->() is bogus
+	  constexpr _Inner_iter
+	  operator->() const
+	    requires __detail::__has_arrow<_Inner_iter>
+	      && copyable<_Inner_iter>
+	  { return *_M_inner; }
+
+	  constexpr _Iterator&
+	  operator++()
+	  {
+	    auto&& __inner_range = [this] () -> auto&& {
+	      if constexpr (_S_ref_is_glvalue)
+		return *_M_outer;
+	      else
+		return *_M_parent->_M_inner;
+	    }();
+	    if (++*_M_inner == ranges::end(__inner_range))
+	      {
+		++_M_outer;
+		_M_satisfy();
+	      }
+	    return *this;
+	  }
+
+	  constexpr void
+	  operator++(int)
+	  { ++*this; }
+
+	  constexpr _Iterator
+	  operator++(int)
+	    requires _S_ref_is_glvalue && forward_range<_Base>
+	      && forward_range<range_reference_t<_Base>>
+	  {
+	    auto __tmp = *this;
+	    ++*this;
+	    return __tmp;
+	  }
+
+	  constexpr _Iterator&
+	  operator--()
+	    requires _S_ref_is_glvalue && bidirectional_range<_Base>
+	      && bidirectional_range<range_reference_t<_Base>>
+	      && common_range<range_reference_t<_Base>>
+	  {
+	    if (_M_outer == _M_end)
+	      _M_inner = ranges::end(*--_M_outer);
+	    while (*_M_inner == ranges::begin(*_M_outer))
+	      *_M_inner = ranges::end(*--_M_outer);
+	    --*_M_inner;
+	    return *this;
+	  }
+
+	  constexpr _Iterator
+	  operator--(int)
+	    requires _S_ref_is_glvalue && bidirectional_range<_Base>
+	      && bidirectional_range<range_reference_t<_Base>>
+	      && common_range<range_reference_t<_Base>>
+	  {
+	    auto __tmp = *this;
+	    --*this;
+	    return __tmp;
+	  }
+
+	  friend constexpr bool
+	  operator==(const _Iterator& __x, const _Iterator& __y)
+	    requires _S_ref_is_glvalue
+	      && equality_comparable<_Outer_iter>
+	      && equality_comparable<_Inner_iter>
+	  {
+	    return (__x._M_outer == __y._M_outer
+		    && __x._M_inner == __y._M_inner);
+	  }
+
+	  friend constexpr decltype(auto)
+	  iter_move(const _Iterator& __i)
+	  noexcept(noexcept(ranges::iter_move(*__i._M_inner)))
+	  { return ranges::iter_move(*__i._M_inner); }
+
+	  friend constexpr void
+	  iter_swap(const _Iterator& __x, const _Iterator& __y)
+	    noexcept(noexcept(ranges::iter_swap(*__x._M_inner, *__y._M_inner)))
+	    requires indirectly_swappable<_Inner_iter>
+	  { return ranges::iter_swap(*__x._M_inner, *__y._M_inner); }
+
+	  friend _Iterator<!_Const>;
+	  template<bool> friend struct _Sentinel;
+	};
+
+      template<bool _Const>
+	struct _Sentinel
+	{
+	private:
+	  using _Parent = __detail::__maybe_const_t<_Const, join_view>;
+	  using _Base = join_view::_Base<_Const>;
+
+	  template<bool _Const2>
+	    constexpr bool
+	    __equal(const _Iterator<_Const2>& __i) const
+	    { return __i._M_outer == _M_end; }
+
+	  sentinel_t<_Base> _M_end = sentinel_t<_Base>();
+
+	public:
+	  _Sentinel() = default;
+
+	  constexpr explicit
+	  _Sentinel(_Parent* __parent)
+	    : _M_end(ranges::end(__parent->_M_base))
+	  { }
+
+	  constexpr
+	  _Sentinel(_Sentinel<!_Const> __s)
+	    requires _Const && convertible_to<sentinel_t<_Vp>, sentinel_t<_Base>>
+	    : _M_end(std::move(__s._M_end))
+	  { }
+
+	  template<bool _Const2>
+	    requires sentinel_for<sentinel_t<_Base>,
+		       iterator_t<__detail::__maybe_const_t<_Const2, _Vp>>>
+	    friend constexpr bool
+	    operator==(const _Iterator<_Const2>& __x, const _Sentinel& __y)
+	    { return __y.__equal(__x); }
+
+	  friend _Sentinel<!_Const>;
+	};
+
+      _Vp _M_base = _Vp();
+      [[no_unique_address]]
+	__detail::__non_propagating_cache<remove_cv_t<_InnerRange>> _M_inner;
+
+    public:
+      join_view() requires default_initializable<_Vp> = default;
+
+      constexpr explicit
+      join_view(_Vp __base)
+	: _M_base(std::move(__base))
+      { }
+
+      constexpr _Vp
+      base() const& requires copy_constructible<_Vp>
+      { return _M_base; }
+
+      constexpr _Vp
+      base() &&
+      { return std::move(_M_base); }
+
+      constexpr auto
+      begin()
+      {
+	constexpr bool __use_const
+	  = (__detail::__simple_view<_Vp>
+	     && is_reference_v<range_reference_t<_Vp>>);
+	return _Iterator<__use_const>{this, ranges::begin(_M_base)};
+      }
+
+      constexpr auto
+      begin() const
+	requires input_range<const _Vp>
+	  && is_reference_v<range_reference_t<const _Vp>>
+      {
+	return _Iterator<true>{this, ranges::begin(_M_base)};
+      }
+
+      constexpr auto
+      end()
+      {
+	if constexpr (forward_range<_Vp> && is_reference_v<_InnerRange>
+		      && forward_range<_InnerRange>
+		      && common_range<_Vp> && common_range<_InnerRange>)
+	  return _Iterator<__detail::__simple_view<_Vp>>{this,
+							 ranges::end(_M_base)};
+	else
+	  return _Sentinel<__detail::__simple_view<_Vp>>{this};
+      }
+
+      constexpr auto
+      end() const
+	requires input_range<const _Vp>
+	  && is_reference_v<range_reference_t<const _Vp>>
+      {
+	if constexpr (forward_range<const _Vp>
+		      && is_reference_v<range_reference_t<const _Vp>>
+		      && forward_range<range_reference_t<const _Vp>>
+		      && common_range<const _Vp>
+		      && common_range<range_reference_t<const _Vp>>)
+	  return _Iterator<true>{this, ranges::end(_M_base)};
+	else
+	  return _Sentinel<true>{this};
+      }
+    };
+
+  template<typename _Range>
+    explicit join_view(_Range&&) -> join_view<std::views::all_t<_Range>>;
+
+  namespace views
+  {
+    namespace __detail
+    {
+      template<typename _Range>
+	concept __can_join_view
+	  = requires { join_view<std::views::all_t<_Range>>{std::declval<_Range>()}; };
+    } // namespace __detail
+
+    struct _Join : std::views::__adaptor::_RangeAdaptorClosure
+    {
+      template<viewable_range _Range>
+	requires __detail::__can_join_view<_Range>
+	constexpr auto
+	operator() [[nodiscard]] (_Range&& __r) const
+	{
+	  // _GLIBCXX_RESOLVE_LIB_DEFECTS
+	  // 3474. Nesting join_views is broken because of CTAD
+	  return join_view<std::views::all_t<_Range>>{std::forward<_Range>(__r)};
+	}
+
+      static constexpr bool _S_has_simple_call_op = true;
+    };
+
+    inline constexpr _Join join;
   } // namespace views
 
   template<input_range _Vp, forward_range _Pattern>
@@ -3556,6 +3956,11 @@ template<typename _Vp, size_t _Nm>
 constexpr bool std::ranges::enable_borrowed_range<
     std::ranges::z::adjacent_view<_Vp, _Nm>> = std::ranges::enable_borrowed_range<_Vp>;
 
+template<typename _Vp>
+constexpr bool std::ranges::enable_borrowed_range<std::ranges::z::join_view<_Vp>> =
+    std::ranges::enable_borrowed_range<_Vp> &&
+    std::ranges::forward_range<std::ranges::z::join_view<_Vp>>;
+
 template<typename _Vp, typename _Fp, size_t _Nm>
 constexpr bool std::ranges::enable_borrowed_range<
     std::ranges::z::adjacent_transform_view<_Vp, _Fp, _Nm>> =
@@ -3600,10 +4005,5 @@ constexpr bool std::ranges::enable_borrowed_range<
     std::ranges::z::split_view<_Vp, _Pattern>> =
     std::ranges::enable_borrowed_range<_Vp> &&
     (std::ranges::enable_borrowed_range<_Pattern> || std::ranges::z::__tidy_view<_Pattern>);
-
-template<typename _Vp>
-constexpr bool std::ranges::enable_borrowed_range<std::ranges::join_view<_Vp>> =
-    std::ranges::enable_borrowed_range<_Vp> &&
-    std::ranges::forward_range<std::ranges::join_view<_Vp>>;
 
 #endif

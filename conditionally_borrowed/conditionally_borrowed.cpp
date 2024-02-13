@@ -174,6 +174,47 @@ int main()
     }
 
     {
+        std::cout << "=== join ===\n\n";
+
+        using subrange_t = std::ranges::subrange<std::vector<int>::iterator>;
+        std::vector<subrange_t> subranges = {
+            {vec.begin(), vec.begin() + 2},
+            {vec.begin() + 3, vec.begin() + 4},
+            {vec.begin() + 4, vec.begin() + 6}};
+
+        auto old_view = subranges | std::views::join;
+        std::cout << "borrowed<old_view> = " << std::ranges::borrowed_range<decltype(old_view)> << "\n";
+        std::cout << "sizeof(old_view.begin()) = " << sizeof(old_view.begin()) << "\n";
+        static_assert(!std::ranges::borrowed_range<decltype(old_view)>);
+        for (auto x : old_view) {
+            std::cout << x << "\n";
+        }
+        std::cout << "\n";
+
+        auto new_view = subranges | std::ranges::z::views::join;
+        std::cout << "borrowed<new_view> = " << std::ranges::borrowed_range<decltype(new_view)> << "\n";
+        std::cout << "sizeof(new_view.begin()) = " << sizeof(new_view.begin()) << "\n";
+        static_assert(std::ranges::borrowed_range<decltype(new_view)>);
+        for (auto x : new_view) {
+            std::cout << x << "\n";
+        }
+        std::cout << "\n";
+
+        auto rvalue_new_view = subranges | std::ranges::z::views::join |
+                               std::ranges::z::views::split(99) |
+                               std::ranges::z::views::join;
+        std::cout << "borrowed<rvalue_new_view> = " << std::ranges::borrowed_range<decltype(rvalue_new_view)> << "\n";
+        std::cout << "sizeof(rvalue_new_view.begin()) = " << sizeof(rvalue_new_view.begin()) << "\n";
+        static_assert(std::ranges::input_range<decltype(rvalue_new_view)>);
+        static_assert(!std::ranges::forward_range<decltype(rvalue_new_view)>);
+        static_assert(!std::ranges::borrowed_range<decltype(rvalue_new_view)>);
+        for (auto x : rvalue_new_view) {
+            std::cout << x << "\n";
+        }
+        std::cout << "\n";
+    }
+
+    {
         std::cout << "=== adjacent_transform ===\n\n";
 
         auto minus = [](auto x, auto y) { return x - y; };
@@ -443,25 +484,6 @@ int main()
                 std::cout << x << ' ';
             }
             std::cout << "\n";
-        }
-        std::cout << "\n";
-    }
-
-    {
-        std::cout << "=== join ===\n\n";
-
-        using subrange_t = std::ranges::subrange<std::vector<int>::iterator>;
-        std::vector<subrange_t> subranges = {
-            {vec.begin(), vec.begin() + 2},
-            {vec.begin() + 3, vec.begin() + 4},
-            {vec.begin() + 4, vec.begin() + 6}};
-
-        auto view = subranges | std::ranges::views::join;
-        std::cout << "borrowed<view> = " << std::ranges::borrowed_range<decltype(view)> << "\n";
-        std::cout << "sizeof(view.begin()) = " << sizeof(view.begin()) << "\n";
-        static_assert(std::ranges::borrowed_range<decltype(view)>);
-        for (auto x : view) {
-            std::cout << x << "\n";
         }
         std::cout << "\n";
     }
