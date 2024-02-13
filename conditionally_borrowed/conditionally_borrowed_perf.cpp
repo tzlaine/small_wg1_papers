@@ -56,6 +56,37 @@ void BM_zip_transform_fat_new(benchmark::State & state)
     }
 }
 
+int plus_ptr(int x, int y) { return x + y; }
+
+void BM_ptr_zip_transform_old(benchmark::State & state)
+{
+    auto const vec = make_int_vec(state.range(0));
+    auto out = std::vector<int>(state.range(0));
+    auto view = std::views::zip_transform(&plus_ptr, vec, vec);
+    while (state.KeepRunning()) {
+        benchmark::DoNotOptimize(std::ranges::copy(view, out.begin()));
+    }
+}
+void BM_ptr_zip_transform_new(benchmark::State & state)
+{
+    auto const vec = make_int_vec(state.range(0));
+    auto out = std::vector<int>(state.range(0));
+    auto view = std::ranges::z::views::zip_transform(&plus_ptr, vec, vec);
+    while (state.KeepRunning()) {
+        benchmark::DoNotOptimize(std::ranges::copy(view, out.begin()));
+    }
+}
+void BM_ptr_zip_transform_fat_new(benchmark::State & state)
+{
+    auto const vec = make_int_vec(state.range(0));
+    auto out = std::vector<int>(state.range(0));
+    auto view =
+        std::ranges::z::views::zip_transform(fat_callable(&plus_ptr), vec, vec);
+    while (state.KeepRunning()) {
+        benchmark::DoNotOptimize(std::ranges::copy(view, out.begin()));
+    }
+}
+
 auto lt = [](auto x, auto y) { return x < y; };
 
 void BM_chunk_by_old(benchmark::State & state)
@@ -87,6 +118,45 @@ void BM_chunk_by_fat_new(benchmark::State & state)
     auto const vec = make_int_vec(state.range(0));
     auto out = std::vector<int>(state.range(0));
     auto view = vec | std::ranges::z::views::chunk_by(fat_callable(lt));
+    while (state.KeepRunning()) {
+        auto dest = out.begin();
+        for (auto && chunk : view) {
+            benchmark::DoNotOptimize(dest = std::ranges::copy(chunk, dest).out);
+        }
+    }
+}
+
+bool lt_ptr(int x, int y) { return x < y; }
+
+void BM_ptr_chunk_by_old(benchmark::State & state)
+{
+    auto const vec = make_int_vec(state.range(0));
+    auto out = std::vector<int>(state.range(0));
+    auto view = vec | std::views::chunk_by(&lt_ptr);
+    while (state.KeepRunning()) {
+        auto dest = out.begin();
+        for (auto && chunk : view) {
+            benchmark::DoNotOptimize(dest = std::ranges::copy(chunk, dest).out);
+        }
+    }
+}
+void BM_ptr_chunk_by_new(benchmark::State & state)
+{
+    auto const vec = make_int_vec(state.range(0));
+    auto out = std::vector<int>(state.range(0));
+    auto view = vec | std::ranges::z::views::chunk_by(&lt_ptr);
+    while (state.KeepRunning()) {
+        auto dest = out.begin();
+        for (auto && chunk : view) {
+            benchmark::DoNotOptimize(dest = std::ranges::copy(chunk, dest).out);
+        }
+    }
+}
+void BM_ptr_chunk_by_fat_new(benchmark::State & state)
+{
+    auto const vec = make_int_vec(state.range(0));
+    auto out = std::vector<int>(state.range(0));
+    auto view = vec | std::ranges::z::views::chunk_by(fat_callable(&lt_ptr));
     while (state.KeepRunning()) {
         auto dest = out.begin();
         for (auto && chunk : view) {
@@ -273,6 +343,35 @@ void BM_adjacent_transform_fat_new(benchmark::State & state)
     }
 }
 
+void BM_ptr_adjacent_transform_old(benchmark::State & state)
+{
+    auto const vec = make_int_vec(state.range(0));
+    auto out = std::vector<int>(state.range(0));
+    auto view = vec | std::views::adjacent_transform<2>(&plus_ptr);
+    while (state.KeepRunning()) {
+        benchmark::DoNotOptimize(std::ranges::copy(view, out.begin()));
+    }
+}
+void BM_ptr_adjacent_transform_new(benchmark::State & state)
+{
+    auto const vec = make_int_vec(state.range(0));
+    auto out = std::vector<int>(state.range(0));
+    auto view = vec | std::ranges::z::views::adjacent_transform<2>(&plus_ptr);
+    while (state.KeepRunning()) {
+        benchmark::DoNotOptimize(std::ranges::copy(view, out.begin()));
+    }
+}
+void BM_ptr_adjacent_transform_fat_new(benchmark::State & state)
+{
+    auto const vec = make_int_vec(state.range(0));
+    auto out = std::vector<int>(state.range(0));
+    auto view = vec | std::ranges::z::views::adjacent_transform<2>(
+                          fat_callable(&plus_ptr));
+    while (state.KeepRunning()) {
+        benchmark::DoNotOptimize(std::ranges::copy(view, out.begin()));
+    }
+}
+
 auto even = [](auto x) { return x % 2 == 0; };
 
 void BM_filter_old(benchmark::State & state)
@@ -303,6 +402,36 @@ void BM_filter_fat_new(benchmark::State & state)
     }
 }
 
+bool even_ptr(int x) { return x % 2 == 0; }
+
+void BM_ptr_filter_old(benchmark::State & state)
+{
+    auto const vec = make_int_vec(state.range(0));
+    auto out = std::vector<int>(state.range(0));
+    auto view = vec | std::views::filter(&even_ptr);
+    while (state.KeepRunning()) {
+        benchmark::DoNotOptimize(std::ranges::copy(view, out.begin()));
+    }
+}
+void BM_ptr_filter_new(benchmark::State & state)
+{
+    auto const vec = make_int_vec(state.range(0));
+    auto out = std::vector<int>(state.range(0));
+    auto view = vec | std::ranges::z::views::filter(&even_ptr);
+    while (state.KeepRunning()) {
+        benchmark::DoNotOptimize(std::ranges::copy(view, out.begin()));
+    }
+}
+void BM_ptr_filter_fat_new(benchmark::State & state)
+{
+    auto const vec = make_int_vec(state.range(0));
+    auto out = std::vector<int>(state.range(0));
+    auto view = vec | std::ranges::z::views::filter(fat_callable(&even_ptr));
+    while (state.KeepRunning()) {
+        benchmark::DoNotOptimize(std::ranges::copy(view, out.begin()));
+    }
+}
+
 auto negate = [](auto x) { return -x; };
 
 void BM_transform_old(benchmark::State & state)
@@ -328,6 +457,36 @@ void BM_transform_fat_new(benchmark::State & state)
     auto const vec = make_int_vec(state.range(0));
     auto out = std::vector<int>(state.range(0));
     auto view = vec | std::ranges::z::views::transform(fat_callable(negate));
+    while (state.KeepRunning()) {
+        benchmark::DoNotOptimize(std::ranges::copy(view, out.begin()));
+    }
+}
+
+int negate_ptr(int x) { return -x; }
+
+void BM_ptr_transform_old(benchmark::State & state)
+{
+    auto const vec = make_int_vec(state.range(0));
+    auto out = std::vector<int>(state.range(0));
+    auto view = vec | std::views::transform(&negate_ptr);
+    while (state.KeepRunning()) {
+        benchmark::DoNotOptimize(std::ranges::copy(view, out.begin()));
+    }
+}
+void BM_ptr_transform_new(benchmark::State & state)
+{
+    auto const vec = make_int_vec(state.range(0));
+    auto out = std::vector<int>(state.range(0));
+    auto view = vec | std::ranges::z::views::transform(&negate_ptr);
+    while (state.KeepRunning()) {
+        benchmark::DoNotOptimize(std::ranges::copy(view, out.begin()));
+    }
+}
+void BM_ptr_transform_fat_new(benchmark::State & state)
+{
+    auto const vec = make_int_vec(state.range(0));
+    auto out = std::vector<int>(state.range(0));
+    auto view = vec | std::ranges::z::views::transform(fat_callable(&negate_ptr));
     while (state.KeepRunning()) {
         benchmark::DoNotOptimize(std::ranges::copy(view, out.begin()));
     }
@@ -688,9 +847,17 @@ BENCHMARK(BM_zip_transform_old) POWER_10_ARGS;
 BENCHMARK(BM_zip_transform_new) POWER_10_ARGS;
 BENCHMARK(BM_zip_transform_fat_new) POWER_10_ARGS;
 
+BENCHMARK(BM_ptr_zip_transform_old) POWER_10_ARGS;
+BENCHMARK(BM_ptr_zip_transform_new) POWER_10_ARGS;
+BENCHMARK(BM_ptr_zip_transform_fat_new) POWER_10_ARGS;
+
 BENCHMARK(BM_chunk_by_old) POWER_10_ARGS;
 BENCHMARK(BM_chunk_by_new) POWER_10_ARGS;
 BENCHMARK(BM_chunk_by_fat_new) POWER_10_ARGS;
+
+BENCHMARK(BM_ptr_chunk_by_old) POWER_10_ARGS;
+BENCHMARK(BM_ptr_chunk_by_new) POWER_10_ARGS;
+BENCHMARK(BM_ptr_chunk_by_fat_new) POWER_10_ARGS;
 
 BENCHMARK(BM_join_with_old_owned_pattern) POWER_10_ARGS;
 BENCHMARK(BM_join_with_old_subrange_pattern) POWER_10_ARGS;
@@ -703,13 +870,25 @@ BENCHMARK(BM_adjacent_transform_old) POWER_10_ARGS;
 BENCHMARK(BM_adjacent_transform_new) POWER_10_ARGS;
 BENCHMARK(BM_adjacent_transform_fat_new) POWER_10_ARGS;
 
+BENCHMARK(BM_ptr_adjacent_transform_old) POWER_10_ARGS;
+BENCHMARK(BM_ptr_adjacent_transform_new) POWER_10_ARGS;
+BENCHMARK(BM_ptr_adjacent_transform_fat_new) POWER_10_ARGS;
+
 BENCHMARK(BM_filter_old) POWER_10_ARGS;
 BENCHMARK(BM_filter_new) POWER_10_ARGS;
 BENCHMARK(BM_filter_fat_new) POWER_10_ARGS;
 
+BENCHMARK(BM_ptr_filter_old) POWER_10_ARGS;
+BENCHMARK(BM_ptr_filter_new) POWER_10_ARGS;
+BENCHMARK(BM_ptr_filter_fat_new) POWER_10_ARGS;
+
 BENCHMARK(BM_transform_old) POWER_10_ARGS;
 BENCHMARK(BM_transform_new) POWER_10_ARGS;
 BENCHMARK(BM_transform_fat_new) POWER_10_ARGS;
+
+BENCHMARK(BM_ptr_transform_old) POWER_10_ARGS;
+BENCHMARK(BM_ptr_transform_new) POWER_10_ARGS;
+BENCHMARK(BM_ptr_transform_fat_new) POWER_10_ARGS;
 
 BENCHMARK(BM_take_while_old) POWER_10_ARGS;
 BENCHMARK(BM_take_while_new) POWER_10_ARGS;
