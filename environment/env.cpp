@@ -24,13 +24,108 @@ namespace std {
         constexpr bool
             tuple_args_env_vals<tuple<Ts...>> = (env_value<Ts> && ...);
 
-        template<template<typename...> typename TypeList, typename... Ts>
-        constexpr bool has_dupes(TypeList<Ts...>)
+        template<auto X>
+        struct constant_wrapper
         {
-            // TODO: add use new metaprogramming to make a type Checker that
-            // contains data members that are [[no_unique_address]]
-            // wrapper<Ts>..., and then check that sizeof(Checker) == 1u.
+            static constexpr decltype(X) value = X;
+        };
+        template<auto X>
+        constexpr auto cw = constant_wrapper<X>{};
+
+        template<typename T>
+        struct wrapper
+        {
+            using type = T;
+        };
+        template<typename T>
+        consteval auto wrap()
+        {
+            return wrapper<T>{};
+        }
+
+        struct type_fold_base;
+        template<typename T, int I = 0, typename Tail = type_fold_base>
+        struct type_fold;
+        struct type_fold_base
+        {
+            consteval bool has_dupes() const { return false; }
+            consteval void type() const {}
+            template<typename T>
+            consteval int index(wrapper<T>) const
+            {
+                return -1;
+            }
+            template<typename T>
+            consteval bool contains(wrapper<T>) const
+            {
+                return false;
+            }
+            template<typename T>
+            consteval auto operator+(wrapper<T>) const
+            {
+                return type_fold<T>{};
+            }
+        };
+        template<typename T, int I, typename Tail>
+        struct type_fold : Tail
+        {
+            consteval bool has_dupes() const { return sizeof(type_fold) != 1u; }
+            consteval wrapper<T> type(constant_wrapper<I>) const { return {}; }
+            consteval int index(wrapper<T>) const { return I; }
+            consteval bool contains(wrapper<T> w) const { return true; }
+            template<typename U>
+            consteval auto operator+(wrapper<U>) const
+            {
+                return type_fold<U, I + 1, type_fold>{};
+            }
+
+            using Tail::has_dupes;
+            using Tail::type;
+            using Tail::index;
+            using Tail::contains;
+
+            [[no_unique_address]] wrapper<T> _;
+        };
+
+        template<template<typename...> typename TypeList>
+        consteval bool has_dupes(TypeList<>)
+        {
             return false;
+        }
+        template<
+            template<typename...>
+            typename TypeList,
+            typename T,
+            typename... Ts>
+        consteval bool has_dupes(TypeList<T, Ts...>)
+        {
+            constexpr auto fold = (type_fold<T>{} + ... + wrap<Ts>());
+            // TODO: consider using new metaprogramming to make a type Checker
+            // that contains data members that are [[no_unique_address]]
+            // wrapper<Ts>..., and then check that sizeof(Checker) == 1u.
+            return sizeof(fold) != 1u;
+        }
+
+        template<typename Tag, typename T, int N, typename Tail>
+        consteval bool contains(type_fold<T, N, Tail> fold_)
+        {
+            constexpr auto fold = fold_ + wrap<T>();
+            return sizeof(fold) != 1u;
+        }
+
+        template<template<typename...> typename TypeList>
+        consteval auto to_type_fold(TypeList<>)
+        {
+            return type_fold_base{};
+        }
+        template<
+            template<typename...>
+            typename TypeList,
+            typename T,
+            typename... Ts>
+        consteval auto to_type_fold(TypeList<T, Ts...>)
+        {
+            return (type_fold<T>{} + ... + wrap<Ts>());
         }
 
         template<
@@ -45,7 +140,8 @@ namespace std {
 #if 0 // TODO
             meta::info types[] = {^T, ^Ts...};
             auto it = ranges::find(types, ^Tag);
-            static_assert(it != ranges::end(types));
+            if (it != ranges::end(types))
+                return -1;
             return it - types.begin();
 #endif
             if constexpr (same_as<Tag, T>)
@@ -58,7 +154,8 @@ namespace std {
     }
 
     template<typename T>
-    concept type_list = std::is_empty_v<T> && detail::has_type_params<T>;
+    concept type_list =
+        is_empty_v<T> && detail::has_type_params<T> && semiregular<T>;
 
     template<typename T>
     struct value_type_for
@@ -179,7 +276,7 @@ namespace std {
             TypeList<Tags2...> tl2,
             TypeList<UniqueTags...> result)
         {
-            constexpr int i = index_from_tag<Tag, 0>(Tags2{});
+            constexpr int i = index_from_tag<Tag, 0>(tl2);
             if constexpr (0 <= i) {
                 return set_diff_tags(
                     TypeList<Tags1...>{}, tl2, TypeList<UniqueTags...>{});
@@ -334,6 +431,57 @@ namespace std {
 struct int_tag;
 struct double_tag;
 struct string_tag;
+
+static_assert(
+    !std::detail::to_type_fold(std::types<int_tag, double_tag>{}).has_dupes());
+static_assert(
+    std::detail::to_type_fold(std::types<int_tag, string_tag, int_tag>{})
+        .has_dupes());
+static_assert(
+    !std::detail::to_type_fold(std::types<int_tag, string_tag, double_tag>{})
+         .has_dupes());
+
+static_assert(
+    std::detail::to_type_fold(std::types<int_tag, string_tag, double_tag>{})
+        .index(std::detail::wrap<int_tag>()) == 0);
+static_assert(
+    std::detail::to_type_fold(std::types<int_tag, string_tag, double_tag>{})
+        .index(std::detail::wrap<string_tag>()) == 1);
+static_assert(
+    std::detail::to_type_fold(std::types<int_tag, string_tag, double_tag>{})
+        .index(std::detail::wrap<double_tag>()) == 2);
+static_assert(
+    std::detail::to_type_fold(std::types<int_tag, string_tag, double_tag>{})
+        .index(std::detail::wrap<int>()) == -1);
+
+static_assert(
+    std::detail::to_type_fold(std::types<int_tag, string_tag, double_tag>{})
+        .contains(std::detail::wrap<int_tag>()));
+static_assert(
+    std::detail::to_type_fold(std::types<int_tag, string_tag, double_tag>{})
+        .contains(std::detail::wrap<string_tag>()));
+static_assert(
+    std::detail::to_type_fold(std::types<int_tag, string_tag, double_tag>{})
+        .contains(std::detail::wrap<double_tag>()));
+static_assert(
+    !std::detail::to_type_fold(std::types<int_tag, string_tag, double_tag>{})
+         .contains(std::detail::wrap<int>()));
+
+static_assert(std::same_as<
+              decltype(std::detail::to_type_fold(
+                           std::types<int_tag, string_tag, double_tag>{})
+                           .type(std::detail::cw<0>))::type,
+              int_tag>);
+static_assert(std::same_as<
+              decltype(std::detail::to_type_fold(
+                           std::types<int_tag, string_tag, double_tag>{})
+                           .type(std::detail::cw<1>))::type,
+              string_tag>);
+static_assert(std::same_as<
+              decltype(std::detail::to_type_fold(
+                           std::types<int_tag, string_tag, double_tag>{})
+                           .type(std::detail::cw<2>))::type,
+              double_tag>);
 
 int main()
 {
