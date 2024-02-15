@@ -88,32 +88,6 @@ namespace std {
         };
 
         template<template<typename...> typename TypeList>
-        consteval bool has_dupes(TypeList<>)
-        {
-            return false;
-        }
-        template<
-            template<typename...>
-            typename TypeList,
-            typename T,
-            typename... Ts>
-        consteval bool has_dupes(TypeList<T, Ts...>)
-        {
-            constexpr auto fold = (type_fold<T>{} + ... + wrap<Ts>());
-            // TODO: consider using new metaprogramming to make a type Checker
-            // that contains data members that are [[no_unique_address]]
-            // wrapper<Ts>..., and then check that sizeof(Checker) == 1u.
-            return sizeof(fold) != 1u;
-        }
-
-        template<typename Tag, typename T, int N, typename Tail>
-        consteval bool contains(type_fold<T, N, Tail> fold_)
-        {
-            constexpr auto fold = fold_ + wrap<T>();
-            return sizeof(fold) != 1u;
-        }
-
-        template<template<typename...> typename TypeList>
         consteval auto to_type_fold(TypeList<>)
         {
             return type_fold_base{};
@@ -130,26 +104,13 @@ namespace std {
 
         template<
             typename Tag,
-            int I,
             template<typename...>
             typename TypeList,
             typename T,
             typename... Ts>
-        constexpr int index_from_tag(TypeList<T, Ts...>)
+        consteval int index_from_tag(TypeList<T, Ts...> tl)
         {
-#if 0 // TODO
-            meta::info types[] = {^T, ^Ts...};
-            auto it = ranges::find(types, ^Tag);
-            if (it != ranges::end(types))
-                return -1;
-            return it - types.begin();
-#endif
-            if constexpr (same_as<Tag, T>)
-                return I;
-            else if constexpr (!sizeof...(Ts))
-                return -1;
-            else
-                return index_from_tag<Tag, I + 1>(TypeList<Ts...>{});
+            return to_type_fold(tl).index(wrap<Tag>());
         }
     }
 
@@ -182,24 +143,34 @@ namespace std {
 
     namespace detail {
         template<typename T>
-        concept free_queryable = requires(T & x)
-        {
+        concept free_queryable = requires(T & x) {
             { make_queryable_environment(x) } -> queryable_environment;
         };
         template<typename T>
-        concept member_queryable = requires(T & x)
-        {
+        concept member_queryable = requires(T & x) {
             { x.make_queryable_environment() } -> queryable_environment;
         };
         // clang-format on
 
         template<typename Tag, typename Tags>
-        constexpr bool has_tag = 0 <= detail::index_from_tag<Tag, 0>(Tags{});
+        constexpr bool has_tag = 0 <= detail::index_from_tag<Tag>(Tags{});
 
         template<typename T, template<class...> class TypeList, typename... Ts>
-        constexpr auto tl_append(TypeList<Ts...>)
+        consteval auto tl_append(TypeList<Ts...>)
         {
             return TypeList<Ts..., T>{};
+        }
+
+        template<
+            template<class...>
+            class TypeList1,
+            typename... Ts1,
+            template<class...>
+            class TypeList2,
+            typename... Ts2>
+        consteval auto tl_cat(TypeList1<Ts1...>, TypeList2<Ts2...>)
+        {
+            return TypeList1<Ts1..., Ts2...>{};
         }
 
         template<
@@ -209,7 +180,7 @@ namespace std {
             typename T,
             typename... Ts,
             typename... Us>
-        constexpr auto tl_erase_impl(TypeList<Us...>)
+        consteval auto tl_erase_impl(TypeList<Us...>)
         {
             if constexpr (same_as<X, T>)
                 return TypeList<Us..., Ts...>{};
@@ -219,31 +190,42 @@ namespace std {
                 return tl_erase_impl<X, TypeList, Ts...>(TypeList<Us..., T>{});
         }
         template<typename T, template<class...> class TypeList, typename... Ts>
-        constexpr auto tl_erase(TypeList<Ts...>)
+        consteval auto tl_erase(TypeList<Ts...>)
         {
             return tl_erase_impl<T, TypeList, Ts...>(TypeList<>{});
         }
 
+        template<
+            typename... Us,
+            template<typename...>
+            typename TypeList,
+            typename... Ts>
+        consteval auto tl_like(TypeList<Ts...>)
+        {
+            return TypeList<Us...>{};
+        }
+
         template<int JsOffset, int... Is, int... Js>
-        auto
-        glom_indices(integer_sequence<int, Is...>, integer_sequence<int, Js...>)
+        consteval auto
+        cat_indices(integer_sequence<int, Is...>, integer_sequence<int, Js...>)
         {
             return integer_sequence<int, Is..., Js + JsOffset...>{};
         }
         template<int I, int TupleSize>
-        constexpr auto tuple_indices_without_i()
+        consteval auto tuple_indices_without_i()
         {
-            return glom_indices<I + 1>(
+            return cat_indices<I + 1>(
                 make_integer_sequence<int, I>{},
                 make_integer_sequence<int, TupleSize - (I + 1)>{});
         }
         template<typename Tuple, int... Is>
-        auto tuple_without_i_impl(Tuple && t, integer_sequence<int, Is...>)
+        constexpr auto
+        tuple_without_i_impl(Tuple && t, integer_sequence<int, Is...>)
         {
             return tuple(std::get<Is>((Tuple &&) t)...);
         }
         template<int I, typename Tuple>
-        auto tuple_without_i(Tuple && t)
+        constexpr auto tuple_without_i(Tuple && t)
         {
             return tuple_without_i_impl(
                 (Tuple &&) t,
@@ -257,7 +239,7 @@ namespace std {
             class TypeList,
             typename... Tags2,
             typename... UniqueTags>
-        auto set_diff_tags(
+        consteval auto tl_set_diff_impl(
             TypeList<> tl1,
             TypeList<Tags2...> tl2,
             TypeList<UniqueTags...> result)
@@ -271,37 +253,41 @@ namespace std {
             typename... Tags1,
             typename... Tags2,
             typename... UniqueTags>
-        auto set_diff_tags(
+        consteval auto tl_set_diff_impl(
             TypeList<Tag, Tags1...> tl1,
             TypeList<Tags2...> tl2,
             TypeList<UniqueTags...> result)
         {
-            constexpr int i = index_from_tag<Tag, 0>(tl2);
+            constexpr int i = index_from_tag<Tag>(tl2);
             if constexpr (0 <= i) {
-                return set_diff_tags(
+                return tl_set_diff_impl(
                     TypeList<Tags1...>{}, tl2, TypeList<UniqueTags...>{});
             } else {
-                return set_diff_tags(
+                return tl_set_diff_impl(
                     TypeList<Tags1...>{}, tl2, TypeList<UniqueTags..., Tag>{});
             }
         }
         template<
             template<class...>
-            class TypeList,
+            class TypeList1,
             typename... Tags1,
+            template<class...>
+            class TypeList2,
             typename... Tags2>
-        auto glom_tags(TypeList<Tags1...>, TypeList<Tags2...>)
+        consteval auto
+        tl_set_diff(TypeList1<Tags1...> tl1, TypeList2<Tags2...> tl2)
         {
-            return TypeList<Tags1..., Tags2...>{};
+            return tl_set_diff_impl(tl1, TypeList1<Tags2...>{}, TypeList1<>{});
         }
         template<
             template<class...>
             class TypeList,
             typename... Tags1,
             typename... Tags2>
-        auto union_of_tags(TypeList<Tags1...> tl1, TypeList<Tags2...> tl2)
+        consteval auto
+        union_of_tags(TypeList<Tags1...> tl1, TypeList<Tags2...> tl2)
         {
-            return glom_tags(tl2, set_diff_tags(tl1, tl2, TypeList<>{}));
+            return tl_cat(tl2, tl_set_diff(tl1, tl2));
         }
     }
 
@@ -319,14 +305,75 @@ namespace std {
         constexpr bool
         operator==(default_queryable_environment const &) const = default;
 
+        template<typename Tag>
+        constexpr bool contains() const
+        {
+            return detail::has_tag<Tag, Tags>;
+        }
+
+        template<typename Tag>
+        constexpr decltype(auto) operator[](Tag) &
+        {
+            return std::get<Tag>(*this);
+        }
+        template<typename Tag>
+        constexpr decltype(auto) operator[](Tag) const &
+        {
+            return std::get<Tag>(*this);
+        }
+        template<typename Tag>
+        constexpr decltype(auto) operator[](Tag) &&
+        {
+            return std::get<Tag>(*this);
+        }
+
+        // TODO -> free fn.
+        template<typename... Tags2>
+        constexpr decltype(auto) subset(Tags2...)
+        {
+            return default_queryable_environment(
+                detail::tl_like<Tags2...>(tags), tuple(operator[](Tags2{})...));
+        }
+
+        template<template<typename...> typename TypeList, typename... Tags2>
+        requires type_list<TypeList<Tags2...>>
+        constexpr decltype(auto) subset(TypeList<Tags2...> tags2)
+        {
+            return default_queryable_environment(
+                tags2, tuple(operator[](Tags2{})...));
+        }
+
         Tags tags;
         Tuple values;
     };
 
     template<typename Tag, typename Tags, typename Tuple>
-    constexpr bool has_tag(default_queryable_environment<Tags, Tuple> const &)
+    constexpr decltype(auto)
+    get(default_queryable_environment<Tags, Tuple> & env)
     {
-        return detail::has_tag<Tag, Tags>;
+        constexpr size_t i = detail::index_from_tag<Tag>(Tags{});
+        return std::get<i>(env.values);
+    }
+    template<typename Tag, typename Tags, typename Tuple>
+    constexpr decltype(auto)
+    get(default_queryable_environment<Tags, Tuple> const & env)
+    {
+        constexpr size_t i = detail::index_from_tag<Tag>(Tags{});
+        return std::get<i>(env.values);
+    }
+    template<typename Tag, typename Tags, typename Tuple>
+    constexpr decltype(auto)
+    get(default_queryable_environment<Tags, Tuple> && env)
+    {
+        constexpr size_t i = detail::index_from_tag<Tag>(Tags{});
+        return std::get<i>(std::move(env.values));
+    }
+    template<typename Tag, typename Tags, typename Tuple>
+    constexpr decltype(auto)
+    get(default_queryable_environment<Tags, Tuple> const && env)
+    {
+        constexpr size_t i = detail::index_from_tag<Tag>(Tags{});
+        return std::get<i>(std::move(env.values));
     }
 
     template<typename Tag, typename Tags, typename Tuple, typename T>
@@ -354,6 +401,27 @@ namespace std {
         std::get<Tag>(env) = (T &&) x;
     }
 
+    namespace detail {
+        template<
+            typename Tags1,
+            typename Tuple1,
+            int... Is,
+            typename Tags2,
+            typename Tuple2,
+            template<class...>
+            class TypeList,
+            typename... NewTags>
+        constexpr auto make_env_tuple(
+            default_queryable_environment<Tags1, Tuple1> const & env1,
+            integer_sequence<int, Is...>,
+            default_queryable_environment<Tags2, Tuple2> const & env2,
+            TypeList<NewTags...> new_tags)
+        {
+            return tuple(
+                std::get<Is>(env1.values)..., std::get<NewTags>(env2)...);
+        }
+    }
+
 #if 0
     template<typename Tags1, typename Tuple1, typename Tags2, typename Tuple2>
     constexpr auto insert(
@@ -362,63 +430,44 @@ namespace std {
     {
         
     }
+#endif
 
     template<typename Tags1, typename Tuple1, typename Tags2, typename Tuple2>
     constexpr auto insert_unique(
         default_queryable_environment<Tags1, Tuple1> const & env1,
         default_queryable_environment<Tags2, Tuple2> const & env2)
     {
-        
+        constexpr auto new_tags =
+            detail::tl_set_diff(decltype(env2.tags){}, decltype(env1.tags){});
+        return default_queryable_environment(
+            detail::tl_cat(decltype(env1.tags){}, new_tags),
+            detail::make_env_tuple(
+                env1,
+                make_integer_sequence<int, tuple_size_v<Tuple1>>{},
+                env2,
+                new_tags));
     }
-#endif
 
     template<typename Tag, typename Tags, typename Tuple>
     requires detail::has_tag<Tag, Tags>
     constexpr auto erase(default_queryable_environment<Tags, Tuple> const & env)
     {
-        constexpr int i = detail::index_from_tag<Tag, 0>(Tags{});
+        constexpr int i = detail::index_from_tag<Tag>(Tags{});
         return default_queryable_environment(
             detail::tl_erase<Tag>(Tags{}),
             detail::tuple_without_i<i>(env.values));
     }
     template<typename Tag, typename Tags, typename Tuple>
     requires detail::has_tag<Tag, Tags>
-    constexpr auto erase(default_queryable_environment<Tags, Tuple> && env)
+    constexpr auto erase(default_queryable_environment<Tags, Tuple> && env_)
     {
-        constexpr int i = detail::index_from_tag<Tag, 0>(Tags{});
+        constexpr int i = detail::index_from_tag<Tag>(Tags{});
         return default_queryable_environment(
             detail::tl_erase<Tag>(Tags{}),
-            detail::tuple_without_i<i>(std::move(env.values)));
+            detail::tuple_without_i<i>(std::move(env_.values)));
     }
 
-    template<typename Tag, typename Tags, typename Tuple>
-    constexpr decltype(auto)
-    get(default_queryable_environment<Tags, Tuple> & env)
-    {
-        constexpr int i = detail::index_from_tag<Tag, 0>(Tags{});
-        return std::get<i>(env.values);
-    }
-    template<typename Tag, typename Tags, typename Tuple>
-    constexpr decltype(auto)
-    get(default_queryable_environment<Tags, Tuple> const & env)
-    {
-        constexpr int i = detail::index_from_tag<Tag, 0>(Tags{});
-        return std::get<i>(env.values);
-    }
-    template<typename Tag, typename Tags, typename Tuple>
-    constexpr decltype(auto)
-    get(default_queryable_environment<Tags, Tuple> && env)
-    {
-        constexpr int i = detail::index_from_tag<Tag, 0>(Tags{});
-        return std::get<i>(std::move(env.values));
-    }
-    template<typename Tag, typename Tags, typename Tuple>
-    constexpr decltype(auto)
-    get(default_queryable_environment<Tags, Tuple> const && env)
-    {
-        constexpr int i = detail::index_from_tag<Tag, 0>(Tags{});
-        return std::get<i>(std::move(env.values));
-    }
+    // TODO: Multi-erase.
 }
 
 // Eric Niebler — Today at 5:02 PM
@@ -488,17 +537,44 @@ int main()
     auto env = std::default_queryable_environment(
         std::types<int_tag, double_tag>{}, std::tuple(42, 13.0));
 
+    auto env2 = std::default_queryable_environment(
+        std::types<int_tag, double_tag>{}, std::tuple(421, 13.1));
+
     std::cout << std::get<int_tag>(env) << "\n";
     std::cout << std::get<double_tag>(env) << "\n";
+    std::cout << "\n";
+
+    {
+        auto const & cenv = env;
+        std::cout << std::get<int_tag>(env) << "\n";
+        std::cout << std::get<double_tag>(env) << "\n";
+        std::cout << "\n";
+    }
 
     {
         auto str_env = std::insert<string_tag>(env, std::string("text"));
         std::cout << std::get<string_tag>(str_env) << "\n";
+        std::cout << "\n";
 
         {
             auto no_dbl_env = std::erase<double_tag>(str_env);
             std::cout << std::get<int_tag>(no_dbl_env) << "\n";
             std::cout << std::get<string_tag>(no_dbl_env) << "\n";
+            std::cout << "\n";
+
+            {
+                auto env3 = std::insert_unique(no_dbl_env, env2);
+                std::cout << std::get<int_tag>(env3) << "\n";
+                std::cout << std::get<double_tag>(env3) << "\n";
+                std::cout << std::get<string_tag>(env3) << "\n";
+                std::cout << "\n";
+            }
+        }
+
+        {
+            auto no_dbl_no_str_env = std::erase<double_tag>(str_env);
+            std::cout << std::get<int_tag>(no_dbl_no_str_env) << "\n";
+            std::cout << "\n";
         }
     }
 
