@@ -385,13 +385,6 @@ namespace std {
             tuple_cat(std::move(env.values), tuple((T &&) x)));
     }
 
-    template<typename Tag, typename Tags, typename Tuple, typename T>
-    requires detail::has_tag<Tag, Tags>
-    constexpr void assign(env<Tags, Tuple> & env, T && x)
-    {
-        std::get<Tag>(env) = (T &&) x;
-    }
-
     namespace detail {
         template<
             typename Tags1,
