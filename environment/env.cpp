@@ -385,6 +385,15 @@ namespace std {
             tuple_cat(std::move(env.values), tuple((T &&) x)));
     }
 
+#if 0
+    template<typename Tags1, typename Tuple1, typename Tags2, typename Tuple2>
+    constexpr auto
+    insert(env<Tags1, Tuple1> const & env1, env<Tags2, Tuple2> const & env2)
+    {
+        
+    }
+#endif
+
     namespace detail {
         template<
             typename Tags1,
@@ -404,16 +413,64 @@ namespace std {
             return tuple(
                 std::get<Is>(env1.values)..., std::get<NewTags>(env2)...);
         }
+        template<
+            typename Tags1,
+            typename Tuple1,
+            int... Is,
+            typename Tags2,
+            typename Tuple2,
+            template<class...>
+            class TypeList,
+            typename... NewTags>
+        constexpr auto make_env_tuple(
+            env<Tags1, Tuple1> && env1,
+            integer_sequence<int, Is...>,
+            env<Tags2, Tuple2> const & env2,
+            TypeList<NewTags...> new_tags)
+        {
+            return tuple(
+                std::get<Is>(std::move(env1.values))...,
+                std::get<NewTags>(env2)...);
+        }
+        template<
+            typename Tags1,
+            typename Tuple1,
+            int... Is,
+            typename Tags2,
+            typename Tuple2,
+            template<class...>
+            class TypeList,
+            typename... NewTags>
+        constexpr auto make_env_tuple(
+            env<Tags1, Tuple1> const & env1,
+            integer_sequence<int, Is...>,
+            env<Tags2, Tuple2> && env2,
+            TypeList<NewTags...> new_tags)
+        {
+            return tuple(
+                std::get<Is>(env1.values)...,
+                std::get<NewTags>(std::move(env2))...);
+        }
+        template<
+            typename Tags1,
+            typename Tuple1,
+            int... Is,
+            typename Tags2,
+            typename Tuple2,
+            template<class...>
+            class TypeList,
+            typename... NewTags>
+        constexpr auto make_env_tuple(
+            env<Tags1, Tuple1> && env1,
+            integer_sequence<int, Is...>,
+            env<Tags2, Tuple2> && env2,
+            TypeList<NewTags...> new_tags)
+        {
+            return tuple(
+                std::get<Is>(std::move(env1.values))...,
+                std::get<NewTags>(std::move(env2))...);
+        }
     }
-
-#if 0
-    template<typename Tags1, typename Tuple1, typename Tags2, typename Tuple2>
-    constexpr auto
-    insert(env<Tags1, Tuple1> const & env1, env<Tags2, Tuple2> const & env2)
-    {
-        
-    }
-#endif
 
     template<typename Tags1, typename Tuple1, typename Tags2, typename Tuple2>
     constexpr auto insert_unique(
@@ -427,6 +484,48 @@ namespace std {
                 env1,
                 make_integer_sequence<int, tuple_size_v<Tuple1>>{},
                 env2,
+                new_tags));
+    }
+    template<typename Tags1, typename Tuple1, typename Tags2, typename Tuple2>
+    constexpr auto
+    insert_unique(env<Tags1, Tuple1> const & env1, env<Tags2, Tuple2> && env2)
+    {
+        constexpr auto new_tags =
+            detail::tl_set_diff(decltype(env2.tags){}, decltype(env1.tags){});
+        return env(
+            detail::tl_cat(decltype(env1.tags){}, new_tags),
+            detail::make_env_tuple(
+                env1,
+                make_integer_sequence<int, tuple_size_v<Tuple1>>{},
+                std::move(env2),
+                new_tags));
+    }
+    template<typename Tags1, typename Tuple1, typename Tags2, typename Tuple2>
+    constexpr auto
+    insert_unique(env<Tags1, Tuple1> && env1, env<Tags2, Tuple2> const & env2)
+    {
+        constexpr auto new_tags =
+            detail::tl_set_diff(decltype(env2.tags){}, decltype(env1.tags){});
+        return env(
+            detail::tl_cat(decltype(env1.tags){}, new_tags),
+            detail::make_env_tuple(
+                std::move(env1),
+                make_integer_sequence<int, tuple_size_v<Tuple1>>{},
+                env2,
+                new_tags));
+    }
+    template<typename Tags1, typename Tuple1, typename Tags2, typename Tuple2>
+    constexpr auto
+    insert_unique(env<Tags1, Tuple1> && env1, env<Tags2, Tuple2> && env2)
+    {
+        constexpr auto new_tags =
+            detail::tl_set_diff(decltype(env2.tags){}, decltype(env1.tags){});
+        return env(
+            detail::tl_cat(decltype(env1.tags){}, new_tags),
+            detail::make_env_tuple(
+                std::move(env1),
+                make_integer_sequence<int, tuple_size_v<Tuple1>>{},
+                std::move(env2),
                 new_tags));
     }
 
