@@ -300,13 +300,12 @@ namespace std {
     {};
 
     template<type_list Tags, env_tuple Tuple>
-    struct default_queryable_environment
+    struct env
     {
-        constexpr bool
-        operator==(default_queryable_environment const &) const = default;
+        constexpr bool operator==(env const &) const = default;
 
         template<typename Tag>
-        constexpr bool contains() const
+        constexpr bool contains(Tag) const
         {
             return detail::has_tag<Tag, Tags>;
         }
@@ -331,7 +330,7 @@ namespace std {
         template<typename... Tags2>
         constexpr decltype(auto) subset(Tags2...)
         {
-            return default_queryable_environment(
+            return env(
                 detail::tl_like<Tags2...>(tags), tuple(operator[](Tags2{})...));
         }
 
@@ -339,8 +338,7 @@ namespace std {
         requires type_list<TypeList<Tags2...>>
         constexpr decltype(auto) subset(TypeList<Tags2...> tags2)
         {
-            return default_queryable_environment(
-                tags2, tuple(operator[](Tags2{})...));
+            return env(tags2, tuple(operator[](Tags2{})...));
         }
 
         Tags tags;
@@ -348,55 +346,48 @@ namespace std {
     };
 
     template<typename Tag, typename Tags, typename Tuple>
-    constexpr decltype(auto)
-    get(default_queryable_environment<Tags, Tuple> & env)
+    constexpr decltype(auto) get(env<Tags, Tuple> & env)
     {
         constexpr size_t i = detail::index_from_tag<Tag>(Tags{});
         return std::get<i>(env.values);
     }
     template<typename Tag, typename Tags, typename Tuple>
-    constexpr decltype(auto)
-    get(default_queryable_environment<Tags, Tuple> const & env)
+    constexpr decltype(auto) get(env<Tags, Tuple> const & env)
     {
         constexpr size_t i = detail::index_from_tag<Tag>(Tags{});
         return std::get<i>(env.values);
     }
     template<typename Tag, typename Tags, typename Tuple>
-    constexpr decltype(auto)
-    get(default_queryable_environment<Tags, Tuple> && env)
+    constexpr decltype(auto) get(env<Tags, Tuple> && env)
     {
         constexpr size_t i = detail::index_from_tag<Tag>(Tags{});
         return std::get<i>(std::move(env.values));
     }
     template<typename Tag, typename Tags, typename Tuple>
-    constexpr decltype(auto)
-    get(default_queryable_environment<Tags, Tuple> const && env)
+    constexpr decltype(auto) get(env<Tags, Tuple> const && env)
     {
         constexpr size_t i = detail::index_from_tag<Tag>(Tags{});
         return std::get<i>(std::move(env.values));
     }
 
     template<typename Tag, typename Tags, typename Tuple, typename T>
-    constexpr auto
-    insert(default_queryable_environment<Tags, Tuple> const & env, T && x)
+    constexpr auto insert(env<Tags, Tuple> const & env_, T && x)
     {
-        return default_queryable_environment(
+        return env(
             detail::tl_append<remove_cvref_t<Tag>>(Tags{}),
-            tuple_cat(env.values, tuple((T &&) x)));
+            tuple_cat(env_.values, tuple((T &&) x)));
     }
     template<typename Tag, typename Tags, typename Tuple, typename T>
-    constexpr auto
-    insert(default_queryable_environment<Tags, Tuple> && env, T && x)
+    constexpr auto insert(env<Tags, Tuple> && env, T && x)
     {
-        return default_queryable_environment(
+        return env(
             detail::tl_append<Tag>(Tags{}),
             tuple_cat(std::move(env.values), tuple((T &&) x)));
     }
 
     template<typename Tag, typename Tags, typename Tuple, typename T>
     requires detail::has_tag<Tag, Tags>
-    constexpr void
-    assign(default_queryable_environment<Tags, Tuple> & env, T && x)
+    constexpr void assign(env<Tags, Tuple> & env, T && x)
     {
         std::get<Tag>(env) = (T &&) x;
     }
@@ -412,9 +403,9 @@ namespace std {
             class TypeList,
             typename... NewTags>
         constexpr auto make_env_tuple(
-            default_queryable_environment<Tags1, Tuple1> const & env1,
+            env<Tags1, Tuple1> const & env1,
             integer_sequence<int, Is...>,
-            default_queryable_environment<Tags2, Tuple2> const & env2,
+            env<Tags2, Tuple2> const & env2,
             TypeList<NewTags...> new_tags)
         {
             return tuple(
@@ -424,9 +415,8 @@ namespace std {
 
 #if 0
     template<typename Tags1, typename Tuple1, typename Tags2, typename Tuple2>
-    constexpr auto insert(
-        default_queryable_environment<Tags1, Tuple1> const & env1,
-        default_queryable_environment<Tags2, Tuple2> const & env2)
+    constexpr auto
+    insert(env<Tags1, Tuple1> const & env1, env<Tags2, Tuple2> const & env2)
     {
         
     }
@@ -434,12 +424,11 @@ namespace std {
 
     template<typename Tags1, typename Tuple1, typename Tags2, typename Tuple2>
     constexpr auto insert_unique(
-        default_queryable_environment<Tags1, Tuple1> const & env1,
-        default_queryable_environment<Tags2, Tuple2> const & env2)
+        env<Tags1, Tuple1> const & env1, env<Tags2, Tuple2> const & env2)
     {
         constexpr auto new_tags =
             detail::tl_set_diff(decltype(env2.tags){}, decltype(env1.tags){});
-        return default_queryable_environment(
+        return env(
             detail::tl_cat(decltype(env1.tags){}, new_tags),
             detail::make_env_tuple(
                 env1,
@@ -450,19 +439,19 @@ namespace std {
 
     template<typename Tag, typename Tags, typename Tuple>
     requires detail::has_tag<Tag, Tags>
-    constexpr auto erase(default_queryable_environment<Tags, Tuple> const & env)
+    constexpr auto erase(env<Tags, Tuple> const & env_)
     {
         constexpr int i = detail::index_from_tag<Tag>(Tags{});
-        return default_queryable_environment(
+        return env(
             detail::tl_erase<Tag>(Tags{}),
-            detail::tuple_without_i<i>(env.values));
+            detail::tuple_without_i<i>(env_.values));
     }
     template<typename Tag, typename Tags, typename Tuple>
     requires detail::has_tag<Tag, Tags>
-    constexpr auto erase(default_queryable_environment<Tags, Tuple> && env_)
+    constexpr auto erase(env<Tags, Tuple> && env_)
     {
         constexpr int i = detail::index_from_tag<Tag>(Tags{});
-        return default_queryable_environment(
+        return env(
             detail::tl_erase<Tag>(Tags{}),
             detail::tuple_without_i<i>(std::move(env_.values)));
     }
@@ -534,11 +523,11 @@ static_assert(std::same_as<
 
 int main()
 {
-    auto env = std::default_queryable_environment(
-        std::types<int_tag, double_tag>{}, std::tuple(42, 13.0));
+    auto env =
+        std::env(std::types<int_tag, double_tag>{}, std::tuple(42, 13.0));
 
-    auto env2 = std::default_queryable_environment(
-        std::types<int_tag, double_tag>{}, std::tuple(421, 13.1));
+    auto env2 =
+        std::env(std::types<int_tag, double_tag>{}, std::tuple(421, 13.1));
 
     std::cout << std::get<int_tag>(env) << "\n";
     std::cout << std::get<double_tag>(env) << "\n";
