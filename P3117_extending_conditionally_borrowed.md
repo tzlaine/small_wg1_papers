@@ -297,6 +297,12 @@ template<typename V, typename F>
   constexpr bool enable_borrowed_range<transform_view<V, F>> = enable_borrowed_range<V> && @*tidy-func*@<F>;
 ```
 
+`mutable` is used on `@*f_access_*@` to make sure that the reference to
+`@*f*@()` is non-`const`.  This gives the same behavior as the status quo --
+even when using `@*f*@()` in a `const` member function of `iterator`, like
+`operator*`, we still call `@*f*@()` as if we were doing so through a pointer
+back to the view.
+
 ## `filter_view`
 
 `filter_view::iterator` gets a similar change as the one for
@@ -352,7 +358,8 @@ constexpr bool @*store-pattern*@ = @*see below*@;                // @*exposition
 using @*pattern-access*@ =
   conditional_t<@*store-pattern*@, Pattern, Parent*>;        // @*exposition only*@
 
-[[no_unique_address]] @*pattern-access*@ @*pattern_access_*@;    // @*exposition only*@
+// mutable is only used for join_with_view.
+[[no_unique_address]] mutable @*pattern-access*@ @*pattern_access_*@;    // @*exposition only*@
 
 // @*maybe-const*@ is used in join_with_view only; the others return const Pattern &.
 constexpr @*maybe-const*@<Const, Pattern>& @*pattern*@() const   // @*exposition only*@
