@@ -490,3 +490,27 @@ int main()
 
     return 0;
 }
+
+struct F
+{
+    constexpr int operator()(int i) { return i + 1; }
+    // constexpr int operator()(int i) const { return i + 10; }
+} inline constexpr f;
+
+template<class R>
+inline constexpr auto sum(R && r) -> int
+{
+    int s = 0;
+    for (int i : r) {
+        s += i;
+    }
+    return s;
+}
+
+void use()
+{
+    std::vector<int> v = {1, 2, 3};
+
+    std::cout << sum(v | std::views::transform(f)) << '\n';
+    std::cout << sum(v | std::ranges::z::views::transform(f)) << '\n';
+}

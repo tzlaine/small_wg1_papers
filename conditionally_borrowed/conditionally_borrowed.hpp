@@ -490,18 +490,11 @@ namespace std::ranges::z {
     using _F_access =
       conditional_t<__tidy_func<_Fp>, __detail::__box<_Fp>, _Parent*>;
 
-    [[no_unique_address]] _F_access _M_f_access;
+    [[no_unique_address]] mutable _F_access _M_f_access;
 
     __ziperator<_Const> _M_inner;
 
-    constexpr __detail::__maybe_const_t<_Const, _Fp>& __f()
-    {
-      if constexpr (__tidy_func<_Fp>)
-        return *_M_f_access;
-      else
-        return *_M_f_access->_M_fun;
-    }
-    constexpr const _Fp& __f() const
+    constexpr __detail::__maybe_const_t<_Const, _Fp>& __f() const
     {
       if constexpr (__tidy_func<_Fp>)
         return *_M_f_access;
@@ -1148,18 +1141,11 @@ namespace std::ranges::z {
     using _F_access =
       conditional_t<__tidy_func<_Fp>, __detail::__box<_Fp>, _Parent*>;
 
-    [[no_unique_address]] _F_access _M_f_access;
+    [[no_unique_address]] mutable _F_access _M_f_access;
 
     _InnerIter<_Const> _M_inner;
 
-    constexpr __detail::__maybe_const_t<_Const, _Fp>& __f()
-    {
-      if constexpr (__tidy_func<_Fp>)
-        return *_M_f_access;
-      else
-        return *_M_f_access->_M_fun;
-    }
-    constexpr const _Fp& __f() const
+    constexpr __detail::__maybe_const_t<_Const, _Fp>& __f() const
     {
       if constexpr (__tidy_func<_Fp>)
         return *_M_f_access;
@@ -1816,19 +1802,12 @@ namespace std::ranges::z {
 
     using _Pattern_access = conditional_t<_S_store_pattern, _Pattern, _Parent*>;
 
-    [[no_unique_address]] _Pattern_access _M_pattern_access = _Pattern_access();
+    [[no_unique_address]] mutable _Pattern_access _M_pattern_access = _Pattern_access();
     _OuterIter _M_outer_it = _OuterIter();
     variant<_PatternIter, _InnerIter> _M_inner_it;
     [[no_unique_address]] sentinel_t<_Base> _M_end = sentinel_t<_Base>();
 
-    constexpr __detail::__maybe_const_t<_Const, _Pattern>& __pattern()
-    {
-      if constexpr (_S_store_pattern)
-        return _M_pattern_access;
-      else
-        return _M_pattern_access->_M_pattern;
-    }
-    constexpr const _Pattern& __pattern() const
+    constexpr __detail::__maybe_const_t<_Const, _Pattern>& __pattern() const
     {
       if constexpr (_S_store_pattern)
         return _M_pattern_access;
@@ -2441,16 +2420,9 @@ namespace std::ranges::z {
           using _F_access =
             conditional_t<__tidy_func<_Fp>, __detail::__box<_Fp>, _Parent*>;
 
-          [[no_unique_address]] _F_access _M_f_access;
+          [[no_unique_address]] mutable _F_access _M_f_access;
 
-          constexpr __detail::__maybe_const_t<_Const, _Fp>& __f()
-          {
-            if constexpr (__tidy_func<_Fp>)
-              return *_M_f_access;
-            else
-              return *_M_f_access->_M_fun;
-          }
-          constexpr const _Fp& __f() const
+          constexpr __detail::__maybe_const_t<_Const, _Fp>& __f() const
           {
             if constexpr (__tidy_func<_Fp>)
               return *_M_f_access;

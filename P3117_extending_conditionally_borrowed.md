@@ -273,17 +273,9 @@ In [range.transform.iterator]{.sref}:
 +    using @*f-access*@ =
 +      conditional_t<@*tidy-func*@<F>, @*movable-box*@<F>, Parent*>;     // @*exposition only*@
 +
-+    [[no_unique_address]] @*f-access*@ @*f_access_*@;                   // @*exposition only*@
++    [[no_unique_address]] mutable @*f-access*@ @*f_access_*@;           // @*exposition only*@
 +
-+    constexpr @*maybe-const*@<Const, F>& @*f*@()                        // @*exposition only*@
-+    {
-+        if constexpr (@*tidy-func*@<F>)
-+            return *@*f_access_*@;
-+        else
-+            return *@*f_access_*@->@*fun_*@;
-+    }
-+
-+    constexpr const F& @*f*@() const                                // @*exposition only*@
++    constexpr @*maybe-const*@<Const, F>& @*f*@() const                  // @*exposition only*@
 +    {
 +        if constexpr (@*tidy-func*@<F>)
 +            return *@*f_access_*@;
@@ -304,20 +296,6 @@ Finally, add the `enable_borrowed_range` specialization:
 template<typename V, typename F>
   constexpr bool enable_borrowed_range<transform_view<V, F>> = enable_borrowed_range<V> && @*tidy-func*@<F>;
 ```
-
-Note that `const`ness of the reference returned by `@*f*@()` differs from
-`*@*f_access_*@->@*fun_*@` in only one case; when the iterator is a constant
-but `Const` is `false`, `@*f*@()` returns a `const F&`, whereas
-`*@*f_access_*@->@*fun_*@` is an `F&` expression.  We don't think this matters
-in practice.  Consider a `transform_view` `xform`.  For this to matter, you
-would have to call `xform.begin()` (the non-`const` overload), and then assign
-the result to a constant, or bind it to a `const &`.  Then, you would need to
-use the callable in the iterator, by calling `operator*` or `operator[]`, both
-of which are `const`.  You would not be able to advance the iterator, so no
-use in a for loop.  You'd have an iterator that you could use to get
-`*xform.begin()`, `xform.begin()[3]`, etc., and that's it.  Users are very
-unlikely to write code like this -- as soon as they want to use this iterator
-in a for loop, they're going to make a mutable copy of it, and loop using that.
 
 ## `filter_view`
 
@@ -376,15 +354,8 @@ using @*pattern-access*@ =
 
 [[no_unique_address]] @*pattern-access*@ @*pattern_access_*@;    // @*exposition only*@
 
-// This mutable overload is for join_with_view only.
-constexpr @*maybe-const*@<Const, Pattern>& @*pattern*@()         // @*exposition only*@
-{
-  if constexpr (@*store-pattern*@)
-    return @*pattern_access_*@;
-  else
-    return @*pattern_access_*@->@*pattern_*@;
-}
-constexpr const Pattern& @*pattern*@() const                 // @*exposition only*@
+// @*maybe-const*@ is used in join_with_view only; the others return const Pattern &.
+constexpr @*maybe-const*@<Const, Pattern>& @*pattern*@() const   // @*exposition only*@
 {
   if constexpr (@*store-pattern*@)
     return @*pattern_access_*@;
@@ -400,9 +371,11 @@ The `Pattern` is never stored in the iterator when the whole view is an input
 range, since the cache in the view must be used regardless; this makes the
 view non-borrowable.  `split_view` does not have such a cache, so it doesn't
 use the `forward_range` part of the condition.  Also, only `join_with_view`
-needs the mutable overload of `@*pattern*@()`, because it produces it in its
-output; the other two only read the values out of the pattern, so it makes no
-difference if the pattern is `const` or not.
+needs to use `@*maybe-const*@` for the return type of `@*pattern*@()`; the
+other two just return `const Pattern &`.  This is because `join_with_view`
+produces its pattern as part of its output; the other two only read the values
+out of the pattern, so it makes no difference if the pattern is `const` or
+not.
 
 Otherwise, the changes are the same as before -- conditionally copy `Pattern`
 into the iterator, and unconditionally copy the view's `base_.end()` into the
