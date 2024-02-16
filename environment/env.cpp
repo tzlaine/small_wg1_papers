@@ -268,11 +268,11 @@ namespace stdexec {
         }
 
         template<
-            typename... Us,
             template<typename...>
             typename TypeList,
-            typename... Ts>
-        consteval auto tl_like(TypeList<Ts...>)
+            typename... Ts,
+            typename... Us>
+        consteval auto tl_like(TypeList<Ts...>, Us...)
         {
             return TypeList<Us...>{};
         }
@@ -488,6 +488,8 @@ namespace stdexec {
             return (in_type_list<Tags2, Tags> && ...);
         }
 
+        // TODO: Add invocation of result if its a nullary function.  Should
+        // this go here, or get()?
 #if defined(__cpp_explicit_this_parameter)
         template<typename Self, in_type_list<Tags> Tag>
         constexpr decltype(auto) operator[](this Self && self, Tag)
@@ -652,7 +654,7 @@ namespace stdexec {
     constexpr decltype(auto) subset(env<Tags, Tuple> const & env_, Tags2...)
     // clang-format on
     {
-        return stdexec::subset(env_, types<Tags2...>{});
+        return stdexec::subset(env_, detail::tl_like(Tags{}, Tags2{}...));
     }
 
     // clang-format off
@@ -661,7 +663,8 @@ namespace stdexec {
     constexpr decltype(auto) subset(env<Tags, Tuple> && env_, Tags2...)
     // clang-format on
     {
-        return stdexec::subset(std::move(env_), types<Tags2...>{});
+        return stdexec::subset(
+            std::move(env_), detail::tl_like(Tags{}, Tags2{}...));
     }
 
     namespace detail {
@@ -928,6 +931,8 @@ namespace stdexec {
                 std::move(env2),
                 new_tags));
     }
+
+    // TODO: Make all these functions take an environment, not an env.
 
     template<typename Tag, typename Tags, typename Tuple>
     requires in_type_list<Tag, Tags>
@@ -1855,12 +1860,140 @@ TEST(env_, single_insert)
 #endif
 }
 
+TEST(env_, subset)
+{
+    {
+        auto env = stdexec::env(
+            stdexec::types<int_tag, double_tag, string_tag>{},
+            std::tuple(42, 13.0, std::string("foo")));
+
+        {
+            auto subset = stdexec::subset(
+                env, stdexec::types<int_tag, double_tag, string_tag>{});
+            EXPECT_TRUE(subset == env);
+        }
+        {
+            auto const expected = stdexec::env(
+                stdexec::types<int_tag, string_tag, double_tag>{},
+                std::tuple(42, std::string("foo"), 13.0));
+
+            auto subset = stdexec::subset(
+                env, stdexec::types<int_tag, string_tag, double_tag>{});
+            EXPECT_TRUE(subset == expected);
+        }
+        {
+            auto const expected = stdexec::env(
+                stdexec::types<string_tag, double_tag>{},
+                std::tuple(std::string("foo"), 13.0));
+
+            auto subset = stdexec::subset(env, string_tag{}, double_tag{});
+            EXPECT_TRUE(subset == expected);
+        }
+#if HAVE_BOOST_MP11
+        {
+            auto const expected = stdexec::env(
+                mp_list<int_tag, double_tag, string_tag>{},
+                std::tuple(42, 13.0, std::string("foo")));
+
+            auto subset = stdexec::subset(
+                env, mp_list<int_tag, double_tag, string_tag>{});
+            EXPECT_TRUE(subset == expected);
+        }
+        {
+            auto const expected = stdexec::env(
+                mp_list<int_tag, string_tag, double_tag>{},
+                std::tuple(42, std::string("foo"), 13.0));
+
+            auto subset = stdexec::subset(
+                env, mp_list<int_tag, string_tag, double_tag>{});
+            EXPECT_TRUE(subset == expected);
+        }
+        {
+            auto const expected = stdexec::env(
+                stdexec::types<string_tag, double_tag>{},
+                std::tuple(std::string("foo"), 13.0));
+
+            auto subset = stdexec::subset(env, string_tag{}, double_tag{});
+            EXPECT_TRUE(subset == expected);
+        }
+#endif
+    }
+#if HAVE_BOOST_MP11
+    {
+        auto env = stdexec::env(
+            mp_list<int_tag, double_tag, string_tag>{},
+            std::tuple(42, 13.0, std::string("foo")));
+
+        {
+            auto const expected = stdexec::env(
+                stdexec::types<int_tag, double_tag, string_tag>{},
+                std::tuple(42, 13.0, std::string("foo")));
+
+            auto subset = stdexec::subset(
+                env, stdexec::types<int_tag, double_tag, string_tag>{});
+            EXPECT_TRUE(subset == expected);
+        }
+        {
+            auto const expected = stdexec::env(
+                stdexec::types<int_tag, string_tag, double_tag>{},
+                std::tuple(42, std::string("foo"), 13.0));
+
+            auto subset = stdexec::subset(
+                env, stdexec::types<int_tag, string_tag, double_tag>{});
+            EXPECT_TRUE(subset == expected);
+        }
+        {
+            auto const expected = stdexec::env(
+                mp_list<string_tag, double_tag>{},
+                std::tuple(std::string("foo"), 13.0));
+
+            auto subset = stdexec::subset(env, string_tag{}, double_tag{});
+            EXPECT_TRUE(subset == expected);
+        }
+#if HAVE_BOOST_MP11
+        {
+            auto const expected = stdexec::env(
+                mp_list<int_tag, double_tag, string_tag>{},
+                std::tuple(42, 13.0, std::string("foo")));
+
+            auto subset = stdexec::subset(
+                env, mp_list<int_tag, double_tag, string_tag>{});
+            EXPECT_TRUE(subset == expected);
+        }
+        {
+            auto const expected = stdexec::env(
+                mp_list<int_tag, string_tag, double_tag>{},
+                std::tuple(42, std::string("foo"), 13.0));
+
+            auto subset = stdexec::subset(
+                env, mp_list<int_tag, string_tag, double_tag>{});
+            EXPECT_TRUE(subset == expected);
+        }
+        {
+            auto const expected = stdexec::env(
+                mp_list<string_tag, double_tag>{},
+                std::tuple(std::string("foo"), 13.0));
+
+            auto subset = stdexec::subset(env, string_tag{}, double_tag{});
+            EXPECT_TRUE(subset == expected);
+        }
+#endif
+    }
+#endif
+}
+
 // TODO
-TEST(env_, subset) {}
+TEST(env_, insert_env)
+{
+#if HAVE_BOOST_MP11
+#endif
+}
 
-TEST(env_, insert_env) {}
-
-TEST(env_, insert_unique) {}
+TEST(env_, insert_unique)
+{
+#if HAVE_BOOST_MP11
+#endif
+}
 
 TEST(env_, single_erase)
 {
