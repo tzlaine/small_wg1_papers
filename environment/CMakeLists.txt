@@ -34,6 +34,10 @@ elseif (USE_UBSAN)
     set(link_flags -fsanitize=undefined)
 endif()
 
+find_package(Boost)
+if (Boost_FOUND)
+  include_directories(${Boost_INCLUDE_DIRS})
+endif()
 
 add_executable(env env.cpp)
 set_property(TARGET env PROPERTY CXX_STANDARD ${CXX_STD})

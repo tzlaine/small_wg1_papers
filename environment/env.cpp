@@ -7,6 +7,13 @@
 #if DO_TESTING
 #include <gtest/gtest.h>
 #include <string>
+
+#if __has_include(<boost/mp11/list.hpp>)
+#define HAVE_BOOST_MP11 1
+#include <boost/mp11/list.hpp>
+#else
+#define HAVE_BOOST_MP11 0
+#endif
 #endif
 
 
@@ -36,13 +43,17 @@ namespace stdexec {
             return wrapper<T>{};
         }
 
+        template<template<class...> class TypeList>
         struct temp_fold_base;
         template<
+            template<class...>
+            class TypeList,
             typename Tag,
             typename T,
             int I = 0,
-            typename Tail = temp_fold_base>
+            typename Tail = temp_fold_base<TypeList>>
         struct temp_fold;
+        template<template<class...> class TypeList>
         struct temp_fold_base
         {
             consteval void tag_type() const {}
@@ -56,14 +67,21 @@ namespace stdexec {
             template<typename Tag, typename T>
             constexpr auto operator()(Tag, T && x)
             {
-                return temp_fold<Tag, T>{std::move(*this), std::move(x)};
+                return temp_fold<TypeList, Tag, T>{
+                    std::move(*this), std::move(x)};
             }
         };
 
         template<typename TempFolded, typename Tag>
         concept new_tag = (!TempFolded::contains(detail::wrap<Tag>()));
 
-        template<typename Tag, typename T, int I, typename Tail>
+        template<
+            template<class...>
+            class TypeList,
+            typename Tag,
+            typename T,
+            int I,
+            typename Tail>
         struct temp_fold : Tail
         {
             temp_fold(Tail && tail, T && x) :
@@ -83,7 +101,7 @@ namespace stdexec {
             constexpr auto operator()(Tag2, T2 && x)
             requires new_tag<temp_fold, Tag2>
             {
-                return temp_fold<Tag2, T2, I + 1, temp_fold>{
+                return temp_fold<TypeList, Tag2, T2, I + 1, temp_fold>{
                     {std::move(*this)}, std::move(x)};
             }
 
@@ -381,17 +399,33 @@ namespace stdexec {
     constexpr decltype(auto) get(env<Tags, Tuple> const && env);
 
     namespace detail {
-        template<typename Tag, typename T, int I, typename Tail, int... Is>
+        template<
+            template<class...>
+            class TypeList,
+            typename Tag,
+            typename T,
+            int I,
+            typename Tail,
+            int... Is>
         auto temp_fold_tags(
-            temp_fold<Tag, T, I, Tail> const & folded,
+            temp_fold<TypeList, Tag, T, I, Tail> const & folded,
             std::integer_sequence<int, Is...>)
         {
-            return types<typename decltype(folded.tag_type(cw<Is>))::type...>{};
+            return TypeList<typename decltype(folded.tag_type(
+                cw<Is>))::type...>{};
         }
 
-        template<typename Tag, typename T, int I, typename Tail, int... Is>
+        template<
+            template<class...>
+            class TypeList,
+            typename Tag,
+            typename T,
+            int I,
+            typename Tail,
+            int... Is>
         auto temp_fold_values(
-            temp_fold<Tag, T, I, Tail> && folded, std::integer_sequence<int, Is...>)
+            temp_fold<TypeList, Tag, T, I, Tail> && folded,
+            std::integer_sequence<int, Is...>)
         {
             return std::tuple(std::move(folded).value(cw<Is>)...);
         }
@@ -424,8 +458,14 @@ namespace stdexec {
             tags(tags), values(std::move(values))
         {}
 
-        template<typename Tag, typename T, int I, typename Tail>
-        constexpr env(detail::temp_fold<Tag, T, I, Tail> && folded) :
+        template<
+            template<class...>
+            class TypeList,
+            typename Tag,
+            typename T,
+            int I,
+            typename Tail>
+        constexpr env(detail::temp_fold<TypeList, Tag, T, I, Tail> && folded) :
             tags(detail::temp_fold_tags(
                 folded, std::make_integer_sequence<int, I + 1>{})),
             values(detail::temp_fold_values(
@@ -483,18 +523,27 @@ namespace stdexec {
         Tuple values;
     };
 
-    template<typename Tag, typename T, int I, typename Tail>
-    env(detail::temp_fold<Tag, T, I, Tail> && folded) -> env<
+    template<
+        template<class...>
+        class TypeList,
+        typename Tag,
+        typename T,
+        int I,
+        typename Tail>
+    env(detail::temp_fold<TypeList, Tag, T, I, Tail> && folded) -> env<
         decltype(detail::temp_fold_tags(
-            std::declval<detail::temp_fold<Tag, T, I, Tail>>(),
+            std::declval<detail::temp_fold<TypeList, Tag, T, I, Tail>>(),
             std::make_integer_sequence<int, I + 1>{})),
         decltype(detail::temp_fold_values(
-            std::declval<detail::temp_fold<Tag, T, I, Tail>>(),
+            std::declval<detail::temp_fold<TypeList, Tag, T, I, Tail>>(),
             std::make_integer_sequence<int, I + 1>{}))>;
 
     inline constexpr env<types<>, std::tuple<>> empty_env;
 
-    inline detail::temp_fold_base make_env;
+    inline detail::temp_fold_base<types> make_env;
+
+    template<template<class...> class TypeList>
+    detail::temp_fold_base<TypeList> make_env_with;
 
     template<typename Tag, typename Tags, typename Tuple>
     requires detail::has_tag<Tag, Tags>
@@ -924,6 +973,10 @@ static_assert(std::same_as<
                            .type(stdexec::detail::cw<2>))::type,
               double_tag>);
 
+#if HAVE_BOOST_MP11
+using boost::mp11::mp_list;
+#endif
+
 TEST(env_, concept_)
 {
     static_assert(stdexec::environment<decltype(stdexec::empty_env)>);
@@ -940,9 +993,20 @@ TEST(env_, concept_)
 
     static_assert(stdexec::environment<decltype(env2)>);
     static_assert(stdexec::environment<decltype(env2) const>);
-}
 
-// TODO: Test with other types, including mp11 type list.
+#if HAVE_BOOST_MP11
+    {
+        auto env = stdexec::env(
+            mp_list<int_tag, double_tag, string_tag>{},
+            std::tuple(42, 13.0, std::string("foo")));
+
+        static_assert(stdexec::environment<decltype(env1)>);
+        static_assert(stdexec::environment<decltype(env1) const>);
+    }
+#endif
+
+    // TODO: Test with other types.
+}
 
 TEST(env_, make_env_)
 {
@@ -966,194 +1030,469 @@ TEST(env_, make_env_)
 
         EXPECT_TRUE(env == expected);
     }
+#if HAVE_BOOST_MP11
+    {
+        stdexec::env env =
+            stdexec::make_env_with<mp_list>(int_tag{}, 42)(double_tag{}, 13.0);
+
+        auto const expected =
+            stdexec::env(mp_list<int_tag, double_tag>{}, std::tuple(42, 13.0));
+
+        EXPECT_TRUE(env == expected);
+    }
+    {
+        stdexec::env env = stdexec::make_env_with<mp_list>(int_tag{}, 42) //
+            (double_tag{}, 13.0)                                          //
+            (string_tag{}, std::string("foo"))                            //
+            (int_2_tag{}, std::unique_ptr<int>());
+
+        auto const expected = stdexec::env(
+            mp_list<int_tag, double_tag, string_tag, int_2_tag>{},
+            std::tuple(42, 13.0, std::string("foo"), std::unique_ptr<int>()));
+
+        EXPECT_TRUE(env == expected);
+    }
+#endif
 }
 
 TEST(env_, type_get)
 {
-    auto env = stdexec::env(
-        stdexec::types<int_tag, double_tag, string_tag>{},
-        std::tuple(42, 13.0, std::string("foo")));
-
     {
-        auto const & c_env = env;
+        auto env = stdexec::env(
+            stdexec::types<int_tag, double_tag, string_tag>{},
+            std::tuple(42, 13.0, std::string("foo")));
 
-        EXPECT_EQ(stdexec::get<int_tag>(c_env), 42);
-        EXPECT_EQ(stdexec::get<double_tag>(c_env), 13.0);
-        EXPECT_EQ(stdexec::get<string_tag>(c_env), "foo");
+        {
+            auto const & c_env = env;
 
-        static_assert(
-            std::same_as<decltype(stdexec::get<int_tag>(c_env)), int const &>);
-        static_assert(std::same_as<
-                      decltype(stdexec::get<string_tag>(c_env)),
-                      std::string const &>);
-        static_assert(std::same_as<
-                      decltype(stdexec::get<int_tag>(std::move(c_env))),
-                      int const &&>);
-        static_assert(std::same_as<
-                      decltype(stdexec::get<string_tag>(std::move(c_env))),
-                      std::string const &&>);
-    }
+            EXPECT_EQ(stdexec::get<int_tag>(c_env), 42);
+            EXPECT_EQ(stdexec::get<double_tag>(c_env), 13.0);
+            EXPECT_EQ(stdexec::get<string_tag>(c_env), "foo");
 
-    EXPECT_EQ(stdexec::get<int_tag>(env), 42);
-    EXPECT_EQ(stdexec::get<double_tag>(env), 13.0);
-    EXPECT_EQ(stdexec::get<string_tag>(env), "foo");
-
-    stdexec::get<int_tag>(env) = 8;
-    EXPECT_EQ(stdexec::get<int_tag>(env), 8);
-
-    stdexec::get<double_tag>(env) = 19.9;
-    EXPECT_EQ(stdexec::get<double_tag>(env), 19.9);
-
-    std::string const moved_to = stdexec::get<string_tag>(std::move(env));
-    EXPECT_EQ(moved_to, "foo");
-    EXPECT_EQ(stdexec::get<string_tag>(env), "");
-
-    static_assert(std::same_as<decltype(stdexec::get<int_tag>(env)), int &>);
-    static_assert(
-        std::same_as<decltype(stdexec::get<string_tag>(env)), std::string &>);
-    static_assert(
-        std::same_as<decltype(stdexec::get<int_tag>(std::move(env))), int &&>);
-    static_assert(std::same_as<
-                  decltype(stdexec::get<string_tag>(std::move(env))),
-                  std::string &&>);
-}
-
-TEST(env_, nttp_get)
-{
-    auto env = stdexec::env(
-        stdexec::types<int_tag, double_tag, string_tag>{},
-        std::tuple(42, 13.0, std::string("foo")));
-
-    {
-        auto const & c_env = env;
-
-        EXPECT_EQ(stdexec::get<0>(env), 42);
-        EXPECT_EQ(stdexec::get<1>(env), 13.0);
-        EXPECT_EQ(stdexec::get<2>(env), "foo");
-
-        static_assert(std::same_as<decltype(stdexec::get<0>(c_env)), int const &>);
-        static_assert(
-            std::same_as<decltype(stdexec::get<2>(c_env)), std::string const &>);
-        static_assert(
-            std::
-                same_as<decltype(stdexec::get<0>(std::move(c_env))), int const &&>);
-        static_assert(std::same_as<
-                      decltype(stdexec::get<2>(std::move(c_env))),
-                      std::string const &&>);
-    }
-
-    EXPECT_EQ(stdexec::get<0>(env), 42);
-    EXPECT_EQ(stdexec::get<1>(env), 13.0);
-    EXPECT_EQ(stdexec::get<2>(env), "foo");
-
-    stdexec::get<0>(env) = 8;
-    EXPECT_EQ(stdexec::get<0>(env), 8);
-
-    stdexec::get<1>(env) = 19.9;
-    EXPECT_EQ(stdexec::get<1>(env), 19.9);
-
-    std::string const moved_to = stdexec::get<2>(std::move(env));
-    EXPECT_EQ(moved_to, "foo");
-    EXPECT_EQ(stdexec::get<2>(env), "");
-
-    static_assert(std::same_as<decltype(stdexec::get<0>(env)), int &>);
-    static_assert(std::same_as<decltype(stdexec::get<2>(env)), std::string &>);
-    static_assert(std::same_as<decltype(stdexec::get<0>(std::move(env))), int &&>);
-    static_assert(
-        std::same_as<decltype(stdexec::get<2>(std::move(env))), std::string &&>);
-}
-
-TEST(env_, index_contains_equals)
-{
-    auto env = stdexec::env(
-        stdexec::types<int_tag, double_tag, string_tag>{},
-        std::tuple(42, 13.0, std::string("foo")));
-
-    EXPECT_TRUE(env == env);
-
-    {
-        auto const & c_env = env;
-
-        EXPECT_TRUE(env == c_env);
+            static_assert(std::same_as<
+                          decltype(stdexec::get<int_tag>(c_env)),
+                          int const &>);
+            static_assert(std::same_as<
+                          decltype(stdexec::get<string_tag>(c_env)),
+                          std::string const &>);
+            static_assert(std::same_as<
+                          decltype(stdexec::get<int_tag>(std::move(c_env))),
+                          int const &&>);
+            static_assert(std::same_as<
+                          decltype(stdexec::get<string_tag>(std::move(c_env))),
+                          std::string const &&>);
+        }
 
         EXPECT_EQ(stdexec::get<int_tag>(env), 42);
         EXPECT_EQ(stdexec::get<double_tag>(env), 13.0);
         EXPECT_EQ(stdexec::get<string_tag>(env), "foo");
 
-        static_assert(std::same_as<decltype(c_env[int_tag{}]), int const &>);
+        stdexec::get<int_tag>(env) = 8;
+        EXPECT_EQ(stdexec::get<int_tag>(env), 8);
+
+        stdexec::get<double_tag>(env) = 19.9;
+        EXPECT_EQ(stdexec::get<double_tag>(env), 19.9);
+
+        std::string const moved_to = stdexec::get<string_tag>(std::move(env));
+        EXPECT_EQ(moved_to, "foo");
+        EXPECT_EQ(stdexec::get<string_tag>(env), "");
+
         static_assert(
-            std::same_as<decltype(c_env[string_tag{}]), std::string const &>);
-        static_assert(
-            std::same_as<decltype(std::move(c_env)[int_tag{}]), int const &&>);
+            std::same_as<decltype(stdexec::get<int_tag>(env)), int &>);
         static_assert(std::same_as<
-                      decltype(std::move(c_env)[string_tag{}]),
-                      std::string const &&>);
+                      decltype(stdexec::get<string_tag>(env)),
+                      std::string &>);
+        static_assert(std::same_as<
+                      decltype(stdexec::get<int_tag>(std::move(env))),
+                      int &&>);
+        static_assert(std::same_as<
+                      decltype(stdexec::get<string_tag>(std::move(env))),
+                      std::string &&>);
     }
+#if HAVE_BOOST_MP11
+    {
+        auto env = stdexec::env(
+            mp_list<int_tag, double_tag, string_tag>{},
+            std::tuple(42, 13.0, std::string("foo")));
 
-    EXPECT_TRUE(env.contains(int_tag{}));
-    EXPECT_TRUE(env.contains(double_tag{}));
-    EXPECT_TRUE(env.contains(string_tag{}));
-    EXPECT_FALSE(env.contains(int{}));
+        {
+            auto const & c_env = env;
 
-    EXPECT_TRUE(env.contains_all_of(stdexec::types<int_tag>{}));
-    EXPECT_TRUE(env.contains_all_of(stdexec::types<double_tag>{}));
-    EXPECT_TRUE(env.contains_all_of(stdexec::types<string_tag>{}));
+            EXPECT_EQ(stdexec::get<int_tag>(c_env), 42);
+            EXPECT_EQ(stdexec::get<double_tag>(c_env), 13.0);
+            EXPECT_EQ(stdexec::get<string_tag>(c_env), "foo");
 
-    EXPECT_TRUE(env.contains_all_of(stdexec::types<string_tag, int_tag>{}));
-    EXPECT_TRUE(env.contains_all_of(stdexec::types<double_tag, int_tag>{}));
-    EXPECT_TRUE(
-        env.contains_all_of(stdexec::types<string_tag, double_tag, int_tag>{}));
+            static_assert(std::same_as<
+                          decltype(stdexec::get<int_tag>(c_env)),
+                          int const &>);
+            static_assert(std::same_as<
+                          decltype(stdexec::get<string_tag>(c_env)),
+                          std::string const &>);
+            static_assert(std::same_as<
+                          decltype(stdexec::get<int_tag>(std::move(c_env))),
+                          int const &&>);
+            static_assert(std::same_as<
+                          decltype(stdexec::get<string_tag>(std::move(c_env))),
+                          std::string const &&>);
+        }
 
-    EXPECT_FALSE(env.contains_all_of(stdexec::types<int_2_tag>{}));
-    EXPECT_FALSE(env.contains_all_of(stdexec::types<int_tag, int_2_tag>{}));
+        EXPECT_EQ(stdexec::get<int_tag>(env), 42);
+        EXPECT_EQ(stdexec::get<double_tag>(env), 13.0);
+        EXPECT_EQ(stdexec::get<string_tag>(env), "foo");
 
-    EXPECT_EQ(env[int_tag{}], 42);
-    EXPECT_EQ(env[double_tag{}], 13.0);
-    EXPECT_EQ(env[string_tag{}], "foo");
+        stdexec::get<int_tag>(env) = 8;
+        EXPECT_EQ(stdexec::get<int_tag>(env), 8);
 
-    env[int_tag{}] = 8;
-    EXPECT_EQ(env[int_tag{}], 8);
+        stdexec::get<double_tag>(env) = 19.9;
+        EXPECT_EQ(stdexec::get<double_tag>(env), 19.9);
 
-    env[double_tag{}] = 19.9;
-    EXPECT_EQ(env[double_tag{}], 19.9);
+        std::string const moved_to = stdexec::get<string_tag>(std::move(env));
+        EXPECT_EQ(moved_to, "foo");
+        EXPECT_EQ(stdexec::get<string_tag>(env), "");
 
-    std::string const moved_to = std::move(env)[string_tag{}];
-    EXPECT_EQ(moved_to, "foo");
-    EXPECT_EQ(env[string_tag{}], "");
+        static_assert(
+            std::same_as<decltype(stdexec::get<int_tag>(env)), int &>);
+        static_assert(std::same_as<
+                      decltype(stdexec::get<string_tag>(env)),
+                      std::string &>);
+        static_assert(std::same_as<
+                      decltype(stdexec::get<int_tag>(std::move(env))),
+                      int &&>);
+        static_assert(std::same_as<
+                      decltype(stdexec::get<string_tag>(std::move(env))),
+                      std::string &&>);
+    }
+#endif
+}
 
-    static_assert(std::same_as<decltype(env[int_tag{}]), int &>);
-    static_assert(std::same_as<decltype(env[string_tag{}]), std::string &>);
-    static_assert(std::same_as<decltype(std::move(env)[int_tag{}]), int &&>);
-    static_assert(
-        std::same_as<decltype(std::move(env)[string_tag{}]), std::string &&>);
+TEST(env_, nttp_get)
+{
+    {
+        auto env = stdexec::env(
+            stdexec::types<int_tag, double_tag, string_tag>{},
+            std::tuple(42, 13.0, std::string("foo")));
+
+        {
+            auto const & c_env = env;
+
+            EXPECT_EQ(stdexec::get<0>(env), 42);
+            EXPECT_EQ(stdexec::get<1>(env), 13.0);
+            EXPECT_EQ(stdexec::get<2>(env), "foo");
+
+            static_assert(
+                std::same_as<decltype(stdexec::get<0>(c_env)), int const &>);
+            static_assert(std::same_as<
+                          decltype(stdexec::get<2>(c_env)),
+                          std::string const &>);
+            static_assert(std::same_as<
+                          decltype(stdexec::get<0>(std::move(c_env))),
+                          int const &&>);
+            static_assert(std::same_as<
+                          decltype(stdexec::get<2>(std::move(c_env))),
+                          std::string const &&>);
+        }
+
+        EXPECT_EQ(stdexec::get<0>(env), 42);
+        EXPECT_EQ(stdexec::get<1>(env), 13.0);
+        EXPECT_EQ(stdexec::get<2>(env), "foo");
+
+        stdexec::get<0>(env) = 8;
+        EXPECT_EQ(stdexec::get<0>(env), 8);
+
+        stdexec::get<1>(env) = 19.9;
+        EXPECT_EQ(stdexec::get<1>(env), 19.9);
+
+        std::string const moved_to = stdexec::get<2>(std::move(env));
+        EXPECT_EQ(moved_to, "foo");
+        EXPECT_EQ(stdexec::get<2>(env), "");
+
+        static_assert(std::same_as<decltype(stdexec::get<0>(env)), int &>);
+        static_assert(
+            std::same_as<decltype(stdexec::get<2>(env)), std::string &>);
+        static_assert(
+            std::same_as<decltype(stdexec::get<0>(std::move(env))), int &&>);
+        static_assert(std::same_as<
+                      decltype(stdexec::get<2>(std::move(env))),
+                      std::string &&>);
+    }
+#if HAVE_BOOST_MP11
+    {
+        auto env = stdexec::env(
+            mp_list<int_tag, double_tag, string_tag>{},
+            std::tuple(42, 13.0, std::string("foo")));
+
+        {
+            auto const & c_env = env;
+
+            EXPECT_EQ(stdexec::get<0>(env), 42);
+            EXPECT_EQ(stdexec::get<1>(env), 13.0);
+            EXPECT_EQ(stdexec::get<2>(env), "foo");
+
+            static_assert(
+                std::same_as<decltype(stdexec::get<0>(c_env)), int const &>);
+            static_assert(std::same_as<
+                          decltype(stdexec::get<2>(c_env)),
+                          std::string const &>);
+            static_assert(std::same_as<
+                          decltype(stdexec::get<0>(std::move(c_env))),
+                          int const &&>);
+            static_assert(std::same_as<
+                          decltype(stdexec::get<2>(std::move(c_env))),
+                          std::string const &&>);
+        }
+
+        EXPECT_EQ(stdexec::get<0>(env), 42);
+        EXPECT_EQ(stdexec::get<1>(env), 13.0);
+        EXPECT_EQ(stdexec::get<2>(env), "foo");
+
+        stdexec::get<0>(env) = 8;
+        EXPECT_EQ(stdexec::get<0>(env), 8);
+
+        stdexec::get<1>(env) = 19.9;
+        EXPECT_EQ(stdexec::get<1>(env), 19.9);
+
+        std::string const moved_to = stdexec::get<2>(std::move(env));
+        EXPECT_EQ(moved_to, "foo");
+        EXPECT_EQ(stdexec::get<2>(env), "");
+
+        static_assert(std::same_as<decltype(stdexec::get<0>(env)), int &>);
+        static_assert(
+            std::same_as<decltype(stdexec::get<2>(env)), std::string &>);
+        static_assert(
+            std::same_as<decltype(stdexec::get<0>(std::move(env))), int &&>);
+        static_assert(std::same_as<
+                      decltype(stdexec::get<2>(std::move(env))),
+                      std::string &&>);
+    }
+#endif
+}
+
+TEST(env_, index_contains_equals)
+{
+    {
+        auto env = stdexec::env(
+            stdexec::types<int_tag, double_tag, string_tag>{},
+            std::tuple(42, 13.0, std::string("foo")));
+
+        EXPECT_TRUE(env == env);
+
+        {
+            auto const & c_env = env;
+
+            EXPECT_TRUE(env == c_env);
+
+            EXPECT_EQ(stdexec::get<int_tag>(env), 42);
+            EXPECT_EQ(stdexec::get<double_tag>(env), 13.0);
+            EXPECT_EQ(stdexec::get<string_tag>(env), "foo");
+
+            static_assert(
+                std::same_as<decltype(c_env[int_tag{}]), int const &>);
+            static_assert(std::same_as<
+                          decltype(c_env[string_tag{}]),
+                          std::string const &>);
+            static_assert(std::same_as<
+                          decltype(std::move(c_env)[int_tag{}]),
+                          int const &&>);
+            static_assert(std::same_as<
+                          decltype(std::move(c_env)[string_tag{}]),
+                          std::string const &&>);
+        }
+
+        EXPECT_TRUE(env.contains(int_tag{}));
+        EXPECT_TRUE(env.contains(double_tag{}));
+        EXPECT_TRUE(env.contains(string_tag{}));
+        EXPECT_FALSE(env.contains(int{}));
+
+        EXPECT_TRUE(env.contains_all_of(stdexec::types<int_tag>{}));
+        EXPECT_TRUE(env.contains_all_of(stdexec::types<double_tag>{}));
+        EXPECT_TRUE(env.contains_all_of(stdexec::types<string_tag>{}));
+
+        EXPECT_TRUE(env.contains_all_of(stdexec::types<string_tag, int_tag>{}));
+        EXPECT_TRUE(env.contains_all_of(stdexec::types<double_tag, int_tag>{}));
+        EXPECT_TRUE(env.contains_all_of(
+            stdexec::types<string_tag, double_tag, int_tag>{}));
+
+        EXPECT_FALSE(env.contains_all_of(stdexec::types<int_2_tag>{}));
+        EXPECT_FALSE(env.contains_all_of(stdexec::types<int_tag, int_2_tag>{}));
+
+#if HAVE_BOOST_MP11
+        EXPECT_TRUE(env.contains_all_of(mp_list<int_tag>{}));
+        EXPECT_TRUE(env.contains_all_of(mp_list<double_tag>{}));
+        EXPECT_TRUE(env.contains_all_of(mp_list<string_tag>{}));
+
+        EXPECT_TRUE(env.contains_all_of(mp_list<string_tag, int_tag>{}));
+        EXPECT_TRUE(env.contains_all_of(mp_list<double_tag, int_tag>{}));
+        EXPECT_TRUE(env.contains_all_of(
+            mp_list<string_tag, double_tag, int_tag>{}));
+
+        EXPECT_FALSE(env.contains_all_of(mp_list<int_2_tag>{}));
+        EXPECT_FALSE(env.contains_all_of(mp_list<int_tag, int_2_tag>{}));
+#endif
+
+        EXPECT_EQ(env[int_tag{}], 42);
+        EXPECT_EQ(env[double_tag{}], 13.0);
+        EXPECT_EQ(env[string_tag{}], "foo");
+
+        env[int_tag{}] = 8;
+        EXPECT_EQ(env[int_tag{}], 8);
+
+        env[double_tag{}] = 19.9;
+        EXPECT_EQ(env[double_tag{}], 19.9);
+
+        std::string const moved_to = std::move(env)[string_tag{}];
+        EXPECT_EQ(moved_to, "foo");
+        EXPECT_EQ(env[string_tag{}], "");
+
+        static_assert(std::same_as<decltype(env[int_tag{}]), int &>);
+        static_assert(std::same_as<decltype(env[string_tag{}]), std::string &>);
+        static_assert(
+            std::same_as<decltype(std::move(env)[int_tag{}]), int &&>);
+        static_assert(std::same_as<
+                      decltype(std::move(env)[string_tag{}]),
+                      std::string &&>);
+    }
+#if HAVE_BOOST_MP11
+    {
+        auto env = stdexec::env(
+            mp_list<int_tag, double_tag, string_tag>{},
+            std::tuple(42, 13.0, std::string("foo")));
+
+        EXPECT_TRUE(env == env);
+
+        {
+            auto const & c_env = env;
+
+            EXPECT_TRUE(env == c_env);
+
+            EXPECT_EQ(stdexec::get<int_tag>(env), 42);
+            EXPECT_EQ(stdexec::get<double_tag>(env), 13.0);
+            EXPECT_EQ(stdexec::get<string_tag>(env), "foo");
+
+            static_assert(
+                std::same_as<decltype(c_env[int_tag{}]), int const &>);
+            static_assert(std::same_as<
+                          decltype(c_env[string_tag{}]),
+                          std::string const &>);
+            static_assert(std::same_as<
+                          decltype(std::move(c_env)[int_tag{}]),
+                          int const &&>);
+            static_assert(std::same_as<
+                          decltype(std::move(c_env)[string_tag{}]),
+                          std::string const &&>);
+        }
+
+        EXPECT_TRUE(env.contains(int_tag{}));
+        EXPECT_TRUE(env.contains(double_tag{}));
+        EXPECT_TRUE(env.contains(string_tag{}));
+        EXPECT_FALSE(env.contains(int{}));
+
+        EXPECT_TRUE(env.contains_all_of(mp_list<int_tag>{}));
+        EXPECT_TRUE(env.contains_all_of(mp_list<double_tag>{}));
+        EXPECT_TRUE(env.contains_all_of(mp_list<string_tag>{}));
+
+        EXPECT_TRUE(env.contains_all_of(mp_list<string_tag, int_tag>{}));
+        EXPECT_TRUE(env.contains_all_of(mp_list<double_tag, int_tag>{}));
+        EXPECT_TRUE(env.contains_all_of(
+            mp_list<string_tag, double_tag, int_tag>{}));
+
+        EXPECT_FALSE(env.contains_all_of(mp_list<int_2_tag>{}));
+        EXPECT_FALSE(env.contains_all_of(mp_list<int_tag, int_2_tag>{}));
+
+        EXPECT_TRUE(env.contains_all_of(stdexec::types<int_tag>{}));
+        EXPECT_TRUE(env.contains_all_of(stdexec::types<double_tag>{}));
+        EXPECT_TRUE(env.contains_all_of(stdexec::types<string_tag>{}));
+
+        EXPECT_TRUE(env.contains_all_of(stdexec::types<string_tag, int_tag>{}));
+        EXPECT_TRUE(env.contains_all_of(stdexec::types<double_tag, int_tag>{}));
+        EXPECT_TRUE(env.contains_all_of(
+            stdexec::types<string_tag, double_tag, int_tag>{}));
+
+        EXPECT_FALSE(env.contains_all_of(stdexec::types<int_2_tag>{}));
+        EXPECT_FALSE(env.contains_all_of(stdexec::types<int_tag, int_2_tag>{}));
+
+        EXPECT_EQ(env[int_tag{}], 42);
+        EXPECT_EQ(env[double_tag{}], 13.0);
+        EXPECT_EQ(env[string_tag{}], "foo");
+
+        env[int_tag{}] = 8;
+        EXPECT_EQ(env[int_tag{}], 8);
+
+        env[double_tag{}] = 19.9;
+        EXPECT_EQ(env[double_tag{}], 19.9);
+
+        std::string const moved_to = std::move(env)[string_tag{}];
+        EXPECT_EQ(moved_to, "foo");
+        EXPECT_EQ(env[string_tag{}], "");
+
+        static_assert(std::same_as<decltype(env[int_tag{}]), int &>);
+        static_assert(std::same_as<decltype(env[string_tag{}]), std::string &>);
+        static_assert(
+            std::same_as<decltype(std::move(env)[int_tag{}]), int &&>);
+        static_assert(std::same_as<
+                      decltype(std::move(env)[string_tag{}]),
+                      std::string &&>);
+    }
+#endif
 }
 
 TEST(env_, single_insert)
 {
-    auto env =
-        stdexec::env(stdexec::types<int_tag, double_tag>{}, std::tuple(42, 13.0));
-
     {
-        auto const expected = stdexec::env(
-            stdexec::types<int_tag, double_tag, string_tag>{},
-            std::tuple(42, 13.0, std::string("foo")));
+        auto env = stdexec::env(
+            stdexec::types<int_tag, double_tag>{}, std::tuple(42, 13.0));
 
-        auto inserted = stdexec::insert(env, string_tag{}, std::string("foo"));
-        EXPECT_TRUE(inserted == expected);
+        {
+            auto const expected = stdexec::env(
+                stdexec::types<int_tag, double_tag, string_tag>{},
+                std::tuple(42, 13.0, std::string("foo")));
 
-        auto const expected_2 = stdexec::env(
-            stdexec::types<int_tag, double_tag, string_tag, string_2_tag>{},
-            std::tuple(42, 13.0, std::string("foo"), std::string("bar")));
+            auto inserted =
+                stdexec::insert(env, string_tag{}, std::string("foo"));
+            EXPECT_TRUE(inserted == expected);
 
-        auto inserted_2 = stdexec::insert(
-            std::move(inserted), string_2_tag{}, std::string("bar"));
-        EXPECT_TRUE(inserted_2 == expected_2);
+            auto const expected_2 = stdexec::env(
+                stdexec::types<int_tag, double_tag, string_tag, string_2_tag>{},
+                std::tuple(42, 13.0, std::string("foo"), std::string("bar")));
 
-        auto const inserted_expected_after_move = stdexec::env(
-            stdexec::types<int_tag, double_tag, string_tag>{},
-            std::tuple(42, 13.0, std::string()));
-        EXPECT_TRUE(inserted == inserted_expected_after_move);
+            auto inserted_2 = stdexec::insert(
+                std::move(inserted), string_2_tag{}, std::string("bar"));
+            EXPECT_TRUE(inserted_2 == expected_2);
+
+            auto const inserted_expected_after_move = stdexec::env(
+                stdexec::types<int_tag, double_tag, string_tag>{},
+                std::tuple(42, 13.0, std::string()));
+            EXPECT_TRUE(inserted == inserted_expected_after_move);
+        }
     }
+#if HAVE_BOOST_MP11
+    {
+        auto env =
+            stdexec::env(mp_list<int_tag, double_tag>{}, std::tuple(42, 13.0));
+
+        {
+            auto const expected = stdexec::env(
+                mp_list<int_tag, double_tag, string_tag>{},
+                std::tuple(42, 13.0, std::string("foo")));
+
+            auto inserted =
+                stdexec::insert(env, string_tag{}, std::string("foo"));
+            EXPECT_TRUE(inserted == expected);
+
+            auto const expected_2 = stdexec::env(
+                mp_list<int_tag, double_tag, string_tag, string_2_tag>{},
+                std::tuple(42, 13.0, std::string("foo"), std::string("bar")));
+
+            auto inserted_2 = stdexec::insert(
+                std::move(inserted), string_2_tag{}, std::string("bar"));
+            EXPECT_TRUE(inserted_2 == expected_2);
+
+            auto const inserted_expected_after_move = stdexec::env(
+                mp_list<int_tag, double_tag, string_tag>{},
+                std::tuple(42, 13.0, std::string()));
+            EXPECT_TRUE(inserted == inserted_expected_after_move);
+        }
+    }
+#endif
 }
 
 TEST(env_, subset) {}
@@ -1164,91 +1503,188 @@ TEST(env_, insert_unique) {}
 
 TEST(env_, single_erase)
 {
-    auto env = stdexec::env(
-        stdexec::types<int_tag, double_tag, string_tag>{},
-        std::tuple(42, 13.0, std::string("foo")));
-
     {
-        auto const expected =
-            stdexec::env(stdexec::types<int_tag, double_tag>{}, std::tuple(42, 13.0));
+        auto env = stdexec::env(
+            stdexec::types<int_tag, double_tag, string_tag>{},
+            std::tuple(42, 13.0, std::string("foo")));
 
-        auto erased = stdexec::erase(env, string_tag{});
-        EXPECT_TRUE(erased == expected);
+        {
+            auto const expected = stdexec::env(
+                stdexec::types<int_tag, double_tag>{}, std::tuple(42, 13.0));
+
+            auto erased = stdexec::erase(env, string_tag{});
+            EXPECT_TRUE(erased == expected);
+        }
+
+        {
+            auto const expected = stdexec::env(
+                stdexec::types<int_tag, string_tag>{},
+                std::tuple(42, std::string("foo")));
+
+            auto erased = stdexec::erase(env, double_tag{});
+            EXPECT_TRUE(erased == expected);
+        }
+
+        {
+            auto const expected = stdexec::env(
+                stdexec::types<double_tag, string_tag>{},
+                std::tuple(13.0, std::string("foo")));
+
+            auto erased = stdexec::erase(env, int_tag{});
+            EXPECT_TRUE(erased == expected);
+        }
+
+        {
+            auto erased_1 = stdexec::erase(env, int_tag{});
+            auto erased_2 = stdexec::erase(erased_1, double_tag{});
+            auto final_ = stdexec::erase(erased_2, string_tag{});
+            EXPECT_TRUE(final_ == stdexec::empty_env);
+        }
     }
-
+#if HAVE_BOOST_MP11
     {
-        auto const expected = stdexec::env(
-            stdexec::types<int_tag, string_tag>{},
-            std::tuple(42, std::string("foo")));
+        auto env = stdexec::env(
+            mp_list<int_tag, double_tag, string_tag>{},
+            std::tuple(42, 13.0, std::string("foo")));
 
-        auto erased = stdexec::erase(env, double_tag{});
-        EXPECT_TRUE(erased == expected);
+        {
+            auto const expected = stdexec::env(
+                mp_list<int_tag, double_tag>{}, std::tuple(42, 13.0));
+
+            auto erased = stdexec::erase(env, string_tag{});
+            EXPECT_TRUE(erased == expected);
+        }
+
+        {
+            auto const expected = stdexec::env(
+                mp_list<int_tag, string_tag>{},
+                std::tuple(42, std::string("foo")));
+
+            auto erased = stdexec::erase(env, double_tag{});
+            EXPECT_TRUE(erased == expected);
+        }
+
+        {
+            auto const expected = stdexec::env(
+                mp_list<double_tag, string_tag>{},
+                std::tuple(13.0, std::string("foo")));
+
+            auto erased = stdexec::erase(env, int_tag{});
+            EXPECT_TRUE(erased == expected);
+        }
+
+        {
+            auto erased_1 = stdexec::erase(env, int_tag{});
+            auto erased_2 = stdexec::erase(erased_1, double_tag{});
+            auto final_ = stdexec::erase(erased_2, string_tag{});
+            EXPECT_TRUE(final_ == (stdexec::env<mp_list<>, std::tuple<>>()));
+        }
     }
-
-    {
-        auto const expected = stdexec::env(
-            stdexec::types<double_tag, string_tag>{},
-            std::tuple(13.0, std::string("foo")));
-
-        auto erased = stdexec::erase(env, int_tag{});
-        EXPECT_TRUE(erased == expected);
-    }
-
-    {
-        auto erased_1 = stdexec::erase(env, int_tag{});
-        auto erased_2 = stdexec::erase(erased_1, double_tag{});
-        auto final_ = stdexec::erase(erased_2, string_tag{});
-        EXPECT_TRUE(final_ == stdexec::empty_env);
-    }
+#endif
 }
 
 TEST(env_, multi_erase)
 {
-    auto const initial_env = stdexec::env(
-        stdexec::types<int_tag, double_tag, string_tag>{},
-        std::tuple(42, 13.0, std::string("foo")));
-
     {
-        auto env = initial_env;
+        auto const initial_env = stdexec::env(
+            stdexec::types<int_tag, double_tag, string_tag>{},
+            std::tuple(42, 13.0, std::string("foo")));
 
-        auto const expected =
-            stdexec::env(stdexec::types<string_tag>{}, std::tuple(std::string("foo")));
+        {
+            auto env = initial_env;
 
-        auto erased = stdexec::erase(env, int_tag{}, double_tag{});
-        EXPECT_TRUE(erased == expected);
+            auto const expected = stdexec::env(
+                stdexec::types<string_tag>{}, std::tuple(std::string("foo")));
+
+            auto erased = stdexec::erase(env, int_tag{}, double_tag{});
+            EXPECT_TRUE(erased == expected);
+        }
+
+        {
+            auto env = initial_env;
+
+            auto const expected = stdexec::env(
+                stdexec::types<string_tag>{}, std::tuple(std::string("foo")));
+
+            auto erased =
+                stdexec::erase(std::move(env), double_tag{}, int_tag{});
+            EXPECT_TRUE(erased == expected);
+
+            EXPECT_EQ(env[string_tag{}], std::string());
+        }
+
+        {
+            auto env = initial_env;
+
+            auto const expected =
+                stdexec::env(stdexec::types<double_tag>{}, std::tuple(13.0));
+
+            auto erased = stdexec::erase(env, int_tag{}, string_tag{});
+            EXPECT_TRUE(erased == expected);
+        }
+
+        {
+            auto env = initial_env;
+
+            auto const expected = stdexec::env(
+                stdexec::types<string_tag>{}, std::tuple(std::string("foo")));
+
+            auto erased =
+                stdexec::erase(env, string_tag{}, double_tag{}, int_tag{});
+            EXPECT_TRUE(erased == stdexec::empty_env);
+        }
     }
-
+#if HAVE_BOOST_MP11
     {
-        auto env = initial_env;
+        auto const initial_env = stdexec::env(
+            mp_list<int_tag, double_tag, string_tag>{},
+            std::tuple(42, 13.0, std::string("foo")));
 
-        auto const expected =
-            stdexec::env(stdexec::types<string_tag>{}, std::tuple(std::string("foo")));
+        {
+            auto env = initial_env;
 
-        auto erased = stdexec::erase(std::move(env), double_tag{}, int_tag{});
-        EXPECT_TRUE(erased == expected);
+            auto const expected = stdexec::env(
+                mp_list<string_tag>{}, std::tuple(std::string("foo")));
 
-        EXPECT_EQ(env[string_tag{}], std::string());
+            auto erased = stdexec::erase(env, int_tag{}, double_tag{});
+            EXPECT_TRUE(erased == expected);
+        }
+
+        {
+            auto env = initial_env;
+
+            auto const expected = stdexec::env(
+                mp_list<string_tag>{}, std::tuple(std::string("foo")));
+
+            auto erased =
+                stdexec::erase(std::move(env), double_tag{}, int_tag{});
+            EXPECT_TRUE(erased == expected);
+
+            EXPECT_EQ(env[string_tag{}], std::string());
+        }
+
+        {
+            auto env = initial_env;
+
+            auto const expected =
+                stdexec::env(mp_list<double_tag>{}, std::tuple(13.0));
+
+            auto erased = stdexec::erase(env, int_tag{}, string_tag{});
+            EXPECT_TRUE(erased == expected);
+        }
+
+        {
+            auto env = initial_env;
+
+            auto const expected = stdexec::env(
+                mp_list<string_tag>{}, std::tuple(std::string("foo")));
+
+            auto erased =
+                stdexec::erase(env, string_tag{}, double_tag{}, int_tag{});
+            EXPECT_TRUE(erased == (stdexec::env<mp_list<>, std::tuple<>>()));
+        }
     }
-
-    {
-        auto env = initial_env;
-
-        auto const expected =
-            stdexec::env(stdexec::types<double_tag>{}, std::tuple(13.0));
-
-        auto erased = stdexec::erase(env, int_tag{}, string_tag{});
-        EXPECT_TRUE(erased == expected);
-    }
-
-    {
-        auto env = initial_env;
-
-        auto const expected =
-            stdexec::env(stdexec::types<string_tag>{}, std::tuple(std::string("foo")));
-
-        auto erased = stdexec::erase(env, string_tag{}, double_tag{}, int_tag{});
-        EXPECT_TRUE(erased == stdexec::empty_env);
-    }
+#endif
 }
 
 #endif
