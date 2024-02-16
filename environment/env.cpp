@@ -1,10 +1,13 @@
-#include <iostream>
-#include <ranges>
-#include <string>
 #include <tuple>
-#include <utility>
 
+#ifndef DO_TESTING
+#define DO_TESTING 1
+#endif
+
+#if DO_TESTING
 #include <gtest/gtest.h>
+#include <string>
+#endif
 
 
 namespace stdexec {
@@ -858,6 +861,8 @@ namespace stdexec {
     }
 }
 
+#if DO_TESTING
+
 struct int_tag
 {};
 struct double_tag
@@ -1249,3 +1254,5 @@ TEST(env_, multi_erase)
         EXPECT_TRUE(erased == stdexec::empty_env);
     }
 }
+
+#endif
