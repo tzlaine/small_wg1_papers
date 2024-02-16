@@ -7,26 +7,12 @@
 #include <gtest/gtest.h>
 
 
-// TODO: Do we want anything to associate a tag to a particular type? The
-// code below lets sttring_tag be the tag type for a std::complex if you
-// like....
-
 namespace std {
     namespace detail {
         template<typename T>
         constexpr bool has_type_params = false;
         template<template<class...> class Template, typename... Ts>
         constexpr bool has_type_params<Template<Ts...>> = true;
-
-        // TODO: What kinds of types can be in the env?
-        template<typename T>
-        concept env_value = same_as<decay_t<T>, T>;
-
-        template<typename T>
-        constexpr bool tuple_args_env_vals = false;
-        template<typename... Ts>
-        constexpr bool
-            tuple_args_env_vals<tuple<Ts...>> = (env_value<Ts> && ...);
 
         template<auto X>
         struct constant_wrapper
@@ -84,7 +70,10 @@ namespace std {
             {
                 return {};
             }
-            constexpr T value(constant_wrapper<I>) && { return x_; }
+            constexpr T && value(constant_wrapper<I>) &&
+            {
+                return std::move(x_);
+            }
             static consteval bool contains(wrapper<Tag>) { return true; }
 
             template<typename Tag2, typename T2>
@@ -177,26 +166,38 @@ namespace std {
     concept type_list =
         is_empty_v<T> && semiregular<T> && detail::has_type_params<T>;
 
-    template<typename T>
-    concept env_tuple = detail::tuple_args_env_vals<T>;
-
+    namespace detail {
+        template<typename T>
+        concept non_void = !is_void_v<T>;
+    }
+    // clang-format off
+    template<typename T, typename U>
+    concept queryable_with = requires (T env, U tag) {
+        { env[tag] } -> detail::non_void;
+    };
+    // clang-format on
+    namespace detail {
+        template<typename T, typename U>
+        constexpr bool queryable_with_all = false;
+        template<typename T, template<class...> class TypeList, typename... Ts>
+        constexpr bool queryable_with_all<T, TypeList<Ts...>> =
+            (queryable_with<T, Ts> && ...);
+    }
     // clang-format off
     template<typename T>
-    concept queryable_environment = requires(T x) {
-      { x.tags } -> type_list;
-      { x.values } -> env_tuple;
-    };
-    // TODO: Support member functions returning same? Maybe free functions
-    // too?
+    concept environment =
+        requires(T x) { typename T::tags_type; } &&
+        type_list<typename T::tags_type> &&
+        detail::queryable_with_all<T, typename T::tags_type>;
 
     namespace detail {
         template<typename T>
         concept free_queryable = requires(T & x) {
-          { make_queryable_environment(x) } -> queryable_environment;
+          { make_environment(x) } -> environment;
         };
         template<typename T>
         concept member_queryable = requires(T & x) {
-          { x.make_queryable_environment() } -> queryable_environment;
+          { x.make_environment() } -> environment;
         };
         // clang-format on
 
@@ -342,17 +343,24 @@ namespace std {
         template<typename Tags, typename Tuple>
         constexpr bool
             same_arity = detail::same_arity_impl(Tags{}, wrap<Tuple>());
+
+        template<typename T>
+        constexpr bool is_tuple_v = false;
+        template<typename... Ts>
+        constexpr bool is_tuple_v<tuple<Ts...>> = true;
+        template<typename T>
+        concept is_tuple = is_tuple_v<T>;
     }
 
     template<typename T>
-    concept queryable =
+    concept queryable_environment = environment<T> ||
         detail::free_queryable<T> || detail::member_queryable<T>;
 
     template<typename... Ts>
     struct types
     {};
 
-    template<type_list Tags, env_tuple Tuple>
+    template<type_list Tags, detail::is_tuple Tuple>
     requires detail::same_arity<Tags, Tuple>
     struct env;
 
@@ -389,7 +397,7 @@ namespace std {
         }
     }
 
-    template<type_list Tags, env_tuple Tuple>
+    template<type_list Tags, detail::is_tuple Tuple>
     requires detail::same_arity<Tags, Tuple>
     struct env
     {
@@ -464,7 +472,7 @@ namespace std {
         }
 #endif
 
-        Tags tags;
+        [[no_unique_address]] Tags tags;
         Tuple values;
     };
 
@@ -536,18 +544,16 @@ namespace std {
     }
 
     template<typename Tag, typename Tags, typename Tuple, typename T>
-    requires(!detail::has_tag<Tag, Tags>) &&
-        detail::env_value<T> constexpr auto insert(
-            env<Tags, Tuple> const & env_, Tag, T && x)
+    requires(!detail::has_tag<Tag, Tags>)
+    constexpr auto insert(env<Tags, Tuple> const & env_, Tag, T && x)
     {
         return env(
             detail::tl_append<remove_cvref_t<Tag>>(Tags{}),
             tuple_cat(env_.values, tuple((T &&) x)));
     }
     template<typename Tag, typename Tags, typename Tuple, typename T>
-    requires(!detail::has_tag<Tag, Tags>) &&
-        detail::env_value<T> constexpr auto insert(
-            env<Tags, Tuple> && env_, Tag, T && x)
+    requires(!detail::has_tag<Tag, Tags>)
+    constexpr auto insert(env<Tags, Tuple> && env_, Tag, T && x)
     {
         return env(
             detail::tl_append<Tag>(Tags{}),
@@ -912,6 +918,26 @@ static_assert(std::same_as<
                            .type(std::detail::cw<2>))::type,
               double_tag>);
 
+TEST(env_, concept_)
+{
+    static_assert(std::environment<decltype(std::empty_env)>);
+
+    std::env env1 = std::make_env(int_tag{}, 42)(double_tag{}, 13.0)(
+        string_tag{}, std::string("foo"));
+
+    static_assert(std::environment<decltype(env1)>);
+    static_assert(std::environment<decltype(env1) const>);
+
+    auto env2 = std::env(
+        std::types<int_tag, double_tag, string_tag>{},
+        std::tuple(42, 13.0, std::string("foo")));
+
+    static_assert(std::environment<decltype(env2)>);
+    static_assert(std::environment<decltype(env2) const>);
+}
+
+// TODO: Test with other types, including mp11 type list.
+
 TEST(env_, make_env_)
 {
     {
@@ -923,12 +949,14 @@ TEST(env_, make_env_)
         EXPECT_TRUE(env == expected);
     }
     {
-        std::env env = std::make_env(int_tag{}, 42)(double_tag{}, 13.0)(
-            string_tag{}, std::string("foo"));
+        std::env env = std::make_env(int_tag{}, 42) //
+            (double_tag{}, 13.0)                    //
+            (string_tag{}, std::string("foo"))      //
+            (int_2_tag{}, std::unique_ptr<int>());
 
         auto const expected = std::env(
-            std::types<int_tag, double_tag, string_tag>{},
-            std::tuple(42, 13.0, std::string("foo")));
+            std::types<int_tag, double_tag, string_tag, int_2_tag>{},
+            std::tuple(42, 13.0, std::string("foo"), std::unique_ptr<int>()));
 
         EXPECT_TRUE(env == expected);
     }
