@@ -225,28 +225,36 @@ namespace stdexec {
             return TypeList1<Ts1..., Ts2...>{};
         }
 
+        template<int JsOffset, int... Is, int... Js>
+        consteval auto
+        cat_indices(std::integer_sequence<int, Is...>, std::integer_sequence<int, Js...>)
+        {
+            return std::integer_sequence<int, Is..., Js + JsOffset...>{};
+        }
+        template<int I, int Size>
+        consteval auto indices_without_i()
+        {
+            return detail::cat_indices<I + 1>(
+                std::make_integer_sequence<int, I>{},
+                std::make_integer_sequence<int, Size - (I + 1)>{});
+        }
+
+        template<template<class...> class TypeList, typename Folded, int... Is>
+        consteval auto
+        tl_without_i_impl(Folded f, std::integer_sequence<int, Is...>)
+        {
+            return TypeList<typename decltype(f.type(cw<Is>))::type...>{};
+        }
         template<
-            typename X,
+            int I,
+            typename Folded,
             template<class...>
             class TypeList,
-            typename T,
-            typename... Ts,
-            typename... Us>
-        consteval auto tl_erase_impl(TypeList<Us...>)
+            typename... Ts>
+        consteval auto tl_without_i(Folded f, TypeList<Ts...> tl)
         {
-            if constexpr (std::same_as<X, T>) {
-                return TypeList<Us..., Ts...>{};
-            } else if constexpr (sizeof...(Ts) == 0) {
-                return TypeList<Us..., T>{};
-            } else {
-                return detail::tl_erase_impl<X, TypeList, Ts...>(
-                    TypeList<Us..., T>{});
-            }
-        }
-        template<typename T, template<class...> class TypeList, typename... Ts>
-        consteval auto tl_erase(TypeList<Ts...>)
-        {
-            return detail::tl_erase_impl<T, TypeList, Ts...>(TypeList<>{});
+            return detail::tl_without_i_impl<TypeList>(
+                f, detail::indices_without_i<I, sizeof...(Ts)>());
         }
 
         template<
@@ -265,26 +273,12 @@ namespace stdexec {
             return std::tuple(std::get<Is>((Tuple &&) t)...);
         }
 
-        template<int JsOffset, int... Is, int... Js>
-        consteval auto
-        cat_indices(std::integer_sequence<int, Is...>, std::integer_sequence<int, Js...>)
-        {
-            return std::integer_sequence<int, Is..., Js + JsOffset...>{};
-        }
-
-        template<int I, int TupleSize>
-        consteval auto tuple_indices_without_i()
-        {
-            return detail::cat_indices<I + 1>(
-                std::make_integer_sequence<int, I>{},
-                std::make_integer_sequence<int, TupleSize - (I + 1)>{});
-        }
         template<int I, typename Tuple>
         constexpr auto tuple_without_i(Tuple && t)
         {
             return detail::sub_tuple(
                 (Tuple &&) t,
-                detail::tuple_indices_without_i<
+                detail::indices_without_i<
                     I,
                     std::tuple_size_v<std::remove_cvref_t<Tuple>>>());
         }
@@ -795,18 +789,20 @@ namespace stdexec {
     requires detail::has_tag<Tag, Tags>
     constexpr auto erase(env<Tags, Tuple> const & env_, Tag)
     {
-        constexpr int i = detail::index_from_tag<Tag>(Tags{});
+        constexpr auto folded = detail::to_type_fold(Tags{});
+        constexpr int i = folded.index(detail::wrap<Tag>());
         return env(
-            detail::tl_erase<Tag>(Tags{}),
+            detail::tl_without_i<i>(folded, Tags{}),
             detail::tuple_without_i<i>(env_.values));
     }
     template<typename Tag, typename Tags, typename Tuple>
     requires detail::has_tag<Tag, Tags>
     constexpr auto erase(env<Tags, Tuple> && env_, Tag)
     {
-        constexpr int i = detail::index_from_tag<Tag>(Tags{});
+        constexpr auto folded = detail::to_type_fold(Tags{});
+        constexpr int i = folded.index(detail::wrap<Tag>());
         return env(
-            detail::tl_erase<Tag>(Tags{}),
+            detail::tl_without_i<i>(folded, Tags{}),
             detail::tuple_without_i<i>(std::move(env_.values)));
     }
 
