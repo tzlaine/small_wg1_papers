@@ -446,6 +446,13 @@ namespace stdexec {
             return detail::has_tag<Tag, Tags>;
         }
 
+        template<template<class...> class TypeList, typename... Tags2>
+        requires type_list<TypeList<Tags2...>>
+        constexpr bool contains_all_of(TypeList<Tags2...>) const
+        {
+            return (detail::has_tag<Tags2, Tags> && ...);
+        }
+
 #if defined(__cpp_explicit_this_parameter)
         template<typename Self, typename Tag>
         constexpr decltype(auto) operator[](this Self && self, Tag)
@@ -1086,6 +1093,18 @@ TEST(env_, index_contains_equals)
     EXPECT_TRUE(env.contains(double_tag{}));
     EXPECT_TRUE(env.contains(string_tag{}));
     EXPECT_FALSE(env.contains(int{}));
+
+    EXPECT_TRUE(env.contains_all_of(stdexec::types<int_tag>{}));
+    EXPECT_TRUE(env.contains_all_of(stdexec::types<double_tag>{}));
+    EXPECT_TRUE(env.contains_all_of(stdexec::types<string_tag>{}));
+
+    EXPECT_TRUE(env.contains_all_of(stdexec::types<string_tag, int_tag>{}));
+    EXPECT_TRUE(env.contains_all_of(stdexec::types<double_tag, int_tag>{}));
+    EXPECT_TRUE(
+        env.contains_all_of(stdexec::types<string_tag, double_tag, int_tag>{}));
+
+    EXPECT_FALSE(env.contains_all_of(stdexec::types<int_2_tag>{}));
+    EXPECT_FALSE(env.contains_all_of(stdexec::types<int_tag, int_2_tag>{}));
 
     EXPECT_EQ(env[int_tag{}], 42);
     EXPECT_EQ(env[double_tag{}], 13.0);
