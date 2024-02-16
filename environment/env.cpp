@@ -685,6 +685,63 @@ namespace stdexec {
             return tuple(
                 stdexec::get<OldTags>(env1)..., std::get<Is>(env2.values)...);
         }
+        template<
+            typename Tags1,
+            typename Tuple1,
+            template<class...>
+            class TypeList,
+            typename... OldTags,
+            typename Tags2,
+            typename Tuple2,
+            int... Is>
+        constexpr auto make_env_tuple(
+            env<Tags1, Tuple1> && env1,
+            TypeList<OldTags...> old_tags,
+            env<Tags2, Tuple2> const & env2,
+            std::integer_sequence<int, Is...>)
+        {
+            return tuple(
+                stdexec::get<OldTags>(std::move(env1))...,
+                std::get<Is>(env2.values)...);
+        }
+        template<
+            typename Tags1,
+            typename Tuple1,
+            template<class...>
+            class TypeList,
+            typename... OldTags,
+            typename Tags2,
+            typename Tuple2,
+            int... Is>
+        constexpr auto make_env_tuple(
+            env<Tags1, Tuple1> const & env1,
+            TypeList<OldTags...> old_tags,
+            env<Tags2, Tuple2> && env2,
+            std::integer_sequence<int, Is...>)
+        {
+            return tuple(
+                stdexec::get<OldTags>(env1)...,
+                std::get<Is>(std::move(env2.values))...);
+        }
+        template<
+            typename Tags1,
+            typename Tuple1,
+            template<class...>
+            class TypeList,
+            typename... OldTags,
+            typename Tags2,
+            typename Tuple2,
+            int... Is>
+        constexpr auto make_env_tuple(
+            env<Tags1, Tuple1> && env1,
+            TypeList<OldTags...> old_tags,
+            env<Tags2, Tuple2> && env2,
+            std::integer_sequence<int, Is...>)
+        {
+            return tuple(
+                stdexec::get<OldTags>(std::move(env1))...,
+                std::get<Is>(std::move(env2.values))...);
+        }
     }
 
     template<typename Tags1, typename Tuple1, typename Tags2, typename Tuple2>
@@ -701,7 +758,47 @@ namespace stdexec {
                 std::make_integer_sequence<int, std::tuple_size_v<Tuple2>>{}));
     }
 
-    // TODO: Other value category overloads.
+    template<typename Tags1, typename Tuple1, typename Tags2, typename Tuple2>
+    constexpr auto
+    insert(env<Tags1, Tuple1> && env1, env<Tags2, Tuple2> const & env2)
+    {
+        constexpr auto old_tags = detail::tl_set_diff(Tags1{}, Tags2{});
+        return env(
+            detail::tl_cat(old_tags, Tags1{}),
+            detail::make_env_tuple(
+                std::move(env1),
+                old_tags,
+                env2,
+                std::make_integer_sequence<int, std::tuple_size_v<Tuple2>>{}));
+    }
+
+    template<typename Tags1, typename Tuple1, typename Tags2, typename Tuple2>
+    constexpr auto
+    insert(env<Tags1, Tuple1> const & env1, env<Tags2, Tuple2> && env2)
+    {
+        constexpr auto old_tags = detail::tl_set_diff(Tags1{}, Tags2{});
+        return env(
+            detail::tl_cat(old_tags, Tags1{}),
+            detail::make_env_tuple(
+                env1,
+                old_tags,
+                std::move(env2),
+                std::make_integer_sequence<int, std::tuple_size_v<Tuple2>>{}));
+    }
+
+    template<typename Tags1, typename Tuple1, typename Tags2, typename Tuple2>
+    constexpr auto
+    insert(env<Tags1, Tuple1> && env1, env<Tags2, Tuple2> && env2)
+    {
+        constexpr auto old_tags = detail::tl_set_diff(Tags1{}, Tags2{});
+        return env(
+            detail::tl_cat(old_tags, Tags1{}),
+            detail::make_env_tuple(
+                std::move(env1),
+                old_tags,
+                std::move(env2),
+                std::make_integer_sequence<int, std::tuple_size_v<Tuple2>>{}));
+    }
 
     namespace detail {
         template<
