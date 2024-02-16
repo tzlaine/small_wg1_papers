@@ -1,3 +1,4 @@
+#include <ranges>
 #include <tuple>
 
 #ifndef DO_TESTING
@@ -210,20 +211,11 @@ namespace stdexec {
         requires(T x) { typename T::tags_type; } &&
         type_list<typename T::tags_type> &&
         detail::queryable_with_all<T, typename T::tags_type>;
+    // clang-format on
 
     namespace detail {
-        template<typename T>
-        concept free_queryable = requires(T & x) {
-          { make_environment(x) } -> environment;
-        };
-        template<typename T>
-        concept member_queryable = requires(T & x) {
-          { x.make_environment() } -> environment;
-        };
-        // clang-format on
-
         template<typename Tag, typename Tags>
-        constexpr bool has_tag = 0 <= detail::index_from_tag<Tag>(Tags{});
+        constexpr bool has_type = 0 <= detail::index_from_tag<Tag>(Tags{});
 
         template<typename T, template<class...> class TypeList, typename... Ts>
         consteval auto tl_append(TypeList<Ts...>)
@@ -370,9 +362,8 @@ namespace stdexec {
         concept is_tuple = is_tuple_v<T>;
     }
 
-    template<typename T>
-    concept queryable_environment = environment<T> ||
-        detail::free_queryable<T> || detail::member_queryable<T>;
+    template<typename T, typename Types>
+    concept in_type_list = detail::has_type<T, Types>;
 
     template<typename... Ts>
     struct types
@@ -383,19 +374,19 @@ namespace stdexec {
     struct env;
 
     template<typename Tag, typename Tags, typename Tuple>
-    requires detail::has_tag<Tag, Tags>
+    requires in_type_list<Tag, Tags>
     constexpr decltype(auto) get(env<Tags, Tuple> & env);
 
     template<typename Tag, typename Tags, typename Tuple>
-    requires detail::has_tag<Tag, Tags>
+    requires in_type_list<Tag, Tags>
     constexpr decltype(auto) get(env<Tags, Tuple> const & env);
 
     template<typename Tag, typename Tags, typename Tuple>
-    requires detail::has_tag<Tag, Tags>
+    requires in_type_list<Tag, Tags>
     constexpr decltype(auto) get(env<Tags, Tuple> && env);
 
     template<typename Tag, typename Tags, typename Tuple>
-    requires detail::has_tag<Tag, Tags>
+    requires in_type_list<Tag, Tags>
     constexpr decltype(auto) get(env<Tags, Tuple> const && env);
 
     namespace detail {
@@ -430,6 +421,13 @@ namespace stdexec {
             return std::tuple(std::move(folded).value(cw<Is>)...);
         }
     }
+
+    // TODO: Do we want this, to disable auto-invoking nullary invocables?
+    template<typename T>
+    struct dont_invoke
+    {
+        T value;
+    };
 
     template<type_list Tags, detail::is_tuple Tuple>
     requires detail::same_arity<Tags, Tuple>
@@ -478,41 +476,41 @@ namespace stdexec {
         }
 
         template<typename Tag>
-        constexpr bool contains(Tag) const
+        static constexpr bool contains(Tag)
         {
-            return detail::has_tag<Tag, Tags>;
+            return in_type_list<Tag, Tags>;
         }
 
         template<template<class...> class TypeList, typename... Tags2>
         requires type_list<TypeList<Tags2...>>
-        constexpr bool contains_all_of(TypeList<Tags2...>) const
+        static constexpr bool contains_all_of(TypeList<Tags2...>)
         {
-            return (detail::has_tag<Tags2, Tags> && ...);
+            return (in_type_list<Tags2, Tags> && ...);
         }
 
 #if defined(__cpp_explicit_this_parameter)
-        template<typename Self, typename Tag>
+        template<typename Self, in_type_list<Tags> Tag>
         constexpr decltype(auto) operator[](this Self && self, Tag)
         {
-            return stdexec::get<Tag>((Self &&) * this);
+            return stdexec::get<Tag>((Self &&) self);
         }
 #else
-        template<typename Tag>
+        template<in_type_list<Tags> Tag>
         constexpr decltype(auto) operator[](Tag) &
         {
             return stdexec::get<Tag>(*this);
         }
-        template<typename Tag>
+        template<in_type_list<Tags> Tag>
         constexpr decltype(auto) operator[](Tag) const &
         {
             return stdexec::get<Tag>(*this);
         }
-        template<typename Tag>
+        template<in_type_list<Tags> Tag>
         constexpr decltype(auto) operator[](Tag) &&
         {
             return stdexec::get<Tag>(std::move(*this));
         }
-        template<typename Tag>
+        template<in_type_list<Tags> Tag>
         constexpr decltype(auto) operator[](Tag) const &&
         {
             return stdexec::get<Tag>(std::move(*this));
@@ -546,28 +544,28 @@ namespace stdexec {
     detail::temp_fold_base<TypeList> make_env_with;
 
     template<typename Tag, typename Tags, typename Tuple>
-    requires detail::has_tag<Tag, Tags>
+    requires in_type_list<Tag, Tags>
     constexpr decltype(auto) get(env<Tags, Tuple> & env)
     {
         constexpr size_t i = detail::index_from_tag<Tag>(Tags{});
         return std::get<i>(env.values);
     }
     template<typename Tag, typename Tags, typename Tuple>
-    requires detail::has_tag<Tag, Tags>
+    requires in_type_list<Tag, Tags>
     constexpr decltype(auto) get(env<Tags, Tuple> const & env)
     {
         constexpr size_t i = detail::index_from_tag<Tag>(Tags{});
         return std::get<i>(env.values);
     }
     template<typename Tag, typename Tags, typename Tuple>
-    requires detail::has_tag<Tag, Tags>
+    requires in_type_list<Tag, Tags>
     constexpr decltype(auto) get(env<Tags, Tuple> && env)
     {
         constexpr size_t i = detail::index_from_tag<Tag>(Tags{});
         return std::get<i>(std::move(env.values));
     }
     template<typename Tag, typename Tags, typename Tuple>
-    requires detail::has_tag<Tag, Tags>
+    requires in_type_list<Tag, Tags>
     constexpr decltype(auto) get(env<Tags, Tuple> const && env)
     {
         constexpr size_t i = detail::index_from_tag<Tag>(Tags{});
@@ -600,7 +598,7 @@ namespace stdexec {
     }
 
     template<typename Tag, typename Tags, typename Tuple, typename T>
-    requires(!detail::has_tag<Tag, Tags>)
+    requires(!in_type_list<Tag, Tags>)
     constexpr auto insert(env<Tags, Tuple> const & env_, Tag, T && x)
     {
         return env(
@@ -608,7 +606,7 @@ namespace stdexec {
             tuple_cat(env_.values, std::tuple((T &&) x)));
     }
     template<typename Tag, typename Tags, typename Tuple, typename T>
-    requires(!detail::has_tag<Tag, Tags>)
+    requires(!in_type_list<Tag, Tags>)
     constexpr auto insert(env<Tags, Tuple> && env_, Tag, T && x)
     {
         return env(
@@ -624,7 +622,7 @@ namespace stdexec {
       typename TypeList,
       typename... Tags2>
     requires type_list<TypeList<Tags2...>> &&
-        (detail::has_tag<Tags2, Tags> && ...)
+        (in_type_list<Tags2, Tags> && ...)
     constexpr decltype(auto)
     subset(env<Tags, Tuple> const& env_, TypeList<Tags2...> tags2)
     // clang-format on
@@ -640,7 +638,7 @@ namespace stdexec {
       typename TypeList,
       typename... Tags2>
     requires type_list<TypeList<Tags2...>> &&
-        (detail::has_tag<Tags2, Tags> && ...)
+        (in_type_list<Tags2, Tags> && ...)
     constexpr decltype(auto)
     subset(env<Tags, Tuple>&& env_, TypeList<Tags2...> tags2)
     // clang-format on
@@ -650,7 +648,7 @@ namespace stdexec {
 
     // clang-format off
     template<typename Tags, typename Tuple, typename... Tags2>
-    requires (detail::has_tag<Tags2, Tags> && ...)
+    requires (in_type_list<Tags2, Tags> && ...)
     constexpr decltype(auto) subset(env<Tags, Tuple> const & env_, Tags2...)
     // clang-format on
     {
@@ -659,7 +657,7 @@ namespace stdexec {
 
     // clang-format off
     template<typename Tags, typename Tuple, typename... Tags2>
-    requires (detail::has_tag<Tags2, Tags> && ...)
+    requires (in_type_list<Tags2, Tags> && ...)
     constexpr decltype(auto) subset(env<Tags, Tuple> && env_, Tags2...)
     // clang-format on
     {
@@ -932,7 +930,7 @@ namespace stdexec {
     }
 
     template<typename Tag, typename Tags, typename Tuple>
-    requires detail::has_tag<Tag, Tags>
+    requires in_type_list<Tag, Tags>
     constexpr auto erase(env<Tags, Tuple> const & env_, Tag)
     {
         constexpr auto folded = detail::to_type_fold(Tags{});
@@ -942,7 +940,7 @@ namespace stdexec {
             detail::tuple_without_i<i>(env_.values));
     }
     template<typename Tag, typename Tags, typename Tuple>
-    requires detail::has_tag<Tag, Tags>
+    requires in_type_list<Tag, Tags>
     constexpr auto erase(env<Tags, Tuple> && env_, Tag)
     {
         constexpr auto folded = detail::to_type_fold(Tags{});
@@ -959,7 +957,7 @@ namespace stdexec {
       template<class...>
       class TypeList,
       typename... Tags2>
-    requires (detail::has_tag<Tags2, Tags> && ...)
+    requires (in_type_list<Tags2, Tags> && ...)
     constexpr auto erase(env<Tags, Tuple> const & env_, TypeList<Tags2...>)
     // clang-format on
     {
@@ -975,7 +973,7 @@ namespace stdexec {
       template<class...>
       class TypeList,
       typename... Tags2>
-    requires (detail::has_tag<Tags2, Tags> && ...)
+    requires (in_type_list<Tags2, Tags> && ...)
     constexpr auto erase(env<Tags, Tuple> && env_, TypeList<Tags2...>)
     // clang-format on
     {
@@ -986,7 +984,7 @@ namespace stdexec {
 
     // clang-format off
     template<typename Tags, typename Tuple, typename... Tags2>
-    requires (detail::has_tag<Tags2, Tags> && ...)
+    requires (in_type_list<Tags2, Tags> && ...)
     constexpr auto erase(env<Tags, Tuple> const & env_, Tags2...)
     // clang-format on
     {
@@ -995,12 +993,277 @@ namespace stdexec {
 
     // clang-format off
     template<typename Tags, typename Tuple, typename... Tags2>
-    requires (detail::has_tag<Tags2, Tags> && ...)
+    requires (in_type_list<Tags2, Tags> && ...)
     constexpr auto erase(env<Tags, Tuple> && env_, Tags2...)
     // clang-format on
     {
         return stdexec::erase(std::move(env_), types<Tags2...>{});
     }
+
+
+
+    // TODO: Add a value_type_env()?  It would convert a ref_env R to R.base_,
+    // convert reference_wrapper<T> members of a ref to T,
+    // std::string_view->string, etc.
+
+
+
+    // second-order envs
+
+    template<environment E>
+    struct ref_env
+    {
+        using tag_types = E::tag_types;
+
+        ref_env() = default;
+        explicit ref_env(E & base) : base_(std::addressof(base)) {}
+        ref_env(std::reference_wrapper<E> ref) : ref_env(*ref) {}
+
+        template<in_type_list<tag_types> Tag>
+        constexpr decltype(auto) operator[](Tag t)
+        {
+            return (*base_)[t];
+        }
+
+        template<in_type_list<tag_types> Tag>
+        constexpr decltype(auto) operator[](Tag t) const
+        {
+            return std::as_const(*base_)[t];
+        }
+
+    private:
+        E * base_;
+    };
+
+    // TODO: Needed?
+    template<environment E>
+    ref_env(std::reference_wrapper<E>) -> ref_env<E>;
+
+    template<environment E1, environment E2>
+    struct layer_env
+    {
+        using tag_types = decltype(detail::tl_cat(
+            typename E1::tag_types{},
+            detail::tl_set_diff(
+                typename E2::tag_types{}, typename E1::tag_types{})));
+
+        // clang-format off
+        layer_env()
+        requires std::default_initializable<E1> &&
+                 std::default_initializable<E2>
+        = default;
+        // clang-format on
+        layer_env(E1 base_1, E2 base_2) :
+            base_1_(std::move(base_1)), base_2_(std::move(base_2))
+        {}
+
+#if defined(__cpp_explicit_this_parameter)
+        template<typename Self, in_type_list<tag_types> Tag>
+        constexpr decltype(auto) operator[](this Self && self, Tag t)
+        {
+            if constexpr (in_type_list<Tag, typename E1::tag_types>)
+                return ((Self &&) self).base_1_[t];
+            else
+                return ((Self &&) self).base_2_[t];
+        }
+#else
+        template<in_type_list<tag_types> Tag>
+        constexpr decltype(auto) operator[](Tag t) &
+        {
+            if constexpr (in_type_list<Tag, typename E1::tag_types>)
+                return base_1_[t];
+            else
+                return base_2_[t];
+        }
+        template<in_type_list<tag_types> Tag>
+        constexpr decltype(auto) operator[](Tag t) const &
+        {
+            if constexpr (in_type_list<Tag, typename E1::tag_types>)
+                return base_1_[t];
+            else
+                return base_2_[t];
+        }
+        template<in_type_list<tag_types> Tag>
+        constexpr decltype(auto) operator[](Tag t) &&
+        {
+            if constexpr (in_type_list<Tag, typename E1::tag_types>)
+                return std::move(base_1_)[t];
+            else
+                return std::move(base_2_)[t];
+        }
+        template<in_type_list<tag_types> Tag>
+        constexpr decltype(auto) operator[](Tag t) const &&
+        {
+            if constexpr (in_type_list<Tag, typename E1::tag_types>)
+                return std::move(base_1_)[t];
+            else
+                return std::move(base_2_)[t];
+        }
+#endif
+
+    private:
+        E1 base_1_;
+        E2 base_2_;
+    };
+
+    namespace detail {
+        // clang-format off
+        template<typename T>
+        concept can_ref_env = requires { ref_env(std::declval<T>()); };
+
+        template<typename T>
+        concept env_or_ref = environment<T> || can_ref_env<T>;
+
+        template<typename T, typename U>
+        concept can_layer_env = requires {
+            layer_env(std::declval<T>(), std::declval<U>());
+        };
+        // clang-format on
+
+        struct layer_impl : std::ranges::range_adaptor_closure<layer_impl>
+        {
+            template<env_or_ref E1, env_or_ref E2>
+            requires can_layer_env<E1, E2>
+            constexpr auto operator()(E1 && e1, E2 && e2) const
+            {
+                return layer_env((E1 &&) e1, (E2 &&) e2);
+            }
+        };
+    }
+
+    inline constexpr detail::layer_impl layer;
+
+    // clang-format off
+    template<environment E, type_list Tags>
+    requires(E::contains_all_of(Tags{}))
+    struct filter_env
+    // clang-format on
+    {
+        using tag_types = Tags;
+
+        // clang-format off
+        filter_env() requires std::default_initializable<E> = default;
+        // clang-format on
+        filter_env(E base, Tags tags) : base_(std::move(base_)) {}
+
+#if defined(__cpp_explicit_this_parameter)
+        template<typename Self, in_type_list<tag_types> Tag>
+        constexpr decltype(auto) operator[](this Self && self, Tag t)
+        {
+            return ((Self &&) self).base_[t];
+        }
+#else
+        template<in_type_list<tag_types> Tag>
+        constexpr decltype(auto) operator[](Tag t) &
+        {
+            return base_[t];
+        }
+        template<in_type_list<tag_types> Tag>
+        constexpr decltype(auto) operator[](Tag t) const &
+        {
+            return base_[t];
+        }
+        template<in_type_list<tag_types> Tag>
+        constexpr decltype(auto) operator[](Tag t) &&
+        {
+            return std::move(base_)[t];
+        }
+        template<in_type_list<tag_types> Tag>
+        constexpr decltype(auto) operator[](Tag t) const &&
+        {
+            return std::move(base_)[t];
+        }
+#endif
+
+    private:
+        E base_;
+    };
+
+    namespace detail {
+        // clang-format off
+        template<typename T, typename Tags>
+        concept can_filter_env = requires {
+            filter_env(std::declval<T>(), Tags{});
+        };
+        // clang-format on
+
+        struct filter_impl : std::ranges::range_adaptor_closure<layer_impl>
+        {
+            template<env_or_ref E, type_list Tags>
+            requires can_filter_env<E, Tags>
+            constexpr auto operator()(E && e, Tags tags) const
+            {
+                return filter_env((E &&) e, tags);
+            }
+        };
+    }
+
+    inline constexpr detail::filter_impl filter;
+
+    template<environment E, type_list Tags>
+    struct without_env
+    {
+        using tag_types =
+            decltype(detail::tl_set_diff(typename E::tag_types{}, Tags{}));
+
+        // clang-format off
+        without_env() requires std::default_initializable<E> = default;
+        // clang-format on
+        without_env(E base, Tags tags) : base_(std::move(base_)) {}
+
+#if defined(__cpp_explicit_this_parameter)
+        template<typename Self, in_type_list<tag_types> Tag>
+        constexpr decltype(auto) operator[](this Self && self, Tag t)
+        {
+            return ((Self &&) self).base_[t];
+        }
+#else
+        template<in_type_list<tag_types> Tag>
+        constexpr decltype(auto) operator[](Tag t) &
+        {
+            return base_[t];
+        }
+        template<in_type_list<tag_types> Tag>
+        constexpr decltype(auto) operator[](Tag t) const &
+        {
+            return base_[t];
+        }
+        template<in_type_list<tag_types> Tag>
+        constexpr decltype(auto) operator[](Tag t) &&
+        {
+            return std::move(base_)[t];
+        }
+        template<in_type_list<tag_types> Tag>
+        constexpr decltype(auto) operator[](Tag t) const &&
+        {
+            return std::move(base_)[t];
+        }
+#endif
+
+    private:
+        E base_;
+    };
+
+    namespace detail {
+        // clang-format off
+        template<typename T, typename Tags>
+        concept can_without_env = requires {
+            without_env(std::declval<T>(), Tags{});
+        };
+        // clang-format on
+
+        struct without_impl : std::ranges::range_adaptor_closure<layer_impl>
+        {
+            template<env_or_ref E, type_list Tags>
+            requires can_without_env<E, Tags>
+            constexpr auto operator()(E && e, Tags tags) const
+            {
+                return without_env((E &&) e, tags);
+            }
+        };
+    }
+
+    inline constexpr detail::without_impl without;
 }
 
 #if DO_TESTING
@@ -1592,6 +1855,7 @@ TEST(env_, single_insert)
 #endif
 }
 
+// TODO
 TEST(env_, subset) {}
 
 TEST(env_, insert_env) {}
