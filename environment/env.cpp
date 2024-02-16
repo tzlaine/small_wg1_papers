@@ -70,6 +70,10 @@ namespace std {
                 return temp_fold<Tag, T>{std::move(*this), std::move(x)};
             }
         };
+
+        template<typename TempFolded, typename Tag>
+        concept new_tag = (!TempFolded::contains(wrap<Tag>()));
+
         template<typename Tag, typename T, int I, typename Tail>
         struct temp_fold : Tail
         {
@@ -85,7 +89,7 @@ namespace std {
 
             template<typename Tag2, typename T2>
             constexpr auto operator()(Tag2, T2 && x)
-            // TODO            requires(!contains(wrap<Tag2>()))
+            requires new_tag<temp_fold, Tag2>
             {
                 return temp_fold<Tag2, T2, I + 1, temp_fold>{
                     {std::move(*this)}, std::move(x)};
@@ -1152,4 +1156,51 @@ TEST(env_, single_erase)
     }
 }
 
-TEST(env_, multi_erase) {}
+TEST(env_, multi_erase)
+{
+    auto const initial_env = std::env(
+        std::types<int_tag, double_tag, string_tag>{},
+        std::tuple(42, 13.0, std::string("foo")));
+
+    {
+        auto env = initial_env;
+
+        auto const expected =
+            std::env(std::types<string_tag>{}, std::tuple(std::string("foo")));
+
+        auto erased = std::erase(env, int_tag{}, double_tag{});
+        EXPECT_TRUE(erased == expected);
+    }
+
+    {
+        auto env = initial_env;
+
+        auto const expected =
+            std::env(std::types<string_tag>{}, std::tuple(std::string("foo")));
+
+        auto erased = std::erase(std::move(env), double_tag{}, int_tag{});
+        EXPECT_TRUE(erased == expected);
+
+        EXPECT_EQ(env[string_tag{}], std::string());
+    }
+
+    {
+        auto env = initial_env;
+
+        auto const expected =
+            std::env(std::types<double_tag>{}, std::tuple(13.0));
+
+        auto erased = std::erase(env, int_tag{}, string_tag{});
+        EXPECT_TRUE(erased == expected);
+    }
+
+    {
+        auto env = initial_env;
+
+        auto const expected =
+            std::env(std::types<string_tag>{}, std::tuple(std::string("foo")));
+
+        auto erased = std::erase(env, string_tag{}, double_tag{}, int_tag{});
+        EXPECT_TRUE(erased == std::empty_env);
+    }
+}
