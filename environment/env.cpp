@@ -7,7 +7,7 @@
 #include <gtest/gtest.h>
 
 
-namespace std {
+namespace stdexec {
     namespace detail {
         template<typename T>
         constexpr bool has_type_params = false;
@@ -58,7 +58,7 @@ namespace std {
         };
 
         template<typename TempFolded, typename Tag>
-        concept new_tag = (!TempFolded::contains(wrap<Tag>()));
+        concept new_tag = (!TempFolded::contains(detail::wrap<Tag>()));
 
         template<typename Tag, typename T, int I, typename Tail>
         struct temp_fold : Tail
@@ -147,7 +147,7 @@ namespace std {
             typename... Ts>
         consteval auto to_type_fold(TypeList<T, Ts...>)
         {
-            return (type_fold<T>{} + ... + wrap<Ts>());
+            return (type_fold<T>{} + ... + detail::wrap<Ts>());
         }
 
         template<
@@ -158,17 +158,17 @@ namespace std {
             typename... Ts>
         consteval int index_from_tag(TypeList<T, Ts...> tl)
         {
-            return to_type_fold(tl).index(wrap<Tag>());
+            return detail::to_type_fold(tl).index(detail::wrap<Tag>());
         }
     }
 
     template<typename T>
     concept type_list =
-        is_empty_v<T> && semiregular<T> && detail::has_type_params<T>;
+        std::is_empty_v<T> && std::semiregular<T> && detail::has_type_params<T>;
 
     namespace detail {
         template<typename T>
-        concept non_void = !is_void_v<T>;
+        concept non_void = !std::is_void_v<T>;
     }
     // clang-format off
     template<typename T, typename U>
@@ -231,17 +231,19 @@ namespace std {
             typename... Us>
         consteval auto tl_erase_impl(TypeList<Us...>)
         {
-            if constexpr (same_as<X, T>)
+            if constexpr (std::same_as<X, T>) {
                 return TypeList<Us..., Ts...>{};
-            else if constexpr (sizeof...(Ts) == 0)
+            } else if constexpr (sizeof...(Ts) == 0) {
                 return TypeList<Us..., T>{};
-            else
-                return tl_erase_impl<X, TypeList, Ts...>(TypeList<Us..., T>{});
+            } else {
+                return detail::tl_erase_impl<X, TypeList, Ts...>(
+                    TypeList<Us..., T>{});
+            }
         }
         template<typename T, template<class...> class TypeList, typename... Ts>
         consteval auto tl_erase(TypeList<Ts...>)
         {
-            return tl_erase_impl<T, TypeList, Ts...>(TypeList<>{});
+            return detail::tl_erase_impl<T, TypeList, Ts...>(TypeList<>{});
         }
 
         template<
@@ -255,33 +257,33 @@ namespace std {
         }
 
         template<typename Tuple, int... Is>
-        constexpr auto sub_tuple(Tuple && t, integer_sequence<int, Is...>)
+        constexpr auto sub_tuple(Tuple && t, std::integer_sequence<int, Is...>)
         {
-            return tuple(std::get<Is>((Tuple &&) t)...);
+            return std::tuple(std::get<Is>((Tuple &&) t)...);
         }
 
         template<int JsOffset, int... Is, int... Js>
         consteval auto
-        cat_indices(integer_sequence<int, Is...>, integer_sequence<int, Js...>)
+        cat_indices(std::integer_sequence<int, Is...>, std::integer_sequence<int, Js...>)
         {
-            return integer_sequence<int, Is..., Js + JsOffset...>{};
+            return std::integer_sequence<int, Is..., Js + JsOffset...>{};
         }
 
         template<int I, int TupleSize>
         consteval auto tuple_indices_without_i()
         {
-            return cat_indices<I + 1>(
-                make_integer_sequence<int, I>{},
-                make_integer_sequence<int, TupleSize - (I + 1)>{});
+            return detail::cat_indices<I + 1>(
+                std::make_integer_sequence<int, I>{},
+                std::make_integer_sequence<int, TupleSize - (I + 1)>{});
         }
         template<int I, typename Tuple>
         constexpr auto tuple_without_i(Tuple && t)
         {
-            return sub_tuple(
+            return detail::sub_tuple(
                 (Tuple &&) t,
-                tuple_indices_without_i<
+                detail::tuple_indices_without_i<
                     I,
-                    tuple_size_v<remove_cvref_t<Tuple>>>());
+                    std::tuple_size_v<std::remove_cvref_t<Tuple>>>());
         }
 
         template<
@@ -310,10 +312,10 @@ namespace std {
         {
             constexpr int i = index_from_tag<Tag>(tl2);
             if constexpr (0 <= i) {
-                return tl_set_diff_impl(
+                return detail::tl_set_diff_impl(
                     TypeList<Tags1...>{}, tl2, TypeList<UniqueTags...>{});
             } else {
-                return tl_set_diff_impl(
+                return detail::tl_set_diff_impl(
                     TypeList<Tags1...>{}, tl2, TypeList<UniqueTags..., Tag>{});
             }
         }
@@ -327,7 +329,8 @@ namespace std {
         consteval auto
         tl_set_diff(TypeList1<Tags1...> tl1, TypeList2<Tags2...> tl2)
         {
-            return tl_set_diff_impl(tl1, TypeList1<Tags2...>{}, TypeList1<>{});
+            return detail::tl_set_diff_impl(
+                tl1, TypeList1<Tags2...>{}, TypeList1<>{});
         }
 
         template<
@@ -336,18 +339,18 @@ namespace std {
             class TypeList,
             typename... Tags>
         constexpr bool
-        same_arity_impl(TypeList<Tags...> tl, wrapper<tuple<Ts...>> w)
+        same_arity_impl(TypeList<Tags...> tl, wrapper<std::tuple<Ts...>> w)
         {
             return sizeof...(Ts) == sizeof...(Tags);
         }
         template<typename Tags, typename Tuple>
         constexpr bool
-            same_arity = detail::same_arity_impl(Tags{}, wrap<Tuple>());
+            same_arity = detail::same_arity_impl(Tags{}, detail::wrap<Tuple>());
 
         template<typename T>
         constexpr bool is_tuple_v = false;
         template<typename... Ts>
-        constexpr bool is_tuple_v<tuple<Ts...>> = true;
+        constexpr bool is_tuple_v<std::tuple<Ts...>> = true;
         template<typename T>
         concept is_tuple = is_tuple_v<T>;
     }
@@ -384,16 +387,16 @@ namespace std {
         template<typename Tag, typename T, int I, typename Tail, int... Is>
         auto temp_fold_tags(
             temp_fold<Tag, T, I, Tail> const & folded,
-            integer_sequence<int, Is...>)
+            std::integer_sequence<int, Is...>)
         {
             return types<typename decltype(folded.tag_type(cw<Is>))::type...>{};
         }
 
         template<typename Tag, typename T, int I, typename Tail, int... Is>
         auto temp_fold_values(
-            temp_fold<Tag, T, I, Tail> && folded, integer_sequence<int, Is...>)
+            temp_fold<Tag, T, I, Tail> && folded, std::integer_sequence<int, Is...>)
         {
-            return tuple(std::move(folded).value(cw<Is>)...);
+            return std::tuple(std::move(folded).value(cw<Is>)...);
         }
     }
 
@@ -406,15 +409,15 @@ namespace std {
 
         // clang-format off
         constexpr env()
-            requires default_initializable<Tuple> = default;
+            requires std::default_initializable<Tuple> = default;
         constexpr env(env const & other)
-            requires copy_constructible<Tuple> = default;
+            requires std::copy_constructible<Tuple> = default;
         constexpr env(env && other)
-            requires move_constructible<Tuple> = default;
+            requires std::move_constructible<Tuple> = default;
         constexpr env & operator=(env const & other)
-            requires assignable_from<Tuple &, Tuple const &> = default;
+            requires std::assignable_from<Tuple &, Tuple const &> = default;
         constexpr env & operator=(env && other)
-            requires assignable_from<Tuple &, Tuple &&> = default;
+            requires std::assignable_from<Tuple &, Tuple &&> = default;
         // clang-format on
 
         constexpr env(Tags tags, Tuple const & values) :
@@ -427,9 +430,9 @@ namespace std {
         template<typename Tag, typename T, int I, typename Tail>
         constexpr env(detail::temp_fold<Tag, T, I, Tail> && folded) :
             tags(detail::temp_fold_tags(
-                folded, make_integer_sequence<int, I + 1>{})),
+                folded, std::make_integer_sequence<int, I + 1>{})),
             values(detail::temp_fold_values(
-                std::move(folded), make_integer_sequence<int, I + 1>{}))
+                std::move(folded), std::make_integer_sequence<int, I + 1>{}))
         {}
 
         constexpr bool operator==(env const & other) const
@@ -447,28 +450,28 @@ namespace std {
         template<typename Self, typename Tag>
         constexpr decltype(auto) operator[](this Self && self, Tag)
         {
-            return std::get<Tag>((Self &&) * this);
+            return stdexec::get<Tag>((Self &&) * this);
         }
 #else
         template<typename Tag>
         constexpr decltype(auto) operator[](Tag) &
         {
-            return std::get<Tag>(*this);
+            return stdexec::get<Tag>(*this);
         }
         template<typename Tag>
         constexpr decltype(auto) operator[](Tag) const &
         {
-            return std::get<Tag>(*this);
+            return stdexec::get<Tag>(*this);
         }
         template<typename Tag>
         constexpr decltype(auto) operator[](Tag) &&
         {
-            return std::get<Tag>(std::move(*this));
+            return stdexec::get<Tag>(std::move(*this));
         }
         template<typename Tag>
         constexpr decltype(auto) operator[](Tag) const &&
         {
-            return std::get<Tag>(std::move(*this));
+            return stdexec::get<Tag>(std::move(*this));
         }
 #endif
 
@@ -480,12 +483,12 @@ namespace std {
     env(detail::temp_fold<Tag, T, I, Tail> && folded) -> env<
         decltype(detail::temp_fold_tags(
             std::declval<detail::temp_fold<Tag, T, I, Tail>>(),
-            make_integer_sequence<int, I + 1>{})),
+            std::make_integer_sequence<int, I + 1>{})),
         decltype(detail::temp_fold_values(
             std::declval<detail::temp_fold<Tag, T, I, Tail>>(),
-            make_integer_sequence<int, I + 1>{}))>;
+            std::make_integer_sequence<int, I + 1>{}))>;
 
-    inline constexpr env<types<>, tuple<>> empty_env;
+    inline constexpr env<types<>, std::tuple<>> empty_env;
 
     inline detail::temp_fold_base make_env;
 
@@ -519,25 +522,25 @@ namespace std {
     }
 
     template<size_t I, typename Tags, typename Tuple>
-    requires(I < tuple_size_v<Tuple>) constexpr decltype(auto)
+    requires(I < std::tuple_size_v<Tuple>) constexpr decltype(auto)
         get(env<Tags, Tuple> & env)
     {
         return std::get<I>(env.values);
     }
     template<size_t I, typename Tags, typename Tuple>
-    requires(I < tuple_size_v<Tuple>) constexpr decltype(auto)
+    requires(I < std::tuple_size_v<Tuple>) constexpr decltype(auto)
         get(env<Tags, Tuple> const & env)
     {
         return std::get<I>(env.values);
     }
     template<size_t I, typename Tags, typename Tuple>
-    requires(I < tuple_size_v<Tuple>) constexpr decltype(auto)
+    requires(I < std::tuple_size_v<Tuple>) constexpr decltype(auto)
         get(env<Tags, Tuple> && env)
     {
         return std::get<I>(std::move(env.values));
     }
     template<size_t I, typename Tags, typename Tuple>
-    requires(I < tuple_size_v<Tuple>) constexpr decltype(auto)
+    requires(I < std::tuple_size_v<Tuple>) constexpr decltype(auto)
         get(env<Tags, Tuple> const && env)
     {
         return std::get<I>(std::move(env.values));
@@ -548,8 +551,8 @@ namespace std {
     constexpr auto insert(env<Tags, Tuple> const & env_, Tag, T && x)
     {
         return env(
-            detail::tl_append<remove_cvref_t<Tag>>(Tags{}),
-            tuple_cat(env_.values, tuple((T &&) x)));
+            detail::tl_append<std::remove_cvref_t<Tag>>(Tags{}),
+            tuple_cat(env_.values, std::tuple((T &&) x)));
     }
     template<typename Tag, typename Tags, typename Tuple, typename T>
     requires(!detail::has_tag<Tag, Tags>)
@@ -557,7 +560,7 @@ namespace std {
     {
         return env(
             detail::tl_append<Tag>(Tags{}),
-            tuple_cat(std::move(env_.values), tuple((T &&) x)));
+            tuple_cat(std::move(env_.values), std::tuple((T &&) x)));
     }
 
     // clang-format off
@@ -573,7 +576,7 @@ namespace std {
     subset(env<Tags, Tuple> const& env_, TypeList<Tags2...> tags2)
     // clang-format on
     {
-        return env(tags2, tuple(env_[Tags2{}]...));
+        return env(tags2, std::tuple(env_[Tags2{}]...));
     }
 
     // clang-format off
@@ -589,7 +592,7 @@ namespace std {
     subset(env<Tags, Tuple>&& env_, TypeList<Tags2...> tags2)
     // clang-format on
     {
-        return env(tags2, tuple(std::move(env_)[Tags2{}]...));
+        return env(tags2, std::tuple(std::move(env_)[Tags2{}]...));
     }
 
     // clang-format off
@@ -598,7 +601,7 @@ namespace std {
     constexpr decltype(auto) subset(env<Tags, Tuple> const & env_, Tags2...)
     // clang-format on
     {
-        return subset(env_, types<Tags2...>{});
+        return stdexec::subset(env_, types<Tags2...>{});
     }
 
     // clang-format off
@@ -607,7 +610,7 @@ namespace std {
     constexpr decltype(auto) subset(env<Tags, Tuple> && env_, Tags2...)
     // clang-format on
     {
-        return subset(std::move(env_), types<Tags2...>{});
+        return stdexec::subset(std::move(env_), types<Tags2...>{});
     }
 
     namespace detail {
@@ -624,10 +627,10 @@ namespace std {
             env<Tags1, Tuple1> const & env1,
             TypeList<OldTags...> old_tags,
             env<Tags2, Tuple2> const & env2,
-            integer_sequence<int, Is...>)
+            std::integer_sequence<int, Is...>)
         {
             return tuple(
-                std::get<OldTags>(env1)..., std::get<Is>(env2.values)...);
+                stdexec::get<OldTags>(env1)..., std::get<Is>(env2.values)...);
         }
     }
 
@@ -642,7 +645,7 @@ namespace std {
                 env1,
                 old_tags,
                 env2,
-                make_integer_sequence<int, tuple_size_v<Tuple2>>{}));
+                std::make_integer_sequence<int, std::tuple_size_v<Tuple2>>{}));
     }
 
     namespace detail {
@@ -657,12 +660,12 @@ namespace std {
             typename... NewTags>
         constexpr auto make_env_tuple(
             env<Tags1, Tuple1> const & env1,
-            integer_sequence<int, Is...>,
+            std::integer_sequence<int, Is...>,
             env<Tags2, Tuple2> const & env2,
             TypeList<NewTags...> new_tags)
         {
             return tuple(
-                std::get<Is>(env1.values)..., std::get<NewTags>(env2)...);
+                std::get<Is>(env1.values)..., stdexec::get<NewTags>(env2)...);
         }
         template<
             typename Tags1,
@@ -675,13 +678,13 @@ namespace std {
             typename... NewTags>
         constexpr auto make_env_tuple(
             env<Tags1, Tuple1> && env1,
-            integer_sequence<int, Is...>,
+            std::integer_sequence<int, Is...>,
             env<Tags2, Tuple2> const & env2,
             TypeList<NewTags...> new_tags)
         {
             return tuple(
                 std::get<Is>(std::move(env1.values))...,
-                std::get<NewTags>(env2)...);
+                stdexec::get<NewTags>(env2)...);
         }
         template<
             typename Tags1,
@@ -694,13 +697,13 @@ namespace std {
             typename... NewTags>
         constexpr auto make_env_tuple(
             env<Tags1, Tuple1> const & env1,
-            integer_sequence<int, Is...>,
+            std::integer_sequence<int, Is...>,
             env<Tags2, Tuple2> && env2,
             TypeList<NewTags...> new_tags)
         {
             return tuple(
                 std::get<Is>(env1.values)...,
-                std::get<NewTags>(std::move(env2))...);
+                stdexec::get<NewTags>(std::move(env2))...);
         }
         template<
             typename Tags1,
@@ -713,13 +716,13 @@ namespace std {
             typename... NewTags>
         constexpr auto make_env_tuple(
             env<Tags1, Tuple1> && env1,
-            integer_sequence<int, Is...>,
+            std::integer_sequence<int, Is...>,
             env<Tags2, Tuple2> && env2,
             TypeList<NewTags...> new_tags)
         {
             return tuple(
                 std::get<Is>(std::move(env1.values))...,
-                std::get<NewTags>(std::move(env2))...);
+                stdexec::get<NewTags>(std::move(env2))...);
         }
     }
 
@@ -732,7 +735,7 @@ namespace std {
             detail::tl_cat(Tags1{}, new_tags),
             detail::make_env_tuple(
                 env1,
-                make_integer_sequence<int, tuple_size_v<Tuple1>>{},
+                std::make_integer_sequence<int, std::tuple_size_v<Tuple1>>{},
                 env2,
                 new_tags));
     }
@@ -745,7 +748,7 @@ namespace std {
             detail::tl_cat(Tags1{}, new_tags),
             detail::make_env_tuple(
                 env1,
-                make_integer_sequence<int, tuple_size_v<Tuple1>>{},
+                std::make_integer_sequence<int, std::tuple_size_v<Tuple1>>{},
                 std::move(env2),
                 new_tags));
     }
@@ -758,7 +761,7 @@ namespace std {
             detail::tl_cat(Tags1{}, new_tags),
             detail::make_env_tuple(
                 std::move(env1),
-                make_integer_sequence<int, tuple_size_v<Tuple1>>{},
+                std::make_integer_sequence<int, std::tuple_size_v<Tuple1>>{},
                 env2,
                 new_tags));
     }
@@ -771,7 +774,7 @@ namespace std {
             detail::tl_cat(Tags1{}, new_tags),
             detail::make_env_tuple(
                 std::move(env1),
-                make_integer_sequence<int, tuple_size_v<Tuple1>>{},
+                std::make_integer_sequence<int, std::tuple_size_v<Tuple1>>{},
                 std::move(env2),
                 new_tags));
     }
@@ -808,7 +811,7 @@ namespace std {
     {
         constexpr auto remaining_tags =
             detail::tl_set_diff(Tags{}, types<Tags2...>{});
-        return subset(env_, remaining_tags);
+        return stdexec::subset(env_, remaining_tags);
     }
 
     // clang-format off
@@ -824,7 +827,7 @@ namespace std {
     {
         constexpr auto remaining_tags =
             detail::tl_set_diff(Tags{}, types<Tags2...>{});
-        return subset(std::move(env_), remaining_tags);
+        return stdexec::subset(std::move(env_), remaining_tags);
     }
 
     // clang-format off
@@ -833,7 +836,7 @@ namespace std {
     constexpr auto erase(env<Tags, Tuple> const & env_, Tags2...)
     // clang-format on
     {
-        return erase(env_, types<Tags2...>{});
+        return stdexec::erase(env_, types<Tags2...>{});
     }
 
     // clang-format off
@@ -842,7 +845,7 @@ namespace std {
     constexpr auto erase(env<Tags, Tuple> && env_, Tags2...)
     // clang-format on
     {
-        return erase(std::move(env_), types<Tags2...>{});
+        return stdexec::erase(std::move(env_), types<Tags2...>{});
     }
 }
 
@@ -868,72 +871,72 @@ struct string_2_tag
 {};
 
 static_assert(
-    !std::detail::to_type_fold(std::types<int_tag, double_tag>{}).has_dupes());
+    !stdexec::detail::to_type_fold(stdexec::types<int_tag, double_tag>{}).has_dupes());
 static_assert(
-    std::detail::to_type_fold(std::types<int_tag, string_tag, int_tag>{})
+    stdexec::detail::to_type_fold(stdexec::types<int_tag, string_tag, int_tag>{})
         .has_dupes());
 static_assert(
-    !std::detail::to_type_fold(std::types<int_tag, string_tag, double_tag>{})
+    !stdexec::detail::to_type_fold(stdexec::types<int_tag, string_tag, double_tag>{})
          .has_dupes());
 
 static_assert(
-    std::detail::to_type_fold(std::types<int_tag, string_tag, double_tag>{})
-        .index(std::detail::wrap<int_tag>()) == 0);
+    stdexec::detail::to_type_fold(stdexec::types<int_tag, string_tag, double_tag>{})
+        .index(stdexec::detail::wrap<int_tag>()) == 0);
 static_assert(
-    std::detail::to_type_fold(std::types<int_tag, string_tag, double_tag>{})
-        .index(std::detail::wrap<string_tag>()) == 1);
+    stdexec::detail::to_type_fold(stdexec::types<int_tag, string_tag, double_tag>{})
+        .index(stdexec::detail::wrap<string_tag>()) == 1);
 static_assert(
-    std::detail::to_type_fold(std::types<int_tag, string_tag, double_tag>{})
-        .index(std::detail::wrap<double_tag>()) == 2);
+    stdexec::detail::to_type_fold(stdexec::types<int_tag, string_tag, double_tag>{})
+        .index(stdexec::detail::wrap<double_tag>()) == 2);
 static_assert(
-    std::detail::to_type_fold(std::types<int_tag, string_tag, double_tag>{})
-        .index(std::detail::wrap<int>()) == -1);
+    stdexec::detail::to_type_fold(stdexec::types<int_tag, string_tag, double_tag>{})
+        .index(stdexec::detail::wrap<int>()) == -1);
 
 static_assert(
-    std::detail::to_type_fold(std::types<int_tag, string_tag, double_tag>{})
-        .contains(std::detail::wrap<int_tag>()));
+    stdexec::detail::to_type_fold(stdexec::types<int_tag, string_tag, double_tag>{})
+        .contains(stdexec::detail::wrap<int_tag>()));
 static_assert(
-    std::detail::to_type_fold(std::types<int_tag, string_tag, double_tag>{})
-        .contains(std::detail::wrap<string_tag>()));
+    stdexec::detail::to_type_fold(stdexec::types<int_tag, string_tag, double_tag>{})
+        .contains(stdexec::detail::wrap<string_tag>()));
 static_assert(
-    std::detail::to_type_fold(std::types<int_tag, string_tag, double_tag>{})
-        .contains(std::detail::wrap<double_tag>()));
+    stdexec::detail::to_type_fold(stdexec::types<int_tag, string_tag, double_tag>{})
+        .contains(stdexec::detail::wrap<double_tag>()));
 static_assert(
-    !std::detail::to_type_fold(std::types<int_tag, string_tag, double_tag>{})
-         .contains(std::detail::wrap<int>()));
+    !stdexec::detail::to_type_fold(stdexec::types<int_tag, string_tag, double_tag>{})
+         .contains(stdexec::detail::wrap<int>()));
 
 static_assert(std::same_as<
-              decltype(std::detail::to_type_fold(
-                           std::types<int_tag, string_tag, double_tag>{})
-                           .type(std::detail::cw<0>))::type,
+              decltype(stdexec::detail::to_type_fold(
+                           stdexec::types<int_tag, string_tag, double_tag>{})
+                           .type(stdexec::detail::cw<0>))::type,
               int_tag>);
 static_assert(std::same_as<
-              decltype(std::detail::to_type_fold(
-                           std::types<int_tag, string_tag, double_tag>{})
-                           .type(std::detail::cw<1>))::type,
+              decltype(stdexec::detail::to_type_fold(
+                           stdexec::types<int_tag, string_tag, double_tag>{})
+                           .type(stdexec::detail::cw<1>))::type,
               string_tag>);
 static_assert(std::same_as<
-              decltype(std::detail::to_type_fold(
-                           std::types<int_tag, string_tag, double_tag>{})
-                           .type(std::detail::cw<2>))::type,
+              decltype(stdexec::detail::to_type_fold(
+                           stdexec::types<int_tag, string_tag, double_tag>{})
+                           .type(stdexec::detail::cw<2>))::type,
               double_tag>);
 
 TEST(env_, concept_)
 {
-    static_assert(std::environment<decltype(std::empty_env)>);
+    static_assert(stdexec::environment<decltype(stdexec::empty_env)>);
 
-    std::env env1 = std::make_env(int_tag{}, 42)(double_tag{}, 13.0)(
+    stdexec::env env1 = stdexec::make_env(int_tag{}, 42)(double_tag{}, 13.0)(
         string_tag{}, std::string("foo"));
 
-    static_assert(std::environment<decltype(env1)>);
-    static_assert(std::environment<decltype(env1) const>);
+    static_assert(stdexec::environment<decltype(env1)>);
+    static_assert(stdexec::environment<decltype(env1) const>);
 
-    auto env2 = std::env(
-        std::types<int_tag, double_tag, string_tag>{},
+    auto env2 = stdexec::env(
+        stdexec::types<int_tag, double_tag, string_tag>{},
         std::tuple(42, 13.0, std::string("foo")));
 
-    static_assert(std::environment<decltype(env2)>);
-    static_assert(std::environment<decltype(env2) const>);
+    static_assert(stdexec::environment<decltype(env2)>);
+    static_assert(stdexec::environment<decltype(env2) const>);
 }
 
 // TODO: Test with other types, including mp11 type list.
@@ -941,21 +944,21 @@ TEST(env_, concept_)
 TEST(env_, make_env_)
 {
     {
-        std::env env = std::make_env(int_tag{}, 42)(double_tag{}, 13.0);
+        stdexec::env env = stdexec::make_env(int_tag{}, 42)(double_tag{}, 13.0);
 
         auto const expected =
-            std::env(std::types<int_tag, double_tag>{}, std::tuple(42, 13.0));
+            stdexec::env(stdexec::types<int_tag, double_tag>{}, std::tuple(42, 13.0));
 
         EXPECT_TRUE(env == expected);
     }
     {
-        std::env env = std::make_env(int_tag{}, 42) //
+        stdexec::env env = stdexec::make_env(int_tag{}, 42) //
             (double_tag{}, 13.0)                    //
             (string_tag{}, std::string("foo"))      //
             (int_2_tag{}, std::unique_ptr<int>());
 
-        auto const expected = std::env(
-            std::types<int_tag, double_tag, string_tag, int_2_tag>{},
+        auto const expected = stdexec::env(
+            stdexec::types<int_tag, double_tag, string_tag, int_2_tag>{},
             std::tuple(42, 13.0, std::string("foo"), std::unique_ptr<int>()));
 
         EXPECT_TRUE(env == expected);
@@ -964,103 +967,103 @@ TEST(env_, make_env_)
 
 TEST(env_, type_get)
 {
-    auto env = std::env(
-        std::types<int_tag, double_tag, string_tag>{},
+    auto env = stdexec::env(
+        stdexec::types<int_tag, double_tag, string_tag>{},
         std::tuple(42, 13.0, std::string("foo")));
 
     {
         auto const & c_env = env;
 
-        EXPECT_EQ(std::get<int_tag>(c_env), 42);
-        EXPECT_EQ(std::get<double_tag>(c_env), 13.0);
-        EXPECT_EQ(std::get<string_tag>(c_env), "foo");
+        EXPECT_EQ(stdexec::get<int_tag>(c_env), 42);
+        EXPECT_EQ(stdexec::get<double_tag>(c_env), 13.0);
+        EXPECT_EQ(stdexec::get<string_tag>(c_env), "foo");
 
         static_assert(
-            std::same_as<decltype(std::get<int_tag>(c_env)), int const &>);
+            std::same_as<decltype(stdexec::get<int_tag>(c_env)), int const &>);
         static_assert(std::same_as<
-                      decltype(std::get<string_tag>(c_env)),
+                      decltype(stdexec::get<string_tag>(c_env)),
                       std::string const &>);
         static_assert(std::same_as<
-                      decltype(std::get<int_tag>(std::move(c_env))),
+                      decltype(stdexec::get<int_tag>(std::move(c_env))),
                       int const &&>);
         static_assert(std::same_as<
-                      decltype(std::get<string_tag>(std::move(c_env))),
+                      decltype(stdexec::get<string_tag>(std::move(c_env))),
                       std::string const &&>);
     }
 
-    EXPECT_EQ(std::get<int_tag>(env), 42);
-    EXPECT_EQ(std::get<double_tag>(env), 13.0);
-    EXPECT_EQ(std::get<string_tag>(env), "foo");
+    EXPECT_EQ(stdexec::get<int_tag>(env), 42);
+    EXPECT_EQ(stdexec::get<double_tag>(env), 13.0);
+    EXPECT_EQ(stdexec::get<string_tag>(env), "foo");
 
-    std::get<int_tag>(env) = 8;
-    EXPECT_EQ(std::get<int_tag>(env), 8);
+    stdexec::get<int_tag>(env) = 8;
+    EXPECT_EQ(stdexec::get<int_tag>(env), 8);
 
-    std::get<double_tag>(env) = 19.9;
-    EXPECT_EQ(std::get<double_tag>(env), 19.9);
+    stdexec::get<double_tag>(env) = 19.9;
+    EXPECT_EQ(stdexec::get<double_tag>(env), 19.9);
 
-    std::string const moved_to = std::get<string_tag>(std::move(env));
+    std::string const moved_to = stdexec::get<string_tag>(std::move(env));
     EXPECT_EQ(moved_to, "foo");
-    EXPECT_EQ(std::get<string_tag>(env), "");
+    EXPECT_EQ(stdexec::get<string_tag>(env), "");
 
-    static_assert(std::same_as<decltype(std::get<int_tag>(env)), int &>);
+    static_assert(std::same_as<decltype(stdexec::get<int_tag>(env)), int &>);
     static_assert(
-        std::same_as<decltype(std::get<string_tag>(env)), std::string &>);
+        std::same_as<decltype(stdexec::get<string_tag>(env)), std::string &>);
     static_assert(
-        std::same_as<decltype(std::get<int_tag>(std::move(env))), int &&>);
+        std::same_as<decltype(stdexec::get<int_tag>(std::move(env))), int &&>);
     static_assert(std::same_as<
-                  decltype(std::get<string_tag>(std::move(env))),
+                  decltype(stdexec::get<string_tag>(std::move(env))),
                   std::string &&>);
 }
 
 TEST(env_, nttp_get)
 {
-    auto env = std::env(
-        std::types<int_tag, double_tag, string_tag>{},
+    auto env = stdexec::env(
+        stdexec::types<int_tag, double_tag, string_tag>{},
         std::tuple(42, 13.0, std::string("foo")));
 
     {
         auto const & c_env = env;
 
-        EXPECT_EQ(std::get<0>(env), 42);
-        EXPECT_EQ(std::get<1>(env), 13.0);
-        EXPECT_EQ(std::get<2>(env), "foo");
+        EXPECT_EQ(stdexec::get<0>(env), 42);
+        EXPECT_EQ(stdexec::get<1>(env), 13.0);
+        EXPECT_EQ(stdexec::get<2>(env), "foo");
 
-        static_assert(std::same_as<decltype(std::get<0>(c_env)), int const &>);
+        static_assert(std::same_as<decltype(stdexec::get<0>(c_env)), int const &>);
         static_assert(
-            std::same_as<decltype(std::get<2>(c_env)), std::string const &>);
+            std::same_as<decltype(stdexec::get<2>(c_env)), std::string const &>);
         static_assert(
             std::
-                same_as<decltype(std::get<0>(std::move(c_env))), int const &&>);
+                same_as<decltype(stdexec::get<0>(std::move(c_env))), int const &&>);
         static_assert(std::same_as<
-                      decltype(std::get<2>(std::move(c_env))),
+                      decltype(stdexec::get<2>(std::move(c_env))),
                       std::string const &&>);
     }
 
-    EXPECT_EQ(std::get<0>(env), 42);
-    EXPECT_EQ(std::get<1>(env), 13.0);
-    EXPECT_EQ(std::get<2>(env), "foo");
+    EXPECT_EQ(stdexec::get<0>(env), 42);
+    EXPECT_EQ(stdexec::get<1>(env), 13.0);
+    EXPECT_EQ(stdexec::get<2>(env), "foo");
 
-    std::get<0>(env) = 8;
-    EXPECT_EQ(std::get<0>(env), 8);
+    stdexec::get<0>(env) = 8;
+    EXPECT_EQ(stdexec::get<0>(env), 8);
 
-    std::get<1>(env) = 19.9;
-    EXPECT_EQ(std::get<1>(env), 19.9);
+    stdexec::get<1>(env) = 19.9;
+    EXPECT_EQ(stdexec::get<1>(env), 19.9);
 
-    std::string const moved_to = std::get<2>(std::move(env));
+    std::string const moved_to = stdexec::get<2>(std::move(env));
     EXPECT_EQ(moved_to, "foo");
-    EXPECT_EQ(std::get<2>(env), "");
+    EXPECT_EQ(stdexec::get<2>(env), "");
 
-    static_assert(std::same_as<decltype(std::get<0>(env)), int &>);
-    static_assert(std::same_as<decltype(std::get<2>(env)), std::string &>);
-    static_assert(std::same_as<decltype(std::get<0>(std::move(env))), int &&>);
+    static_assert(std::same_as<decltype(stdexec::get<0>(env)), int &>);
+    static_assert(std::same_as<decltype(stdexec::get<2>(env)), std::string &>);
+    static_assert(std::same_as<decltype(stdexec::get<0>(std::move(env))), int &&>);
     static_assert(
-        std::same_as<decltype(std::get<2>(std::move(env))), std::string &&>);
+        std::same_as<decltype(stdexec::get<2>(std::move(env))), std::string &&>);
 }
 
 TEST(env_, index_contains_equals)
 {
-    auto env = std::env(
-        std::types<int_tag, double_tag, string_tag>{},
+    auto env = stdexec::env(
+        stdexec::types<int_tag, double_tag, string_tag>{},
         std::tuple(42, 13.0, std::string("foo")));
 
     EXPECT_TRUE(env == env);
@@ -1070,9 +1073,9 @@ TEST(env_, index_contains_equals)
 
         EXPECT_TRUE(env == c_env);
 
-        EXPECT_EQ(std::get<int_tag>(env), 42);
-        EXPECT_EQ(std::get<double_tag>(env), 13.0);
-        EXPECT_EQ(std::get<string_tag>(env), "foo");
+        EXPECT_EQ(stdexec::get<int_tag>(env), 42);
+        EXPECT_EQ(stdexec::get<double_tag>(env), 13.0);
+        EXPECT_EQ(stdexec::get<string_tag>(env), "foo");
 
         static_assert(std::same_as<decltype(c_env[int_tag{}]), int const &>);
         static_assert(
@@ -1113,26 +1116,26 @@ TEST(env_, index_contains_equals)
 TEST(env_, single_insert)
 {
     auto env =
-        std::env(std::types<int_tag, double_tag>{}, std::tuple(42, 13.0));
+        stdexec::env(stdexec::types<int_tag, double_tag>{}, std::tuple(42, 13.0));
 
     {
-        auto const expected = std::env(
-            std::types<int_tag, double_tag, string_tag>{},
+        auto const expected = stdexec::env(
+            stdexec::types<int_tag, double_tag, string_tag>{},
             std::tuple(42, 13.0, std::string("foo")));
 
-        auto inserted = std::insert(env, string_tag{}, std::string("foo"));
+        auto inserted = stdexec::insert(env, string_tag{}, std::string("foo"));
         EXPECT_TRUE(inserted == expected);
 
-        auto const expected_2 = std::env(
-            std::types<int_tag, double_tag, string_tag, string_2_tag>{},
+        auto const expected_2 = stdexec::env(
+            stdexec::types<int_tag, double_tag, string_tag, string_2_tag>{},
             std::tuple(42, 13.0, std::string("foo"), std::string("bar")));
 
-        auto inserted_2 = std::insert(
+        auto inserted_2 = stdexec::insert(
             std::move(inserted), string_2_tag{}, std::string("bar"));
         EXPECT_TRUE(inserted_2 == expected_2);
 
-        auto const inserted_expected_after_move = std::env(
-            std::types<int_tag, double_tag, string_tag>{},
+        auto const inserted_expected_after_move = stdexec::env(
+            stdexec::types<int_tag, double_tag, string_tag>{},
             std::tuple(42, 13.0, std::string()));
         EXPECT_TRUE(inserted == inserted_expected_after_move);
     }
@@ -1146,57 +1149,57 @@ TEST(env_, insert_unique) {}
 
 TEST(env_, single_erase)
 {
-    auto env = std::env(
-        std::types<int_tag, double_tag, string_tag>{},
+    auto env = stdexec::env(
+        stdexec::types<int_tag, double_tag, string_tag>{},
         std::tuple(42, 13.0, std::string("foo")));
 
     {
         auto const expected =
-            std::env(std::types<int_tag, double_tag>{}, std::tuple(42, 13.0));
+            stdexec::env(stdexec::types<int_tag, double_tag>{}, std::tuple(42, 13.0));
 
-        auto erased = std::erase(env, string_tag{});
+        auto erased = stdexec::erase(env, string_tag{});
         EXPECT_TRUE(erased == expected);
     }
 
     {
-        auto const expected = std::env(
-            std::types<int_tag, string_tag>{},
+        auto const expected = stdexec::env(
+            stdexec::types<int_tag, string_tag>{},
             std::tuple(42, std::string("foo")));
 
-        auto erased = std::erase(env, double_tag{});
+        auto erased = stdexec::erase(env, double_tag{});
         EXPECT_TRUE(erased == expected);
     }
 
     {
-        auto const expected = std::env(
-            std::types<double_tag, string_tag>{},
+        auto const expected = stdexec::env(
+            stdexec::types<double_tag, string_tag>{},
             std::tuple(13.0, std::string("foo")));
 
-        auto erased = std::erase(env, int_tag{});
+        auto erased = stdexec::erase(env, int_tag{});
         EXPECT_TRUE(erased == expected);
     }
 
     {
-        auto erased_1 = std::erase(env, int_tag{});
-        auto erased_2 = std::erase(erased_1, double_tag{});
-        auto final_ = std::erase(erased_2, string_tag{});
-        EXPECT_TRUE(final_ == std::empty_env);
+        auto erased_1 = stdexec::erase(env, int_tag{});
+        auto erased_2 = stdexec::erase(erased_1, double_tag{});
+        auto final_ = stdexec::erase(erased_2, string_tag{});
+        EXPECT_TRUE(final_ == stdexec::empty_env);
     }
 }
 
 TEST(env_, multi_erase)
 {
-    auto const initial_env = std::env(
-        std::types<int_tag, double_tag, string_tag>{},
+    auto const initial_env = stdexec::env(
+        stdexec::types<int_tag, double_tag, string_tag>{},
         std::tuple(42, 13.0, std::string("foo")));
 
     {
         auto env = initial_env;
 
         auto const expected =
-            std::env(std::types<string_tag>{}, std::tuple(std::string("foo")));
+            stdexec::env(stdexec::types<string_tag>{}, std::tuple(std::string("foo")));
 
-        auto erased = std::erase(env, int_tag{}, double_tag{});
+        auto erased = stdexec::erase(env, int_tag{}, double_tag{});
         EXPECT_TRUE(erased == expected);
     }
 
@@ -1204,9 +1207,9 @@ TEST(env_, multi_erase)
         auto env = initial_env;
 
         auto const expected =
-            std::env(std::types<string_tag>{}, std::tuple(std::string("foo")));
+            stdexec::env(stdexec::types<string_tag>{}, std::tuple(std::string("foo")));
 
-        auto erased = std::erase(std::move(env), double_tag{}, int_tag{});
+        auto erased = stdexec::erase(std::move(env), double_tag{}, int_tag{});
         EXPECT_TRUE(erased == expected);
 
         EXPECT_EQ(env[string_tag{}], std::string());
@@ -1216,9 +1219,9 @@ TEST(env_, multi_erase)
         auto env = initial_env;
 
         auto const expected =
-            std::env(std::types<double_tag>{}, std::tuple(13.0));
+            stdexec::env(stdexec::types<double_tag>{}, std::tuple(13.0));
 
-        auto erased = std::erase(env, int_tag{}, string_tag{});
+        auto erased = stdexec::erase(env, int_tag{}, string_tag{});
         EXPECT_TRUE(erased == expected);
     }
 
@@ -1226,9 +1229,9 @@ TEST(env_, multi_erase)
         auto env = initial_env;
 
         auto const expected =
-            std::env(std::types<string_tag>{}, std::tuple(std::string("foo")));
+            stdexec::env(stdexec::types<string_tag>{}, std::tuple(std::string("foo")));
 
-        auto erased = std::erase(env, string_tag{}, double_tag{}, int_tag{});
-        EXPECT_TRUE(erased == std::empty_env);
+        auto erased = stdexec::erase(env, string_tag{}, double_tag{}, int_tag{});
+        EXPECT_TRUE(erased == stdexec::empty_env);
     }
 }
