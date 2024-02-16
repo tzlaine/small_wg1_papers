@@ -648,6 +648,8 @@ namespace stdexec {
                 std::make_integer_sequence<int, std::tuple_size_v<Tuple2>>{}));
     }
 
+    // TODO: Other value category overloads.
+
     namespace detail {
         template<
             typename Tags1,
@@ -848,13 +850,6 @@ namespace stdexec {
         return stdexec::erase(std::move(env_), types<Tags2...>{});
     }
 }
-
-// Eric Niebler ? Today at 5:02 PM
-// for a general purpose utility you really only need a few things: a way to
-// create an env from a query and a value, a way to join two envs, and a way
-// to remove a query from an env. i have also found useful a
-// reference_wrapper-like env and, for p2300, a forwarding env that filters
-// out non-forwarding queries.
 
 struct int_tag
 {};
