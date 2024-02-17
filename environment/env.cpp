@@ -683,7 +683,7 @@ namespace stdexec {
             env<Tags2, Tuple2> const & env2,
             std::integer_sequence<int, Is...>)
         {
-            return tuple(
+            return std::tuple(
                 stdexec::get<OldTags>(env1)..., std::get<Is>(env2.values)...);
         }
         template<
@@ -701,7 +701,7 @@ namespace stdexec {
             env<Tags2, Tuple2> const & env2,
             std::integer_sequence<int, Is...>)
         {
-            return tuple(
+            return std::tuple(
                 stdexec::get<OldTags>(std::move(env1))...,
                 std::get<Is>(env2.values)...);
         }
@@ -720,7 +720,7 @@ namespace stdexec {
             env<Tags2, Tuple2> && env2,
             std::integer_sequence<int, Is...>)
         {
-            return tuple(
+            return std::tuple(
                 stdexec::get<OldTags>(env1)...,
                 std::get<Is>(std::move(env2.values))...);
         }
@@ -739,7 +739,7 @@ namespace stdexec {
             env<Tags2, Tuple2> && env2,
             std::integer_sequence<int, Is...>)
         {
-            return tuple(
+            return std::tuple(
                 stdexec::get<OldTags>(std::move(env1))...,
                 std::get<Is>(std::move(env2.values))...);
         }
@@ -751,7 +751,7 @@ namespace stdexec {
     {
         constexpr auto old_tags = detail::tl_set_diff(Tags1{}, Tags2{});
         return env(
-            detail::tl_cat(old_tags, Tags1{}),
+            detail::tl_cat(old_tags, Tags2{}),
             detail::make_env_tuple(
                 env1,
                 old_tags,
@@ -765,7 +765,7 @@ namespace stdexec {
     {
         constexpr auto old_tags = detail::tl_set_diff(Tags1{}, Tags2{});
         return env(
-            detail::tl_cat(old_tags, Tags1{}),
+            detail::tl_cat(old_tags, Tags2{}),
             detail::make_env_tuple(
                 std::move(env1),
                 old_tags,
@@ -779,7 +779,7 @@ namespace stdexec {
     {
         constexpr auto old_tags = detail::tl_set_diff(Tags1{}, Tags2{});
         return env(
-            detail::tl_cat(old_tags, Tags1{}),
+            detail::tl_cat(old_tags, Tags2{}),
             detail::make_env_tuple(
                 env1,
                 old_tags,
@@ -793,7 +793,7 @@ namespace stdexec {
     {
         constexpr auto old_tags = detail::tl_set_diff(Tags1{}, Tags2{});
         return env(
-            detail::tl_cat(old_tags, Tags1{}),
+            detail::tl_cat(old_tags, Tags2{}),
             detail::make_env_tuple(
                 std::move(env1),
                 old_tags,
@@ -817,7 +817,7 @@ namespace stdexec {
             env<Tags2, Tuple2> const & env2,
             TypeList<NewTags...> new_tags)
         {
-            return tuple(
+            return std::tuple(
                 std::get<Is>(env1.values)..., stdexec::get<NewTags>(env2)...);
         }
         template<
@@ -835,7 +835,7 @@ namespace stdexec {
             env<Tags2, Tuple2> const & env2,
             TypeList<NewTags...> new_tags)
         {
-            return tuple(
+            return std::tuple(
                 std::get<Is>(std::move(env1.values))...,
                 stdexec::get<NewTags>(env2)...);
         }
@@ -854,7 +854,7 @@ namespace stdexec {
             env<Tags2, Tuple2> && env2,
             TypeList<NewTags...> new_tags)
         {
-            return tuple(
+            return std::tuple(
                 std::get<Is>(env1.values)...,
                 stdexec::get<NewTags>(std::move(env2))...);
         }
@@ -873,7 +873,7 @@ namespace stdexec {
             env<Tags2, Tuple2> && env2,
             TypeList<NewTags...> new_tags)
         {
-            return tuple(
+            return std::tuple(
                 std::get<Is>(std::move(env1.values))...,
                 stdexec::get<NewTags>(std::move(env2))...);
         }
@@ -1014,6 +1014,8 @@ namespace stdexec {
 
 
     // second-order envs
+
+    // TODO: Tests for these.
 
     template<environment E>
     struct ref_env
@@ -1385,8 +1387,8 @@ TEST(env_, make_env_)
     }
     {
         stdexec::env env = stdexec::make_env(int_tag{}, 42) //
-            (double_tag{}, 13.0)                    //
-            (string_tag{}, std::string("foo"))      //
+            (double_tag{}, 13.0)                            //
+            (string_tag{}, std::string("foo"))              //
             (int_2_tag{}, std::unique_ptr<int>());
 
         auto const expected = stdexec::env(
@@ -1982,16 +1984,329 @@ TEST(env_, subset)
 #endif
 }
 
-// TODO
+// TODO: property concept from Lewis's godbolt.
+
 TEST(env_, insert_env)
 {
+    {
+        auto const env1 = stdexec::env(
+            stdexec::types<int_tag, double_tag, string_tag>{},
+            std::tuple(42, 13.0, std::string("foo")));
+        auto const env2 = stdexec::env(
+            stdexec::types<int_tag, double_tag, string_tag>{},
+            std::tuple(120, 19.9, std::string("bar")));
+
+        auto const env1_less = stdexec::env(
+            stdexec::types<string_tag, double_tag>{},
+            std::tuple(std::string("baz"), 58.0));
+        auto const env1_more = stdexec::env(
+            stdexec::types<int_2_tag, double_2_tag>{}, std::tuple(42, 13.0));
+
+        {
+            auto result = stdexec::insert(env1, env2);
+            EXPECT_TRUE(result == env2);
+        }
+        {
+            auto const expected = stdexec::env(
+                stdexec::types<int_tag, string_tag, double_tag>{},
+                std::tuple(42, std::string("baz"), 58.0));
+
+            auto result = stdexec::insert(env1, env1_less);
+            EXPECT_TRUE(result == expected);
+        }
+        {
+            auto const expected = stdexec::env(
+                stdexec::types<
+                    int_tag,
+                    double_tag,
+                    string_tag,
+                    int_2_tag,
+                    double_2_tag>{},
+                std::tuple(42, 13.0, std::string("foo"), 42, 13.0));
+
+            auto result = stdexec::insert(env1, env1_more);
+            EXPECT_TRUE(result == expected);
+        }
+    }
 #if HAVE_BOOST_MP11
+    {
+        auto const env1 = stdexec::env(
+            stdexec::types<int_tag, double_tag, string_tag>{},
+            std::tuple(42, 13.0, std::string("foo")));
+        auto const env2 = stdexec::env(
+            mp_list<int_tag, double_tag, string_tag>{},
+            std::tuple(120, 19.9, std::string("bar")));
+
+        auto const env1_less = stdexec::env(
+            mp_list<string_tag, double_tag>{},
+            std::tuple(std::string("baz"), 58.0));
+        auto const env1_more = stdexec::env(
+            mp_list<int_2_tag, double_2_tag>{}, std::tuple(42, 13.0));
+
+        {
+            auto const expected = stdexec::env(
+                stdexec::types<int_tag, double_tag, string_tag>{},
+                std::tuple(120, 19.9, std::string("bar")));
+
+            auto result = stdexec::insert(env1, env2);
+            EXPECT_TRUE(result == expected);
+        }
+        {
+            auto const expected = stdexec::env(
+                stdexec::types<int_tag, string_tag, double_tag>{},
+                std::tuple(42, std::string("baz"), 58.0));
+
+            auto result = stdexec::insert(env1, env1_less);
+            EXPECT_TRUE(result == expected);
+        }
+        {
+            auto const expected = stdexec::env(
+                stdexec::types<
+                    int_tag,
+                    double_tag,
+                    string_tag,
+                    int_2_tag,
+                    double_2_tag>{},
+                std::tuple(42, 13.0, std::string("foo"), 42, 13.0));
+
+            auto result = stdexec::insert(env1, env1_more);
+            EXPECT_TRUE(result == expected);
+        }
+    }
+    {
+        auto const env1 = stdexec::env(
+            mp_list<int_tag, double_tag, string_tag>{},
+            std::tuple(42, 13.0, std::string("foo")));
+        auto const env2 = stdexec::env(
+            stdexec::types<int_tag, double_tag, string_tag>{},
+            std::tuple(120, 19.9, std::string("bar")));
+
+        auto const env1_less = stdexec::env(
+            stdexec::types<string_tag, double_tag>{},
+            std::tuple(std::string("baz"), 58.0));
+        auto const env1_more = stdexec::env(
+            stdexec::types<int_2_tag, double_2_tag>{}, std::tuple(42, 13.0));
+
+        {
+            auto const expected = stdexec::env(
+                mp_list<int_tag, double_tag, string_tag>{},
+                std::tuple(120, 19.9, std::string("bar")));
+
+            auto result = stdexec::insert(env1, env2);
+            EXPECT_TRUE(result == expected);
+        }
+        {
+            auto const expected = stdexec::env(
+                mp_list<int_tag, string_tag, double_tag>{},
+                std::tuple(42, std::string("baz"), 58.0));
+
+            auto result = stdexec::insert(env1, env1_less);
+            EXPECT_TRUE(result == expected);
+        }
+        {
+            auto const expected = stdexec::env(
+                mp_list<
+                    int_tag,
+                    double_tag,
+                    string_tag,
+                    int_2_tag,
+                    double_2_tag>{},
+                std::tuple(42, 13.0, std::string("foo"), 42, 13.0));
+
+            auto result = stdexec::insert(env1, env1_more);
+            EXPECT_TRUE(result == expected);
+        }
+    }
+    {
+        auto const env1 = stdexec::env(
+            mp_list<int_tag, double_tag, string_tag>{},
+            std::tuple(42, 13.0, std::string("foo")));
+        auto const env2 = stdexec::env(
+            mp_list<int_tag, double_tag, string_tag>{},
+            std::tuple(120, 19.9, std::string("bar")));
+
+        auto const env1_less = stdexec::env(
+            mp_list<string_tag, double_tag>{},
+            std::tuple(std::string("baz"), 58.0));
+        auto const env1_more = stdexec::env(
+            mp_list<int_2_tag, double_2_tag>{}, std::tuple(42, 13.0));
+
+        {
+            auto result = stdexec::insert(env1, env2);
+            EXPECT_TRUE(result == env2);
+        }
+        {
+            auto const expected = stdexec::env(
+                mp_list<int_tag, string_tag, double_tag>{},
+                std::tuple(42, std::string("baz"), 58.0));
+
+            auto result = stdexec::insert(env1, env1_less);
+            EXPECT_TRUE(result == expected);
+        }
+        {
+            auto const expected = stdexec::env(
+                mp_list<
+                    int_tag,
+                    double_tag,
+                    string_tag,
+                    int_2_tag,
+                    double_2_tag>{},
+                std::tuple(42, 13.0, std::string("foo"), 42, 13.0));
+
+            auto result = stdexec::insert(env1, env1_more);
+            EXPECT_TRUE(result == expected);
+        }
+    }
 #endif
 }
 
 TEST(env_, insert_unique)
 {
+    {
+        auto const env1 = stdexec::env(
+            stdexec::types<int_tag, double_tag, string_tag>{},
+            std::tuple(42, 13.0, std::string("foo")));
+        auto const env2 = stdexec::env(
+            stdexec::types<int_tag, double_tag, string_tag>{},
+            std::tuple(120, 19.9, std::string("bar")));
+
+        auto const env1_less = stdexec::env(
+            stdexec::types<string_tag, double_tag>{},
+            std::tuple(std::string("baz"), 58.0));
+        auto const env1_more = stdexec::env(
+            stdexec::types<int_2_tag, double_2_tag>{}, std::tuple(42, 13.0));
+
+        {
+            auto result = stdexec::insert_unique(env1, env2);
+            EXPECT_TRUE(result == env1);
+        }
+        {
+            auto result = stdexec::insert_unique(env1, env1_less);
+            EXPECT_TRUE(result == env1);
+        }
+        {
+            auto const expected = stdexec::env(
+                stdexec::types<
+                    int_tag,
+                    double_tag,
+                    string_tag,
+                    int_2_tag,
+                    double_2_tag>{},
+                std::tuple(42, 13.0, std::string("foo"), 42, 13.0));
+
+            auto result = stdexec::insert_unique(env1, env1_more);
+            EXPECT_TRUE(result == expected);
+        }
+    }
 #if HAVE_BOOST_MP11
+    {
+        auto const env1 = stdexec::env(
+            stdexec::types<int_tag, double_tag, string_tag>{},
+            std::tuple(42, 13.0, std::string("foo")));
+        auto const env2 = stdexec::env(
+            mp_list<int_tag, double_tag, string_tag>{},
+            std::tuple(120, 19.9, std::string("bar")));
+
+        auto const env1_less = stdexec::env(
+            mp_list<string_tag, double_tag>{},
+            std::tuple(std::string("baz"), 58.0));
+        auto const env1_more = stdexec::env(
+            mp_list<int_2_tag, double_2_tag>{}, std::tuple(42, 13.0));
+
+        {
+            auto result = stdexec::insert_unique(env1, env2);
+            EXPECT_TRUE(result == env1);
+        }
+        {
+            auto result = stdexec::insert_unique(env1, env1_less);
+            EXPECT_TRUE(result == env1);
+        }
+        {
+            auto const expected = stdexec::env(
+                stdexec::types<
+                    int_tag,
+                    double_tag,
+                    string_tag,
+                    int_2_tag,
+                    double_2_tag>{},
+                std::tuple(42, 13.0, std::string("foo"), 42, 13.0));
+
+            auto result = stdexec::insert_unique(env1, env1_more);
+            EXPECT_TRUE(result == expected);
+        }
+    }
+    {
+        auto const env1 = stdexec::env(
+            mp_list<int_tag, double_tag, string_tag>{},
+            std::tuple(42, 13.0, std::string("foo")));
+        auto const env2 = stdexec::env(
+            stdexec::types<int_tag, double_tag, string_tag>{},
+            std::tuple(120, 19.9, std::string("bar")));
+
+        auto const env1_less = stdexec::env(
+            stdexec::types<string_tag, double_tag>{},
+            std::tuple(std::string("baz"), 58.0));
+        auto const env1_more = stdexec::env(
+            stdexec::types<int_2_tag, double_2_tag>{}, std::tuple(42, 13.0));
+
+        {
+            auto result = stdexec::insert_unique(env1, env2);
+            EXPECT_TRUE(result == env1);
+        }
+        {
+            auto result = stdexec::insert_unique(env1, env1_less);
+            EXPECT_TRUE(result == env1);
+        }
+        {
+            auto const expected = stdexec::env(
+                mp_list<
+                    int_tag,
+                    double_tag,
+                    string_tag,
+                    int_2_tag,
+                    double_2_tag>{},
+                std::tuple(42, 13.0, std::string("foo"), 42, 13.0));
+
+            auto result = stdexec::insert_unique(env1, env1_more);
+            EXPECT_TRUE(result == expected);
+        }
+    }
+    {
+        auto const env1 = stdexec::env(
+            mp_list<int_tag, double_tag, string_tag>{},
+            std::tuple(42, 13.0, std::string("foo")));
+        auto const env2 = stdexec::env(
+            mp_list<int_tag, double_tag, string_tag>{},
+            std::tuple(120, 19.9, std::string("bar")));
+
+        auto const env1_less = stdexec::env(
+            mp_list<string_tag, double_tag>{},
+            std::tuple(std::string("baz"), 58.0));
+        auto const env1_more = stdexec::env(
+            mp_list<int_2_tag, double_2_tag>{}, std::tuple(42, 13.0));
+
+        {
+            auto result = stdexec::insert_unique(env1, env2);
+            EXPECT_TRUE(result == env1);
+        }
+        {
+            auto result = stdexec::insert_unique(env1, env1_less);
+            EXPECT_TRUE(result == env1);
+        }
+        {
+            auto const expected = stdexec::env(
+                mp_list<
+                    int_tag,
+                    double_tag,
+                    string_tag,
+                    int_2_tag,
+                    double_2_tag>{},
+                std::tuple(42, 13.0, std::string("foo"), 42, 13.0));
+
+            auto result = stdexec::insert_unique(env1, env1_more);
+            EXPECT_TRUE(result == expected);
+        }
+    }
 #endif
 }
 
