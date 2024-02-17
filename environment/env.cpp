@@ -1245,6 +1245,18 @@ namespace stdexec {
             base_1_(std::move(base_1)), base_2_(std::move(base_2))
         {}
 
+        E1 const & base_1() const & requires std::copy_constructible<E1>
+        {
+            return base_1_;
+        }
+        E1 base_1() && { return std::move(base_1_); }
+
+        E2 const & base_2() const & requires std::copy_constructible<E2>
+        {
+            return base_2_;
+        }
+        E2 base_2() && { return std::move(base_2_); }
+
 #if defined(__cpp_explicit_this_parameter)
         template<typename Self, in_type_list<tags_type> Tag>
         constexpr decltype(auto) operator[](this Self && self, Tag t)
@@ -1350,6 +1362,12 @@ namespace stdexec {
         // clang-format on
         with_only_env(E base, Tags tags) : base_(std::move(base)) {}
 
+        E const & base() const & requires std::copy_constructible<E>
+        {
+            return base_;
+        }
+        E base() && { return std::move(base_); }
+
 #if defined(__cpp_explicit_this_parameter)
         template<typename Self, in_type_list<tags_type> Tag>
         constexpr decltype(auto) operator[](this Self && self, Tag t)
@@ -1420,6 +1438,12 @@ namespace stdexec {
         without_env() requires std::default_initializable<E> = default;
         // clang-format on
         without_env(E base, Tags tags) : base_(std::move(base)) {}
+
+        E const & base() const & requires std::copy_constructible<E>
+        {
+            return base_;
+        }
+        E base() && { return std::move(base_); }
 
 #if defined(__cpp_explicit_this_parameter)
         template<typename Self, in_type_list<tags_type> Tag>
