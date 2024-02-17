@@ -1396,6 +1396,13 @@ struct double_2_tag
 struct string_2_tag
 {};
 
+struct nullary_func_tag
+{};
+struct unary_func_tag
+{};
+struct binary_func_tag
+{};
+
 static_assert(
     !stdexec::detail::to_type_fold(stdexec::types<int_tag, double_tag>{}).has_dupes());
 static_assert(
@@ -1637,6 +1644,51 @@ TEST(env_, type_get)
                       std::string &&>);
     }
 #endif
+}
+
+TEST(env_, invocable_get)
+{
+    auto nullary = []() { return 77; };
+    auto unary = [](unary_func_tag) { return 88; };
+
+    {
+        auto wrong_unary = [](int_tag) { return 99; };
+
+        auto binary_impl = [](int a, int b) { return a + b; };
+        std::function binary = binary_impl;
+
+        auto env = stdexec::env(
+            stdexec::types<
+                int_tag,
+                nullary_func_tag,
+                unary_func_tag,
+                binary_func_tag,
+                int_2_tag>{},
+            std::tuple(42, nullary, unary, binary, wrong_unary));
+
+        EXPECT_EQ(stdexec::get<int_tag>(env), 42);
+        EXPECT_EQ(stdexec::get<nullary_func_tag>(env), 77);
+        EXPECT_EQ(stdexec::get<unary_func_tag>(env), 88);
+        EXPECT_TRUE(
+            stdexec::get<binary_func_tag>(env).target_type() ==
+            binary.target_type());
+        static_assert(
+            std::invocable<decltype(stdexec::get<int_2_tag>(env)), int_tag>);
+    }
+    {
+        auto env = stdexec::env(
+            stdexec::types<int_tag, nullary_func_tag, unary_func_tag>{},
+            std::tuple(
+                42,
+                stdexec::dont_invoke{nullary},
+                stdexec::dont_invoke{unary}));
+
+        static_assert(
+            std::invocable<decltype(stdexec::get<nullary_func_tag>(env))>);
+        static_assert(std::invocable<
+                      decltype(stdexec::get<unary_func_tag>(env)),
+                      unary_func_tag>);
+    }
 }
 
 TEST(env_, nttp_get)
