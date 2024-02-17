@@ -422,12 +422,25 @@ namespace stdexec {
         }
     }
 
-    // TODO: Do we want this, to disable auto-invoking nullary invocables?
     template<typename T>
     struct dont_invoke
     {
         T value;
     };
+
+    namespace detail {
+        template<typename T>
+        constexpr bool is_dont_invoke = false;
+        template<typename T>
+        constexpr bool is_dont_invoke<dont_invoke<T>> = true;
+
+        template<typename T>
+        concept nonvoid_nullary_invocable = std::invocable<T> &&
+            (!std::is_void_v<std::invoke_result_t<T>>);
+        template<typename T, typename Tag>
+        concept nonvoid_tag_invocable = std::invocable<T, Tag> &&
+            (!std::is_void_v<std::invoke_result_t<T, Tag>>);
+    }
 
     template<type_list Tags, detail::is_tuple Tuple>
     requires detail::same_arity<Tags, Tuple>
@@ -488,34 +501,97 @@ namespace stdexec {
             return (in_type_list<Tags2, Tags> && ...);
         }
 
-        // TODO: Add invocation of result if its a nullary function.  Should
-        // this go here, or get()?
 #if defined(__cpp_explicit_this_parameter)
         template<typename Self, in_type_list<Tags> Tag>
-        constexpr decltype(auto) operator[](this Self && self, Tag)
+        constexpr decltype(auto) operator[](this Self && self, Tag t)
         {
-            return stdexec::get<Tag>((Self &&) self);
+            constexpr size_t i = detail::index_from_tag<Tag>(Tags{});
+            using result_type = std::remove_cvref_t<decltype(std::get<i>(
+                ((Self &&) self).values))>;
+            if constexpr (detail::is_dont_invoke<result_type>) {
+                return std::get<i>(((Self &&) self).values).value;
+            } else if constexpr (detail::nonvoid_nullary_invocable<
+                                     result_type>) {
+                return std::get<i>(((Self &&) self).values)();
+            } else if constexpr (detail::
+                                     nonvoid_tag_invocable<result_type, Tag>) {
+                return std::get<i>(((Self &&) self).values)(t);
+            } else {
+                return std::get<i>(((Self &&) self).values);
+            }
         }
 #else
         template<in_type_list<Tags> Tag>
-        constexpr decltype(auto) operator[](Tag) &
+        constexpr decltype(auto) operator[](Tag t) &
         {
-            return stdexec::get<Tag>(*this);
+            constexpr size_t i = detail::index_from_tag<Tag>(Tags{});
+            using result_type =
+                std::remove_cvref_t<decltype(std::get<i>(values))>;
+            if constexpr (detail::is_dont_invoke<result_type>) {
+                return std::get<i>(values).value;
+            } else if constexpr (detail::nonvoid_nullary_invocable<
+                                     result_type>) {
+                return std::get<i>(values)();
+            } else if constexpr (detail::
+                                     nonvoid_tag_invocable<result_type, Tag>) {
+                return std::get<i>(values)(t);
+            } else {
+                return std::get<i>(values);
+            }
         }
         template<in_type_list<Tags> Tag>
-        constexpr decltype(auto) operator[](Tag) const &
+        constexpr decltype(auto) operator[](Tag t) const &
         {
-            return stdexec::get<Tag>(*this);
+            constexpr size_t i = detail::index_from_tag<Tag>(Tags{});
+            using result_type =
+                std::remove_cvref_t<decltype(std::get<i>(values))>;
+            if constexpr (detail::is_dont_invoke<result_type>) {
+                return std::get<i>(values).value;
+            } else if constexpr (detail::nonvoid_nullary_invocable<
+                                     result_type>) {
+                return std::get<i>(values)();
+            } else if constexpr (detail::
+                                     nonvoid_tag_invocable<result_type, Tag>) {
+                return std::get<i>(values)(t);
+            } else {
+                return std::get<i>(values);
+            }
         }
         template<in_type_list<Tags> Tag>
-        constexpr decltype(auto) operator[](Tag) &&
+        constexpr decltype(auto) operator[](Tag t) &&
         {
-            return stdexec::get<Tag>(std::move(*this));
+            constexpr size_t i = detail::index_from_tag<Tag>(Tags{});
+            using result_type =
+                std::remove_cvref_t<decltype(std::get<i>(std::move(values)))>;
+            if constexpr (detail::is_dont_invoke<result_type>) {
+                return std::get<i>(std::move(values)).value;
+            } else if constexpr (detail::nonvoid_nullary_invocable<
+                                     result_type>) {
+                return std::get<i>(std::move(values))();
+            } else if constexpr (detail::
+                                     nonvoid_tag_invocable<result_type, Tag>) {
+                return std::get<i>(std::move(values))(t);
+            } else {
+                return std::get<i>(std::move(values));
+            }
         }
         template<in_type_list<Tags> Tag>
-        constexpr decltype(auto) operator[](Tag) const &&
+        constexpr decltype(auto) operator[](Tag t) const &&
         {
-            return stdexec::get<Tag>(std::move(*this));
+            constexpr size_t i = detail::index_from_tag<Tag>(Tags{});
+            using result_type =
+                std::remove_cvref_t<decltype(std::get<i>(std::move(values)))>;
+            if constexpr (detail::is_dont_invoke<result_type>) {
+                return std::get<i>(std::move(values)).value;
+            } else if constexpr (detail::nonvoid_nullary_invocable<
+                                     result_type>) {
+                return std::get<i>(std::move(values))();
+            } else if constexpr (detail::
+                                     nonvoid_tag_invocable<result_type, Tag>) {
+                return std::get<i>(std::move(values))(t);
+            } else {
+                return std::get<i>(std::move(values));
+            }
         }
 #endif
 
@@ -547,31 +623,27 @@ namespace stdexec {
 
     template<typename Tag, typename Tags, typename Tuple>
     requires in_type_list<Tag, Tags>
-    constexpr decltype(auto) get(env<Tags, Tuple> & env)
+    constexpr decltype(auto) get(env<Tags, Tuple> & env_)
     {
-        constexpr size_t i = detail::index_from_tag<Tag>(Tags{});
-        return std::get<i>(env.values);
+        return env_[Tag{}];
     }
     template<typename Tag, typename Tags, typename Tuple>
     requires in_type_list<Tag, Tags>
-    constexpr decltype(auto) get(env<Tags, Tuple> const & env)
+    constexpr decltype(auto) get(env<Tags, Tuple> const & env_)
     {
-        constexpr size_t i = detail::index_from_tag<Tag>(Tags{});
-        return std::get<i>(env.values);
+        return env_[Tag{}];
     }
     template<typename Tag, typename Tags, typename Tuple>
     requires in_type_list<Tag, Tags>
-    constexpr decltype(auto) get(env<Tags, Tuple> && env)
+    constexpr decltype(auto) get(env<Tags, Tuple> && env_)
     {
-        constexpr size_t i = detail::index_from_tag<Tag>(Tags{});
-        return std::get<i>(std::move(env.values));
+        return std::move(env_)[Tag{}];
     }
     template<typename Tag, typename Tags, typename Tuple>
     requires in_type_list<Tag, Tags>
-    constexpr decltype(auto) get(env<Tags, Tuple> const && env)
+    constexpr decltype(auto) get(env<Tags, Tuple> const && env_)
     {
-        constexpr size_t i = detail::index_from_tag<Tag>(Tags{});
-        return std::get<i>(std::move(env.values));
+        return std::move(env_)[Tag{}];
     }
 
     template<size_t I, typename Tags, typename Tuple>
@@ -1042,9 +1114,44 @@ namespace stdexec {
         E * base_;
     };
 
-    // TODO: Needed?
-    template<environment E>
-    ref_env(std::reference_wrapper<E>) -> ref_env<E>;
+    namespace detail {
+        template<typename F, typename Tags>
+        constexpr bool invocable_with_all = false;
+        template<
+            typename F,
+            template<typename...>
+            typename TypeList,
+            typename... Ts>
+        constexpr bool invocable_with_all<F, TypeList<Ts...>> =
+            (std::invocable<F, Ts> && ...);
+    }
+
+    template<typename F, type_list Tags>
+    requires detail::invocable_with_all<F, Tags>
+    struct computed_env
+    {
+        using tag_types = Tags;
+
+        // clang-format off
+        computed_env() requires std::default_initializable<F> = default;
+        // clang-format on
+        explicit computed_env(F f, Tags tags) : f_(f) {}
+
+        template<in_type_list<tag_types> Tag>
+        constexpr decltype(auto) operator[](Tag t)
+        {
+            return f_(t);
+        }
+
+        template<in_type_list<tag_types> Tag>
+        constexpr decltype(auto) operator[](Tag t) const
+        {
+            return f_(t);
+        }
+
+    private:
+        F f_;
+    };
 
     template<environment E1, environment E2>
     struct layer_env
