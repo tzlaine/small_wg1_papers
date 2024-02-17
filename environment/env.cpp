@@ -706,8 +706,6 @@ namespace stdexec {
     }
     // clang-format on
 
-    // TODO: subset -> slice, filter -> with_only
-
     // clang-format off
     template<
         environment Env,
@@ -715,7 +713,7 @@ namespace stdexec {
         typename TypeList,
         tag_of<Env>... Tags>
     requires type_list<TypeList<Tags...>>
-    constexpr decltype(auto) subset(Env const& e, TypeList<Tags...> tags)
+    constexpr decltype(auto) slice(Env const& e, TypeList<Tags...> tags)
     // clang-format on
     {
         return env(tags, std::tuple(e[Tags{}]...));
@@ -728,24 +726,24 @@ namespace stdexec {
         typename TypeList,
         tag_of<Env>... Tags>
     requires type_list<TypeList<Tags...>>
-    constexpr decltype(auto) subset(Env&& e, TypeList<Tags...> tags)
+    constexpr decltype(auto) slice(Env&& e, TypeList<Tags...> tags)
     // clang-format on
     {
         return env(tags, std::tuple(std::move(e)[Tags{}]...));
     }
 
     template<environment Env, tag_of<Env>... Tags>
-    constexpr decltype(auto) subset(Env const & e, Tags...)
+    constexpr decltype(auto) slice(Env const & e, Tags...)
     {
         using tags_t = Env::tags_type;
-        return stdexec::subset(e, detail::tl_like(tags_t{}, Tags{}...));
+        return stdexec::slice(e, detail::tl_like(tags_t{}, Tags{}...));
     }
 
     template<environment Env, tag_of<Env>... Tags>
-    constexpr decltype(auto) subset(Env && e, Tags...)
+    constexpr decltype(auto) slice(Env && e, Tags...)
     {
         using tags_t = Env::tags_type;
-        return stdexec::subset(
+        return stdexec::slice(
             std::move(e), detail::tl_like(tags_t{}, Tags{}...));
     }
 
@@ -947,7 +945,7 @@ namespace stdexec {
         using tags_t = Env::tags_type;
         constexpr auto remaining_tags =
             detail::tl_set_diff(tags_t{}, types<Tags...>{});
-        return stdexec::subset(e, remaining_tags);
+        return stdexec::slice(e, remaining_tags);
     }
 
     template<
@@ -960,7 +958,7 @@ namespace stdexec {
         using tags_t = Env::tags_type;
         constexpr auto remaining_tags =
             detail::tl_set_diff(tags_t{}, types<Tags...>{});
-        return stdexec::subset(std::move(e), remaining_tags);
+        return stdexec::slice(std::move(e), remaining_tags);
     }
 
     template<environment Env, tag_of<Env>... Tags>
@@ -1342,15 +1340,15 @@ namespace stdexec {
     // clang-format off
     template<environment E, type_list Tags>
     requires(contains_all_of<E>(Tags{}))
-    struct filter_env
+    struct with_only_env
     // clang-format on
     {
         using tags_type = Tags;
 
         // clang-format off
-        filter_env() requires std::default_initializable<E> = default;
+        with_only_env() requires std::default_initializable<E> = default;
         // clang-format on
-        filter_env(E base, Tags tags) : base_(std::move(base)) {}
+        with_only_env(E base, Tags tags) : base_(std::move(base)) {}
 
 #if defined(__cpp_explicit_this_parameter)
         template<typename Self, in_type_list<tags_type> Tag>
@@ -1386,31 +1384,31 @@ namespace stdexec {
     };
 
     template<typename E, typename Tags>
-    filter_env(E, Tags) -> filter_env<E, Tags>;
+    with_only_env(E, Tags) -> with_only_env<E, Tags>;
     template<typename E, typename Tags>
-    filter_env(std::reference_wrapper<E>, Tags) -> filter_env<ref_env<E>, Tags>;
+    with_only_env(std::reference_wrapper<E>, Tags) -> with_only_env<ref_env<E>, Tags>;
 
     namespace detail {
         // clang-format off
         template<typename T, typename Tags>
-        concept can_filter_env = requires {
-            filter_env(std::declval<T>(), Tags{});
+        concept can_with_only_env = requires {
+            with_only_env(std::declval<T>(), Tags{});
         };
         // clang-format on
 
-        struct filter_impl : env_adaptor_closure<filter_impl>
+        struct with_only_impl : env_adaptor_closure<with_only_impl>
         {
             template<env_or_ref E, type_list Tags>
-            requires can_filter_env<E, Tags>
+            requires can_with_only_env<E, Tags>
             constexpr auto operator()(E && e, Tags tags) const
             {
-                return filter_env((E &&) e, tags);
+                return with_only_env((E &&) e, tags);
             }
         };
     }
 
-    inline constexpr detail::adaptor<detail::filter_impl>
-        filter(detail::filter_impl{});
+    inline constexpr detail::adaptor<detail::with_only_impl>
+        with_only(detail::with_only_impl{});
 
     template<environment E, type_list Tags>
     struct without_env
@@ -2142,7 +2140,7 @@ TEST(env_, single_insert)
 #endif
 }
 
-TEST(env_, subset)
+TEST(env_, slice)
 {
     {
         auto env = stdexec::env(
@@ -2150,26 +2148,26 @@ TEST(env_, subset)
             std::tuple(42, 13.0, std::string("foo")));
 
         {
-            auto subset = stdexec::subset(
+            auto slice = stdexec::slice(
                 env, stdexec::types<int_tag, double_tag, string_tag>{});
-            EXPECT_TRUE(subset == env);
+            EXPECT_TRUE(slice == env);
         }
         {
             auto const expected = stdexec::env(
                 stdexec::types<int_tag, string_tag, double_tag>{},
                 std::tuple(42, std::string("foo"), 13.0));
 
-            auto subset = stdexec::subset(
+            auto slice = stdexec::slice(
                 env, stdexec::types<int_tag, string_tag, double_tag>{});
-            EXPECT_TRUE(subset == expected);
+            EXPECT_TRUE(slice == expected);
         }
         {
             auto const expected = stdexec::env(
                 stdexec::types<string_tag, double_tag>{},
                 std::tuple(std::string("foo"), 13.0));
 
-            auto subset = stdexec::subset(env, string_tag{}, double_tag{});
-            EXPECT_TRUE(subset == expected);
+            auto slice = stdexec::slice(env, string_tag{}, double_tag{});
+            EXPECT_TRUE(slice == expected);
         }
 #if HAVE_BOOST_MP11
         {
@@ -2177,26 +2175,26 @@ TEST(env_, subset)
                 mp_list<int_tag, double_tag, string_tag>{},
                 std::tuple(42, 13.0, std::string("foo")));
 
-            auto subset = stdexec::subset(
-                env, mp_list<int_tag, double_tag, string_tag>{});
-            EXPECT_TRUE(subset == expected);
+            auto slice =
+                stdexec::slice(env, mp_list<int_tag, double_tag, string_tag>{});
+            EXPECT_TRUE(slice == expected);
         }
         {
             auto const expected = stdexec::env(
                 mp_list<int_tag, string_tag, double_tag>{},
                 std::tuple(42, std::string("foo"), 13.0));
 
-            auto subset = stdexec::subset(
-                env, mp_list<int_tag, string_tag, double_tag>{});
-            EXPECT_TRUE(subset == expected);
+            auto slice =
+                stdexec::slice(env, mp_list<int_tag, string_tag, double_tag>{});
+            EXPECT_TRUE(slice == expected);
         }
         {
             auto const expected = stdexec::env(
                 stdexec::types<string_tag, double_tag>{},
                 std::tuple(std::string("foo"), 13.0));
 
-            auto subset = stdexec::subset(env, string_tag{}, double_tag{});
-            EXPECT_TRUE(subset == expected);
+            auto slice = stdexec::slice(env, string_tag{}, double_tag{});
+            EXPECT_TRUE(slice == expected);
         }
 #endif
     }
@@ -2211,26 +2209,26 @@ TEST(env_, subset)
                 stdexec::types<int_tag, double_tag, string_tag>{},
                 std::tuple(42, 13.0, std::string("foo")));
 
-            auto subset = stdexec::subset(
+            auto slice = stdexec::slice(
                 env, stdexec::types<int_tag, double_tag, string_tag>{});
-            EXPECT_TRUE(subset == expected);
+            EXPECT_TRUE(slice == expected);
         }
         {
             auto const expected = stdexec::env(
                 stdexec::types<int_tag, string_tag, double_tag>{},
                 std::tuple(42, std::string("foo"), 13.0));
 
-            auto subset = stdexec::subset(
+            auto slice = stdexec::slice(
                 env, stdexec::types<int_tag, string_tag, double_tag>{});
-            EXPECT_TRUE(subset == expected);
+            EXPECT_TRUE(slice == expected);
         }
         {
             auto const expected = stdexec::env(
                 mp_list<string_tag, double_tag>{},
                 std::tuple(std::string("foo"), 13.0));
 
-            auto subset = stdexec::subset(env, string_tag{}, double_tag{});
-            EXPECT_TRUE(subset == expected);
+            auto slice = stdexec::slice(env, string_tag{}, double_tag{});
+            EXPECT_TRUE(slice == expected);
         }
 #if HAVE_BOOST_MP11
         {
@@ -2238,26 +2236,26 @@ TEST(env_, subset)
                 mp_list<int_tag, double_tag, string_tag>{},
                 std::tuple(42, 13.0, std::string("foo")));
 
-            auto subset = stdexec::subset(
-                env, mp_list<int_tag, double_tag, string_tag>{});
-            EXPECT_TRUE(subset == expected);
+            auto slice =
+                stdexec::slice(env, mp_list<int_tag, double_tag, string_tag>{});
+            EXPECT_TRUE(slice == expected);
         }
         {
             auto const expected = stdexec::env(
                 mp_list<int_tag, string_tag, double_tag>{},
                 std::tuple(42, std::string("foo"), 13.0));
 
-            auto subset = stdexec::subset(
-                env, mp_list<int_tag, string_tag, double_tag>{});
-            EXPECT_TRUE(subset == expected);
+            auto slice =
+                stdexec::slice(env, mp_list<int_tag, string_tag, double_tag>{});
+            EXPECT_TRUE(slice == expected);
         }
         {
             auto const expected = stdexec::env(
                 mp_list<string_tag, double_tag>{},
                 std::tuple(std::string("foo"), 13.0));
 
-            auto subset = stdexec::subset(env, string_tag{}, double_tag{});
-            EXPECT_TRUE(subset == expected);
+            auto slice = stdexec::slice(env, string_tag{}, double_tag{});
+            EXPECT_TRUE(slice == expected);
         }
 #endif
     }
@@ -2943,7 +2941,7 @@ TEST(env_, layer_env_)
      }
 }
 
-TEST(env_, filter_env_)
+TEST(env_, with_only_env_)
 {
     {
         auto const initial_env = stdexec::env(
@@ -2951,7 +2949,7 @@ TEST(env_, filter_env_)
             std::tuple(42, 13.0, std::string("foo")));
 
         {
-            auto env = stdexec::filter(
+            auto env = stdexec::with_only(
                 initial_env, stdexec::types<string_tag, int_tag>{});
 
             static_assert(!stdexec::contains(env, double_tag{}));
