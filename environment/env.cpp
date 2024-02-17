@@ -369,25 +369,9 @@ namespace stdexec {
     struct types
     {};
 
-    template<type_list Tags, detail::is_tuple Tuple>
-    requires detail::same_arity<Tags, Tuple>
+    template<type_list Tags, typename Tuple>
+    requires detail::same_arity<Tags, Tuple> && detail::is_tuple<Tuple>
     struct env;
-
-    template<typename Tag, typename Tags, typename Tuple>
-    requires in_type_list<Tag, Tags>
-    constexpr decltype(auto) get(env<Tags, Tuple> & env);
-
-    template<typename Tag, typename Tags, typename Tuple>
-    requires in_type_list<Tag, Tags>
-    constexpr decltype(auto) get(env<Tags, Tuple> const & env);
-
-    template<typename Tag, typename Tags, typename Tuple>
-    requires in_type_list<Tag, Tags>
-    constexpr decltype(auto) get(env<Tags, Tuple> && env);
-
-    template<typename Tag, typename Tags, typename Tuple>
-    requires in_type_list<Tag, Tags>
-    constexpr decltype(auto) get(env<Tags, Tuple> const && env);
 
     namespace detail {
         template<
@@ -442,8 +426,8 @@ namespace stdexec {
             (!std::is_void_v<std::invoke_result_t<T, Tag>>);
     }
 
-    template<type_list Tags, detail::is_tuple Tuple>
-    requires detail::same_arity<Tags, Tuple>
+    template<type_list Tags, typename Tuple>
+    requires detail::same_arity<Tags, Tuple> && detail::is_tuple<Tuple>
     struct env
     {
         using tags_type = Tags;
@@ -486,19 +470,6 @@ namespace stdexec {
         constexpr bool operator==(env const & other) const
         {
             return values == other.values;
-        }
-
-        template<typename Tag>
-        static constexpr bool contains(Tag)
-        {
-            return in_type_list<Tag, Tags>;
-        }
-
-        template<template<class...> class TypeList, typename... Tags2>
-        requires type_list<TypeList<Tags2...>>
-        static constexpr bool contains_all_of(TypeList<Tags2...>)
-        {
-            return (in_type_list<Tags2, Tags> && ...);
         }
 
 #if defined(__cpp_explicit_this_parameter)
@@ -620,6 +591,39 @@ namespace stdexec {
 
     template<template<class...> class TypeList>
     detail::temp_fold_base<TypeList> make_env_with;
+
+    template<environment Env, typename Tag>
+    constexpr bool contains(Env const &, Tag)
+    {
+        return in_type_list<Tag, typename Env::tags_type>;
+    }
+
+    template<environment Env, typename Tag>
+    constexpr bool contains(Tag)
+    {
+        return in_type_list<Tag, typename Env::tags_type>;
+    }
+
+    template<
+        environment Env,
+        template<class...>
+        class TypeList,
+        typename... Tags2>
+    requires type_list<TypeList<Tags2...>>
+    constexpr bool contains_all_of(Env const &, TypeList<Tags2...>)
+    {
+        return (in_type_list<Tags2, typename Env::tags_type> && ...);
+    }
+
+    template<
+        environment Env,
+        template<class...>
+        class TypeList,
+        typename... Tags2>
+    constexpr bool contains_all_of(TypeList<Tags2...>)
+    {
+        return (in_type_list<Tags2, typename Env::tags_type> && ...);
+    }
 
     template<typename Tag, typename Tags, typename Tuple>
     requires in_type_list<Tag, Tags>
@@ -1087,24 +1091,195 @@ namespace stdexec {
 
     // second-order envs
 
-    // TODO: Tests for these.
+    namespace detail {
+        // clang-format off
+        template<typename Lhs, typename Rhs, typename Env>
+        concept pipe_invocable = requires {
+            std::declval<Rhs>()(std::declval<Lhs>()(std::declval<Env>()));
+        };
+        // clang-format on
+        template<typename Lhs, typename Rhs>
+        struct pipe
+        {
+            constexpr pipe(Lhs lhs, Rhs rhs) :
+                lhs_(std::move(lhs)), rhs_(std::move(rhs))
+            {}
+
+            template<typename Env>
+            requires pipe_invocable<const Lhs &, const Rhs &, Env>
+            constexpr auto operator()(Env && env) const &
+            {
+                return rhs_(lhs_((Env &&) env));
+            }
+
+            template<typename Env>
+            requires pipe_invocable<Lhs, Rhs, Env>
+            constexpr auto operator()(Env && env) &&
+            {
+                return std::move(rhs_)(std::move(lhs_)((Env &&) env));
+            }
+
+            template<typename Env>
+            constexpr auto operator()(Env && env) const && = delete;
+
+            [[no_unique_address]] Lhs lhs_;
+            [[no_unique_address]] Rhs rhs_;
+        };
+
+        struct env_adaptor_closure_impl
+        {
+            // clang-format off
+            template<typename Env, typename Self>
+            requires
+                std::derived_from<std::remove_cvref_t<Self>,
+                                  env_adaptor_closure_impl> &&
+                std::invocable<Self, Env>
+            friend constexpr auto operator|(Env && env, Self && self)
+            // clang-format on
+            {
+                return ((Self &&) self)((Env &&) env);
+            }
+
+            template<typename Lhs, typename Rhs>
+            requires std::derived_from<Lhs, env_adaptor_closure_impl> &&
+                std::derived_from<Rhs, env_adaptor_closure_impl>
+            friend constexpr auto operator|(Lhs lhs, Rhs rhs)
+            {
+                return detail::pipe<Lhs, Rhs>{std::move(lhs), std::move(rhs)};
+            }
+        };
+
+        template<typename Func, typename... CapturedArgs>
+        struct bind_back_t
+        {
+            static_assert(std::is_move_constructible<Func>::value, "");
+            static_assert(
+                (std::is_move_constructible<CapturedArgs>::value && ...), "");
+
+            template<typename F, typename... Args>
+            explicit constexpr bind_back_t(int, F && f, Args &&... args) :
+                f_((F &&) f), bound_args_((Args &&) args...)
+            {
+                static_assert(sizeof...(Args) == sizeof...(CapturedArgs), "");
+            }
+
+            template<typename... Args>
+            constexpr decltype(auto) operator()(Args &&... args) &
+            {
+                return call_impl(*this, indices(), (Args &&) args...);
+            }
+
+            template<typename... Args>
+            constexpr decltype(auto) operator()(Args &&... args) const &
+            {
+                return call_impl(*this, indices(), (Args &&) args...);
+            }
+
+            template<typename... Args>
+            constexpr decltype(auto) operator()(Args &&... args) &&
+            {
+                return call_impl(
+                    std::move(*this), indices(), (Args &&) args...);
+            }
+
+            template<typename... Args>
+            constexpr decltype(auto) operator()(Args &&... args) const &&
+            {
+                return call_impl(
+                    std::move(*this), indices(), (Args &&) args...);
+            }
+
+        private:
+            using indices = std::index_sequence_for<CapturedArgs...>;
+
+            template<typename T, size_t... I, typename... Args>
+            static constexpr decltype(auto)
+            call_impl(T && this_, std::index_sequence<I...>, Args &&... args)
+            {
+                return ((T &&) this_)
+                    .f_((Args &&) args...,
+                        std::get<I>(((T &&) this_).bound_args_)...);
+            }
+
+            Func f_;
+            std::tuple<CapturedArgs...> bound_args_;
+        };
+
+        template<typename Func, typename... Args>
+        using bind_back_result =
+            bind_back_t<std::decay_t<Func>, std::decay_t<Args>...>;
+
+        template<typename Func, typename... Args>
+        constexpr auto bind_back(Func && f, Args &&... args)
+        {
+            return bind_back_result<Func, Args...>(
+                0, (Func &&) f, (Args &&) args...);
+        }
+
+        template<typename F>
+        struct closure : env_adaptor_closure_impl
+        {
+            constexpr closure(F f) : f_(f) {}
+
+            template<typename T>
+            requires std::invocable<F const &, T>
+            constexpr decltype(auto) operator()(T && t) const &
+            {
+                return f_((T &&) t);
+            }
+
+            template<typename T>
+            requires std::invocable<F &&, T>
+            constexpr decltype(auto) operator()(T && t) &&
+            {
+                return std::move(f_)((T &&) t);
+            }
+
+        private:
+            F f_;
+        };
+
+        template<typename F>
+        struct adaptor
+        {
+            constexpr adaptor(F f) : f_(f) {}
+
+            template<typename... Args>
+            constexpr auto operator()(Args &&... args) const
+            {
+                if constexpr (std::is_invocable_v<F const &, Args...>) {
+                    return f_((Args &&) args...);
+                } else {
+                    return closure(detail::bind_back(f_, (Args &&) args...));
+                }
+            }
+
+        private:
+            F f_;
+        };
+    }
+
+    template<typename D>
+    requires std::is_class_v<D> && std::same_as<D, std::remove_cv_t<D>>
+    struct env_adaptor_closure : detail::env_adaptor_closure_impl
+    {};
 
     template<environment E>
     struct ref_env
     {
-        using tag_types = E::tag_types;
+        using tags_type = typename E::tags_type;
 
         ref_env() = default;
-        explicit ref_env(E & base) : base_(std::addressof(base)) {}
-        ref_env(std::reference_wrapper<E> ref) : ref_env(*ref) {}
+        ref_env(E & base) : base_(std::addressof(base)) {}
+        ref_env(std::reference_wrapper<E> ref) : ref_env(ref.get()) {}
 
-        template<in_type_list<tag_types> Tag>
+        template<in_type_list<tags_type> Tag>
         constexpr decltype(auto) operator[](Tag t)
         {
             return (*base_)[t];
         }
 
-        template<in_type_list<tag_types> Tag>
+        template<in_type_list<tags_type> Tag>
         constexpr decltype(auto) operator[](Tag t) const
         {
             return std::as_const(*base_)[t];
@@ -1113,6 +1288,13 @@ namespace stdexec {
     private:
         E * base_;
     };
+
+    template<environment E>
+    ref_env(E &) -> ref_env<E>;
+    template<environment E>
+    ref_env(E const &) -> ref_env<E const>;
+    template<environment E>
+    ref_env(std::reference_wrapper<E>) -> ref_env<E>;
 
     namespace detail {
         template<typename F, typename Tags>
@@ -1130,20 +1312,20 @@ namespace stdexec {
     requires detail::invocable_with_all<F, Tags>
     struct computed_env
     {
-        using tag_types = Tags;
+        using tags_type = Tags;
 
         // clang-format off
         computed_env() requires std::default_initializable<F> = default;
         // clang-format on
         explicit computed_env(F f, Tags tags) : f_(f) {}
 
-        template<in_type_list<tag_types> Tag>
+        template<in_type_list<tags_type> Tag>
         constexpr decltype(auto) operator[](Tag t)
         {
             return f_(t);
         }
 
-        template<in_type_list<tag_types> Tag>
+        template<in_type_list<tags_type> Tag>
         constexpr decltype(auto) operator[](Tag t) const
         {
             return f_(t);
@@ -1156,10 +1338,10 @@ namespace stdexec {
     template<environment E1, environment E2>
     struct layer_env
     {
-        using tag_types = decltype(detail::tl_cat(
-            typename E1::tag_types{},
+        using tags_type = decltype(detail::tl_cat(
+            typename E1::tags_type{},
             detail::tl_set_diff(
-                typename E2::tag_types{}, typename E1::tag_types{})));
+                typename E2::tags_type{}, typename E1::tags_type{})));
 
         // clang-format off
         layer_env()
@@ -1172,43 +1354,43 @@ namespace stdexec {
         {}
 
 #if defined(__cpp_explicit_this_parameter)
-        template<typename Self, in_type_list<tag_types> Tag>
+        template<typename Self, in_type_list<tags_type> Tag>
         constexpr decltype(auto) operator[](this Self && self, Tag t)
         {
-            if constexpr (in_type_list<Tag, typename E1::tag_types>)
+            if constexpr (in_type_list<Tag, typename E1::tags_type>)
                 return ((Self &&) self).base_1_[t];
             else
                 return ((Self &&) self).base_2_[t];
         }
 #else
-        template<in_type_list<tag_types> Tag>
+        template<in_type_list<tags_type> Tag>
         constexpr decltype(auto) operator[](Tag t) &
         {
-            if constexpr (in_type_list<Tag, typename E1::tag_types>)
+            if constexpr (in_type_list<Tag, typename E1::tags_type>)
                 return base_1_[t];
             else
                 return base_2_[t];
         }
-        template<in_type_list<tag_types> Tag>
+        template<in_type_list<tags_type> Tag>
         constexpr decltype(auto) operator[](Tag t) const &
         {
-            if constexpr (in_type_list<Tag, typename E1::tag_types>)
+            if constexpr (in_type_list<Tag, typename E1::tags_type>)
                 return base_1_[t];
             else
                 return base_2_[t];
         }
-        template<in_type_list<tag_types> Tag>
+        template<in_type_list<tags_type> Tag>
         constexpr decltype(auto) operator[](Tag t) &&
         {
-            if constexpr (in_type_list<Tag, typename E1::tag_types>)
+            if constexpr (in_type_list<Tag, typename E1::tags_type>)
                 return std::move(base_1_)[t];
             else
                 return std::move(base_2_)[t];
         }
-        template<in_type_list<tag_types> Tag>
+        template<in_type_list<tags_type> Tag>
         constexpr decltype(auto) operator[](Tag t) const &&
         {
-            if constexpr (in_type_list<Tag, typename E1::tag_types>)
+            if constexpr (in_type_list<Tag, typename E1::tags_type>)
                 return std::move(base_1_)[t];
             else
                 return std::move(base_2_)[t];
@@ -1219,6 +1401,16 @@ namespace stdexec {
         E1 base_1_;
         E2 base_2_;
     };
+
+    template<typename E1, typename E2>
+    layer_env(E1, E2) -> layer_env<E1, E2>;
+    template<typename E1, typename E2>
+    layer_env(std::reference_wrapper<E1>, E2) -> layer_env<ref_env<E1>, E2>;
+    template<typename E1, typename E2>
+    layer_env(E1, std::reference_wrapper<E2>) -> layer_env<E1, ref_env<E2>>;
+    template<typename E1, typename E2>
+    layer_env(std::reference_wrapper<E1>, std::reference_wrapper<E2>)
+        -> layer_env<ref_env<E1>, ref_env<E2>>;
 
     namespace detail {
         // clang-format off
@@ -1234,55 +1426,61 @@ namespace stdexec {
         };
         // clang-format on
 
-        struct layer_impl : std::ranges::range_adaptor_closure<layer_impl>
+        template<typename T>
+        constexpr bool is_ref_wrapper = false;
+        template<typename T>
+        constexpr bool is_ref_wrapper<std::reference_wrapper<T>> = true;
+
+        struct layer_impl
         {
             template<env_or_ref E1, env_or_ref E2>
             requires can_layer_env<E1, E2>
-            constexpr auto operator()(E1 && e1, E2 && e2) const
+            [[nodiscard]] constexpr auto operator()(E1 && e1, E2 && e2) const
             {
                 return layer_env((E1 &&) e1, (E2 &&) e2);
             }
         };
     }
 
-    inline constexpr detail::layer_impl layer;
+    inline constexpr detail::adaptor<detail::layer_impl>
+        layer(detail::layer_impl{});
 
     // clang-format off
     template<environment E, type_list Tags>
-    requires(E::contains_all_of(Tags{}))
+    requires(contains_all_of<E>(Tags{}))
     struct filter_env
     // clang-format on
     {
-        using tag_types = Tags;
+        using tags_type = Tags;
 
         // clang-format off
         filter_env() requires std::default_initializable<E> = default;
         // clang-format on
-        filter_env(E base, Tags tags) : base_(std::move(base_)) {}
+        filter_env(E base, Tags tags) : base_(std::move(base)) {}
 
 #if defined(__cpp_explicit_this_parameter)
-        template<typename Self, in_type_list<tag_types> Tag>
+        template<typename Self, in_type_list<tags_type> Tag>
         constexpr decltype(auto) operator[](this Self && self, Tag t)
         {
             return ((Self &&) self).base_[t];
         }
 #else
-        template<in_type_list<tag_types> Tag>
+        template<in_type_list<tags_type> Tag>
         constexpr decltype(auto) operator[](Tag t) &
         {
             return base_[t];
         }
-        template<in_type_list<tag_types> Tag>
+        template<in_type_list<tags_type> Tag>
         constexpr decltype(auto) operator[](Tag t) const &
         {
             return base_[t];
         }
-        template<in_type_list<tag_types> Tag>
+        template<in_type_list<tags_type> Tag>
         constexpr decltype(auto) operator[](Tag t) &&
         {
             return std::move(base_)[t];
         }
-        template<in_type_list<tag_types> Tag>
+        template<in_type_list<tags_type> Tag>
         constexpr decltype(auto) operator[](Tag t) const &&
         {
             return std::move(base_)[t];
@@ -1293,6 +1491,11 @@ namespace stdexec {
         E base_;
     };
 
+    template<typename E, typename Tags>
+    filter_env(E, Tags) -> filter_env<E, Tags>;
+    template<typename E, typename Tags>
+    filter_env(std::reference_wrapper<E>, Tags) -> filter_env<ref_env<E>, Tags>;
+
     namespace detail {
         // clang-format off
         template<typename T, typename Tags>
@@ -1301,7 +1504,7 @@ namespace stdexec {
         };
         // clang-format on
 
-        struct filter_impl : std::ranges::range_adaptor_closure<layer_impl>
+        struct filter_impl : env_adaptor_closure<filter_impl>
         {
             template<env_or_ref E, type_list Tags>
             requires can_filter_env<E, Tags>
@@ -1312,42 +1515,43 @@ namespace stdexec {
         };
     }
 
-    inline constexpr detail::filter_impl filter;
+    inline constexpr detail::adaptor<detail::filter_impl>
+        filter(detail::filter_impl{});
 
     template<environment E, type_list Tags>
     struct without_env
     {
-        using tag_types =
-            decltype(detail::tl_set_diff(typename E::tag_types{}, Tags{}));
+        using tags_type =
+            decltype(detail::tl_set_diff(typename E::tags_type{}, Tags{}));
 
         // clang-format off
         without_env() requires std::default_initializable<E> = default;
         // clang-format on
-        without_env(E base, Tags tags) : base_(std::move(base_)) {}
+        without_env(E base, Tags tags) : base_(std::move(base)) {}
 
 #if defined(__cpp_explicit_this_parameter)
-        template<typename Self, in_type_list<tag_types> Tag>
+        template<typename Self, in_type_list<tags_type> Tag>
         constexpr decltype(auto) operator[](this Self && self, Tag t)
         {
             return ((Self &&) self).base_[t];
         }
 #else
-        template<in_type_list<tag_types> Tag>
+        template<in_type_list<tags_type> Tag>
         constexpr decltype(auto) operator[](Tag t) &
         {
             return base_[t];
         }
-        template<in_type_list<tag_types> Tag>
+        template<in_type_list<tags_type> Tag>
         constexpr decltype(auto) operator[](Tag t) const &
         {
             return base_[t];
         }
-        template<in_type_list<tag_types> Tag>
+        template<in_type_list<tags_type> Tag>
         constexpr decltype(auto) operator[](Tag t) &&
         {
             return std::move(base_)[t];
         }
-        template<in_type_list<tag_types> Tag>
+        template<in_type_list<tags_type> Tag>
         constexpr decltype(auto) operator[](Tag t) const &&
         {
             return std::move(base_)[t];
@@ -1358,6 +1562,12 @@ namespace stdexec {
         E base_;
     };
 
+    template<typename E, typename Tags>
+    without_env(E, Tags) -> without_env<E, Tags>;
+    template<typename E, typename Tags>
+    without_env(std::reference_wrapper<E>, Tags)
+        -> without_env<ref_env<E>, Tags>;
+
     namespace detail {
         // clang-format off
         template<typename T, typename Tags>
@@ -1366,7 +1576,7 @@ namespace stdexec {
         };
         // clang-format on
 
-        struct without_impl : std::ranges::range_adaptor_closure<layer_impl>
+        struct without_impl : env_adaptor_closure<without_impl>
         {
             template<env_or_ref E, type_list Tags>
             requires can_without_env<E, Tags>
@@ -1377,7 +1587,8 @@ namespace stdexec {
         };
     }
 
-    inline constexpr detail::without_impl without;
+    inline constexpr detail::adaptor<detail::without_impl>
+        without(detail::without_impl{});
 }
 
 #if DO_TESTING
@@ -1485,8 +1696,6 @@ TEST(env_, concept_)
         static_assert(stdexec::environment<decltype(env1) const>);
     }
 #endif
-
-    // TODO: Test with other types.
 }
 
 TEST(env_, make_env_)
@@ -1824,35 +2033,44 @@ TEST(env_, index_contains_equals)
                           std::string const &&>);
         }
 
-        EXPECT_TRUE(env.contains(int_tag{}));
-        EXPECT_TRUE(env.contains(double_tag{}));
-        EXPECT_TRUE(env.contains(string_tag{}));
-        EXPECT_FALSE(env.contains(int{}));
+        EXPECT_TRUE(stdexec::contains(env, int_tag{}));
+        EXPECT_TRUE(stdexec::contains(env, double_tag{}));
+        EXPECT_TRUE(stdexec::contains(env, string_tag{}));
+        EXPECT_FALSE(stdexec::contains(env, int{}));
 
-        EXPECT_TRUE(env.contains_all_of(stdexec::types<int_tag>{}));
-        EXPECT_TRUE(env.contains_all_of(stdexec::types<double_tag>{}));
-        EXPECT_TRUE(env.contains_all_of(stdexec::types<string_tag>{}));
+        EXPECT_TRUE(stdexec::contains_all_of(env, stdexec::types<int_tag>{}));
+        EXPECT_TRUE(
+            stdexec::contains_all_of(env, stdexec::types<double_tag>{}));
+        EXPECT_TRUE(
+            stdexec::contains_all_of(env, stdexec::types<string_tag>{}));
 
-        EXPECT_TRUE(env.contains_all_of(stdexec::types<string_tag, int_tag>{}));
-        EXPECT_TRUE(env.contains_all_of(stdexec::types<double_tag, int_tag>{}));
-        EXPECT_TRUE(env.contains_all_of(
-            stdexec::types<string_tag, double_tag, int_tag>{}));
+        EXPECT_TRUE(stdexec::contains_all_of(
+            env, stdexec::types<string_tag, int_tag>{}));
+        EXPECT_TRUE(stdexec::contains_all_of(
+            env, stdexec::types<double_tag, int_tag>{}));
+        EXPECT_TRUE(stdexec::contains_all_of(
+            env, stdexec::types<string_tag, double_tag, int_tag>{}));
 
-        EXPECT_FALSE(env.contains_all_of(stdexec::types<int_2_tag>{}));
-        EXPECT_FALSE(env.contains_all_of(stdexec::types<int_tag, int_2_tag>{}));
+        EXPECT_FALSE(
+            stdexec::contains_all_of(env, stdexec::types<int_2_tag>{}));
+        EXPECT_FALSE(stdexec::contains_all_of(
+            env, stdexec::types<int_tag, int_2_tag>{}));
 
 #if HAVE_BOOST_MP11
-        EXPECT_TRUE(env.contains_all_of(mp_list<int_tag>{}));
-        EXPECT_TRUE(env.contains_all_of(mp_list<double_tag>{}));
-        EXPECT_TRUE(env.contains_all_of(mp_list<string_tag>{}));
+        EXPECT_TRUE(stdexec::contains_all_of(env, mp_list<int_tag>{}));
+        EXPECT_TRUE(stdexec::contains_all_of(env, mp_list<double_tag>{}));
+        EXPECT_TRUE(stdexec::contains_all_of(env, mp_list<string_tag>{}));
 
-        EXPECT_TRUE(env.contains_all_of(mp_list<string_tag, int_tag>{}));
-        EXPECT_TRUE(env.contains_all_of(mp_list<double_tag, int_tag>{}));
-        EXPECT_TRUE(env.contains_all_of(
-            mp_list<string_tag, double_tag, int_tag>{}));
+        EXPECT_TRUE(
+            stdexec::contains_all_of(env, mp_list<string_tag, int_tag>{}));
+        EXPECT_TRUE(
+            stdexec::contains_all_of(env, mp_list<double_tag, int_tag>{}));
+        EXPECT_TRUE(stdexec::contains_all_of(
+            env, mp_list<string_tag, double_tag, int_tag>{}));
 
-        EXPECT_FALSE(env.contains_all_of(mp_list<int_2_tag>{}));
-        EXPECT_FALSE(env.contains_all_of(mp_list<int_tag, int_2_tag>{}));
+        EXPECT_FALSE(stdexec::contains_all_of(env, mp_list<int_2_tag>{}));
+        EXPECT_FALSE(
+            stdexec::contains_all_of(env, mp_list<int_tag, int_2_tag>{}));
 #endif
 
         EXPECT_EQ(env[int_tag{}], 42);
@@ -1907,34 +2125,43 @@ TEST(env_, index_contains_equals)
                           std::string const &&>);
         }
 
-        EXPECT_TRUE(env.contains(int_tag{}));
-        EXPECT_TRUE(env.contains(double_tag{}));
-        EXPECT_TRUE(env.contains(string_tag{}));
-        EXPECT_FALSE(env.contains(int{}));
+        EXPECT_TRUE(stdexec::contains(env, int_tag{}));
+        EXPECT_TRUE(stdexec::contains(env, double_tag{}));
+        EXPECT_TRUE(stdexec::contains(env, string_tag{}));
+        EXPECT_FALSE(stdexec::contains(env, int{}));
 
-        EXPECT_TRUE(env.contains_all_of(mp_list<int_tag>{}));
-        EXPECT_TRUE(env.contains_all_of(mp_list<double_tag>{}));
-        EXPECT_TRUE(env.contains_all_of(mp_list<string_tag>{}));
+        EXPECT_TRUE(stdexec::contains_all_of(env, mp_list<int_tag>{}));
+        EXPECT_TRUE(stdexec::contains_all_of(env, mp_list<double_tag>{}));
+        EXPECT_TRUE(stdexec::contains_all_of(env, mp_list<string_tag>{}));
 
-        EXPECT_TRUE(env.contains_all_of(mp_list<string_tag, int_tag>{}));
-        EXPECT_TRUE(env.contains_all_of(mp_list<double_tag, int_tag>{}));
-        EXPECT_TRUE(env.contains_all_of(
-            mp_list<string_tag, double_tag, int_tag>{}));
+        EXPECT_TRUE(
+            stdexec::contains_all_of(env, mp_list<string_tag, int_tag>{}));
+        EXPECT_TRUE(
+            stdexec::contains_all_of(env, mp_list<double_tag, int_tag>{}));
+        EXPECT_TRUE(stdexec::contains_all_of(
+            env, mp_list<string_tag, double_tag, int_tag>{}));
 
-        EXPECT_FALSE(env.contains_all_of(mp_list<int_2_tag>{}));
-        EXPECT_FALSE(env.contains_all_of(mp_list<int_tag, int_2_tag>{}));
+        EXPECT_FALSE(stdexec::contains_all_of(env, mp_list<int_2_tag>{}));
+        EXPECT_FALSE(
+            stdexec::contains_all_of(env, mp_list<int_tag, int_2_tag>{}));
 
-        EXPECT_TRUE(env.contains_all_of(stdexec::types<int_tag>{}));
-        EXPECT_TRUE(env.contains_all_of(stdexec::types<double_tag>{}));
-        EXPECT_TRUE(env.contains_all_of(stdexec::types<string_tag>{}));
+        EXPECT_TRUE(stdexec::contains_all_of(env, stdexec::types<int_tag>{}));
+        EXPECT_TRUE(
+            stdexec::contains_all_of(env, stdexec::types<double_tag>{}));
+        EXPECT_TRUE(
+            stdexec::contains_all_of(env, stdexec::types<string_tag>{}));
 
-        EXPECT_TRUE(env.contains_all_of(stdexec::types<string_tag, int_tag>{}));
-        EXPECT_TRUE(env.contains_all_of(stdexec::types<double_tag, int_tag>{}));
-        EXPECT_TRUE(env.contains_all_of(
-            stdexec::types<string_tag, double_tag, int_tag>{}));
+        EXPECT_TRUE(stdexec::contains_all_of(
+            env, stdexec::types<string_tag, int_tag>{}));
+        EXPECT_TRUE(stdexec::contains_all_of(
+            env, stdexec::types<double_tag, int_tag>{}));
+        EXPECT_TRUE(stdexec::contains_all_of(
+            env, stdexec::types<string_tag, double_tag, int_tag>{}));
 
-        EXPECT_FALSE(env.contains_all_of(stdexec::types<int_2_tag>{}));
-        EXPECT_FALSE(env.contains_all_of(stdexec::types<int_tag, int_2_tag>{}));
+        EXPECT_FALSE(
+            stdexec::contains_all_of(env, stdexec::types<int_2_tag>{}));
+        EXPECT_FALSE(stdexec::contains_all_of(
+            env, stdexec::types<int_tag, int_2_tag>{}));
 
         EXPECT_EQ(env[int_tag{}], 42);
         EXPECT_EQ(env[double_tag{}], 13.0);
@@ -2653,6 +2880,209 @@ TEST(env_, multi_erase)
         }
     }
 #endif
+}
+
+TEST(env_, ref_env_)
+{
+     {
+         auto env = stdexec::env(
+             stdexec::types<int_tag, double_tag, string_tag>{},
+             std::tuple(42, 13.0, std::string("foo")));
+
+         stdexec::ref_env ref1 = env;
+         stdexec::ref_env ref2 = std::ref(env);
+
+         EXPECT_EQ(ref1[int_tag{}], env[int_tag{}]);
+         EXPECT_EQ(ref1[double_tag{}], env[double_tag{}]);
+         EXPECT_EQ(ref1[string_tag{}], env[string_tag{}]);
+
+         EXPECT_EQ(ref1[int_tag{}], ref2[int_tag{}]);
+         EXPECT_EQ(ref1[double_tag{}], ref2[double_tag{}]);
+         EXPECT_EQ(ref1[string_tag{}], ref2[string_tag{}]);
+
+         {
+             auto const & c_env = env;
+
+             stdexec::ref_env ref1 = c_env;
+             stdexec::ref_env ref2 = std::ref(c_env);
+
+             EXPECT_EQ(ref1[int_tag{}], env[int_tag{}]);
+             EXPECT_EQ(ref1[double_tag{}], env[double_tag{}]);
+             EXPECT_EQ(ref1[string_tag{}], env[string_tag{}]);
+
+             EXPECT_EQ(ref1[int_tag{}], ref2[int_tag{}]);
+             EXPECT_EQ(ref1[double_tag{}], ref2[double_tag{}]);
+             EXPECT_EQ(ref1[string_tag{}], ref2[string_tag{}]);
+         }
+     }
+}
+
+TEST(env_, computed_env_)
+{
+    auto universal = [](auto) { return 42; };
+
+    auto env = stdexec::computed_env(
+        universal, stdexec::types<int_tag, double_tag, string_tag>{});
+
+    static_assert(stdexec::contains_all_of<decltype(env)>(
+        typename decltype(env)::tags_type{}));
+
+    EXPECT_EQ(env[int_tag{}], universal(int_tag{}));
+    EXPECT_EQ(env[double_tag{}], universal(double_tag{}));
+    EXPECT_EQ(env[string_tag{}], universal(string_tag{}));
+}
+
+TEST(env_, layer_env_)
+{
+     {
+         auto int_env = stdexec::env(stdexec::types<int_tag>{}, std::tuple(42));
+
+         auto double_env =
+             stdexec::env(stdexec::types<double_tag>{}, std::tuple(13.0));
+
+         {
+             auto env = stdexec::layer_env(int_env, double_env);
+
+             static_assert(std::same_as<decltype(env),
+             stdexec::layer_env<
+                 stdexec::env<stdexec::types<int_tag>, std::tuple<int>>,
+                           stdexec::env<stdexec::types<double_tag>, std::tuple<double>>>>);
+
+             EXPECT_EQ(env[int_tag{}], int_env[int_tag{}]);
+             EXPECT_EQ(env[double_tag{}], double_env[double_tag{}]);
+         }
+         {
+             auto env = int_env | stdexec::layer(double_env);
+             static_assert(
+                 std::same_as<
+                     decltype(env),
+                     stdexec::layer_env<
+                         stdexec::env<stdexec::types<int_tag>, std::tuple<int>>,
+                         stdexec::env<
+                             stdexec::types<double_tag>,
+                             std::tuple<double>>>>);
+
+             EXPECT_EQ(env[int_tag{}], int_env[int_tag{}]);
+             EXPECT_EQ(env[double_tag{}], double_env[double_tag{}]);
+         }
+         {
+             auto env = int_env | stdexec::layer(std::ref(double_env));
+             static_assert(
+                 std::same_as<
+                     decltype(env),
+                     stdexec::layer_env<
+                         stdexec::env<stdexec::types<int_tag>, std::tuple<int>>,
+                         stdexec::ref_env<stdexec::env<
+                             stdexec::types<double_tag>,
+                             std::tuple<double>>>>>);
+
+             EXPECT_EQ(env[int_tag{}], int_env[int_tag{}]);
+             EXPECT_EQ(env[double_tag{}], double_env[double_tag{}]);
+         }
+         {
+             auto env = std::ref(int_env) | stdexec::layer(double_env);
+             static_assert(std::same_as<
+                           decltype(env),
+                           stdexec::layer_env<
+                               stdexec::ref_env<stdexec::env<
+                                   stdexec::types<int_tag>,
+                                   std::tuple<int>>>,
+                               stdexec::env<
+                                   stdexec::types<double_tag>,
+                                   std::tuple<double>>>>);
+
+             EXPECT_EQ(env[int_tag{}], int_env[int_tag{}]);
+             EXPECT_EQ(env[double_tag{}], double_env[double_tag{}]);
+         }
+         {
+             auto env =
+                 std::ref(int_env) | stdexec::layer(std::ref(double_env));
+             static_assert(std::same_as<
+                           decltype(env),
+                           stdexec::layer_env<
+                               stdexec::ref_env<stdexec::env<
+                                   stdexec::types<int_tag>,
+                                   std::tuple<int>>>,
+                               stdexec::ref_env<stdexec::env<
+                                   stdexec::types<double_tag>,
+                                   std::tuple<double>>>>>);
+
+             EXPECT_EQ(env[int_tag{}], int_env[int_tag{}]);
+             EXPECT_EQ(env[double_tag{}], double_env[double_tag{}]);
+         }
+
+         auto string_env = stdexec::env(
+             stdexec::types<string_tag>{}, std::tuple(std::string("foo")));
+
+         {
+             auto env = int_env | stdexec::layer(double_env) |
+                        stdexec::layer(string_env);
+
+             EXPECT_EQ(env[int_tag{}], int_env[int_tag{}]);
+             EXPECT_EQ(env[double_tag{}], double_env[double_tag{}]);
+             EXPECT_EQ(env[string_tag{}], string_env[string_tag{}]);
+         }
+
+         {
+             auto int_double_env = stdexec::env(
+                 stdexec::types<int_tag, double_tag>{}, std::tuple(55, 13.0));
+
+             auto const & c_string_env = string_env;
+
+             auto env = int_double_env | stdexec::layer(std::ref(double_env)) |
+                        stdexec::layer(std::ref(c_string_env));
+
+             EXPECT_EQ(env[int_tag{}], 55);
+             EXPECT_EQ(env[double_tag{}], double_env[double_tag{}]);
+             EXPECT_EQ(env[string_tag{}], string_env[string_tag{}]);
+         }
+
+         {
+             auto env = int_env | stdexec::layer(double_env) |
+                 stdexec::layer(std::move(string_env));
+
+             EXPECT_EQ(env[int_tag{}], int_env[int_tag{}]);
+             EXPECT_EQ(env[double_tag{}], double_env[double_tag{}]);
+             EXPECT_EQ(env[string_tag{}], "foo");
+             EXPECT_EQ(string_env[string_tag{}], "");
+         }
+     }
+}
+
+TEST(env_, filter_env_)
+{
+    {
+        auto const initial_env = stdexec::env(
+            stdexec::types<int_tag, double_tag, string_tag>{},
+            std::tuple(42, 13.0, std::string("foo")));
+
+        {
+            auto env = stdexec::filter(
+                initial_env, stdexec::types<string_tag, int_tag>{});
+
+            static_assert(!stdexec::contains(env, double_tag{}));
+            EXPECT_EQ(env[int_tag{}], initial_env[int_tag{}]);
+            EXPECT_EQ(env[string_tag{}], initial_env[string_tag{}]);
+        }
+    }
+}
+
+TEST(env_, without_env_)
+{
+    {
+        auto const initial_env = stdexec::env(
+            stdexec::types<int_tag, double_tag, string_tag>{},
+            std::tuple(42, 13.0, std::string("foo")));
+
+        {
+            auto env =
+                initial_env | stdexec::without(stdexec::types<double_tag>{});
+
+            static_assert(!stdexec::contains(env, double_tag{}));
+            EXPECT_EQ(env[int_tag{}], initial_env[int_tag{}]);
+            EXPECT_EQ(env[string_tag{}], initial_env[string_tag{}]);
+        }
+    }
 }
 
 #endif
