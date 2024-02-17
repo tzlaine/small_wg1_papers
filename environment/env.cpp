@@ -217,6 +217,11 @@ namespace stdexec {
         template<typename Tag, typename Tags>
         constexpr bool has_type = 0 <= detail::index_from_tag<Tag>(Tags{});
 
+        template<typename T>
+        constexpr int tl_size = -1;
+        template<template<class...> class TypeList, typename... Ts>
+        constexpr int tl_size<TypeList<Ts...>> = sizeof...(Ts);
+
         template<typename T, template<class...> class TypeList, typename... Ts>
         consteval auto tl_append(TypeList<Ts...>)
         {
@@ -592,64 +597,6 @@ namespace stdexec {
     template<template<class...> class TypeList>
     detail::temp_fold_base<TypeList> make_env_with;
 
-    template<environment Env, typename Tag>
-    constexpr bool contains(Env const &, Tag)
-    {
-        return in_type_list<Tag, typename Env::tags_type>;
-    }
-
-    template<environment Env, typename Tag>
-    constexpr bool contains(Tag)
-    {
-        return in_type_list<Tag, typename Env::tags_type>;
-    }
-
-    template<
-        environment Env,
-        template<class...>
-        class TypeList,
-        typename... Tags2>
-    requires type_list<TypeList<Tags2...>>
-    constexpr bool contains_all_of(Env const &, TypeList<Tags2...>)
-    {
-        return (in_type_list<Tags2, typename Env::tags_type> && ...);
-    }
-
-    template<
-        environment Env,
-        template<class...>
-        class TypeList,
-        typename... Tags2>
-    constexpr bool contains_all_of(TypeList<Tags2...>)
-    {
-        return (in_type_list<Tags2, typename Env::tags_type> && ...);
-    }
-
-    template<typename Tag, typename Tags, typename Tuple>
-    requires in_type_list<Tag, Tags>
-    constexpr decltype(auto) get(env<Tags, Tuple> & env_)
-    {
-        return env_[Tag{}];
-    }
-    template<typename Tag, typename Tags, typename Tuple>
-    requires in_type_list<Tag, Tags>
-    constexpr decltype(auto) get(env<Tags, Tuple> const & env_)
-    {
-        return env_[Tag{}];
-    }
-    template<typename Tag, typename Tags, typename Tuple>
-    requires in_type_list<Tag, Tags>
-    constexpr decltype(auto) get(env<Tags, Tuple> && env_)
-    {
-        return std::move(env_)[Tag{}];
-    }
-    template<typename Tag, typename Tags, typename Tuple>
-    requires in_type_list<Tag, Tags>
-    constexpr decltype(auto) get(env<Tags, Tuple> const && env_)
-    {
-        return std::move(env_)[Tag{}];
-    }
-
     template<size_t I, typename Tags, typename Tuple>
     requires(I < std::tuple_size_v<Tuple>) constexpr decltype(auto)
         get(env<Tags, Tuple> & env)
@@ -675,410 +622,357 @@ namespace stdexec {
         return std::get<I>(std::move(env.values));
     }
 
-    template<typename Tag, typename Tags, typename Tuple, typename T>
-    requires(!in_type_list<Tag, Tags>)
-    constexpr auto insert(env<Tags, Tuple> const & env_, Tag, T && x)
+    template<environment Env, typename Tag>
+    constexpr bool contains(Env const &, Tag)
     {
-        return env(
-            detail::tl_append<std::remove_cvref_t<Tag>>(Tags{}),
-            tuple_cat(env_.values, std::tuple((T &&) x)));
+        return in_type_list<Tag, typename Env::tags_type>;
     }
-    template<typename Tag, typename Tags, typename Tuple, typename T>
-    requires(!in_type_list<Tag, Tags>)
-    constexpr auto insert(env<Tags, Tuple> && env_, Tag, T && x)
+
+    template<environment Env, typename Tag>
+    constexpr bool contains(Tag)
     {
+        return in_type_list<Tag, typename Env::tags_type>;
+    }
+
+    template<typename T, typename Env>
+    concept tag_of = std::default_initializable<T> && contains<Env>(T{});
+
+    template<
+        environment Env,
+        template<class...>
+        class TypeList,
+        typename... Tags2>
+    requires type_list<TypeList<Tags2...>>
+    constexpr bool contains_all_of(Env const &, TypeList<Tags2...>)
+    {
+        return (in_type_list<Tags2, typename Env::tags_type> && ...);
+    }
+
+    template<
+        environment Env,
+        template<class...>
+        class TypeList,
+        typename... Tags2>
+    constexpr bool contains_all_of(TypeList<Tags2...>)
+    {
+        return (in_type_list<Tags2, typename Env::tags_type> && ...);
+    }
+
+    // clang-format off
+    template<typename Tag, environment Env>
+    requires tag_of<Tag, Env>
+    constexpr decltype(auto) get(Env & e)
+    {
+        return e[Tag{}];
+    }
+    template<typename Tag, environment Env>
+    requires tag_of<Tag, Env>
+    constexpr decltype(auto) get(Env const & e)
+    {
+        return e[Tag{}];
+    }
+    template<typename Tag, environment Env>
+    requires tag_of<Tag, Env>
+    constexpr decltype(auto) get(Env && e)
+    {
+        return std::move(e)[Tag{}];
+    }
+    template<typename Tag, environment Env>
+    requires tag_of<Tag, Env>
+    constexpr decltype(auto) get(Env const && e)
+    {
+        return std::move(e)[Tag{}];
+    }
+    // clang-format on
+
+    // clang-format off
+    template<typename Tag, environment Env, typename T>
+    requires (!tag_of<Tag, Env>)
+    constexpr auto insert(Env const & e, Tag, T && x)
+    {
+        using tags_t = Env::tags_type;
         return env(
-            detail::tl_append<Tag>(Tags{}),
-            tuple_cat(std::move(env_.values), std::tuple((T &&) x)));
+            detail::tl_append<std::remove_cvref_t<Tag>>(tags_t{}),
+            tuple_cat(e.values, std::tuple((T &&) x)));
+    }
+    template<typename Tag, environment Env, typename T>
+    requires (!tag_of<Tag, Env>)
+    constexpr auto insert(Env && e, Tag, T && x)
+    {
+        using tags_t = Env::tags_type;
+        return env(
+            detail::tl_append<Tag>(tags_t{}),
+            tuple_cat(std::move(e.values), std::tuple((T &&) x)));
+    }
+    // clang-format on
+
+    // TODO: subset -> slice, filter -> with_only
+
+    // clang-format off
+    template<
+        environment Env,
+        template<typename...>
+        typename TypeList,
+        tag_of<Env>... Tags>
+    requires type_list<TypeList<Tags...>>
+    constexpr decltype(auto) subset(Env const& e, TypeList<Tags...> tags)
+    // clang-format on
+    {
+        return env(tags, std::tuple(e[Tags{}]...));
     }
 
     // clang-format off
     template<
-      typename Tags,
-      typename Tuple,
-      template<typename...>
-      typename TypeList,
-      typename... Tags2>
-    requires type_list<TypeList<Tags2...>> &&
-        (in_type_list<Tags2, Tags> && ...)
-    constexpr decltype(auto)
-    subset(env<Tags, Tuple> const& env_, TypeList<Tags2...> tags2)
+        environment Env,
+        template<typename...>
+        typename TypeList,
+        tag_of<Env>... Tags>
+    requires type_list<TypeList<Tags...>>
+    constexpr decltype(auto) subset(Env&& e, TypeList<Tags...> tags)
     // clang-format on
     {
-        return env(tags2, std::tuple(env_[Tags2{}]...));
+        return env(tags, std::tuple(std::move(e)[Tags{}]...));
     }
 
-    // clang-format off
-    template<
-      typename Tags,
-      typename Tuple,
-      template<typename...>
-      typename TypeList,
-      typename... Tags2>
-    requires type_list<TypeList<Tags2...>> &&
-        (in_type_list<Tags2, Tags> && ...)
-    constexpr decltype(auto)
-    subset(env<Tags, Tuple>&& env_, TypeList<Tags2...> tags2)
-    // clang-format on
+    template<environment Env, tag_of<Env>... Tags>
+    constexpr decltype(auto) subset(Env const & e, Tags...)
     {
-        return env(tags2, std::tuple(std::move(env_)[Tags2{}]...));
+        using tags_t = Env::tags_type;
+        return stdexec::subset(e, detail::tl_like(tags_t{}, Tags{}...));
     }
 
-    // clang-format off
-    template<typename Tags, typename Tuple, typename... Tags2>
-    requires (in_type_list<Tags2, Tags> && ...)
-    constexpr decltype(auto) subset(env<Tags, Tuple> const & env_, Tags2...)
-    // clang-format on
+    template<environment Env, tag_of<Env>... Tags>
+    constexpr decltype(auto) subset(Env && e, Tags...)
     {
-        return stdexec::subset(env_, detail::tl_like(Tags{}, Tags2{}...));
-    }
-
-    // clang-format off
-    template<typename Tags, typename Tuple, typename... Tags2>
-    requires (in_type_list<Tags2, Tags> && ...)
-    constexpr decltype(auto) subset(env<Tags, Tuple> && env_, Tags2...)
-    // clang-format on
-    {
+        using tags_t = Env::tags_type;
         return stdexec::subset(
-            std::move(env_), detail::tl_like(Tags{}, Tags2{}...));
+            std::move(e), detail::tl_like(tags_t{}, Tags{}...));
     }
 
     namespace detail {
         template<
-            typename Tags1,
-            typename Tuple1,
+            typename Env1,
             template<class...>
-            class TypeList,
-            typename... OldTags,
-            typename Tags2,
-            typename Tuple2,
-            int... Is>
+            class TypeList1,
+            typename... Tags1,
+            typename Env2,
+            template<class...>
+            class TypeList2,
+            typename... Tags2>
         constexpr auto make_env_tuple(
-            env<Tags1, Tuple1> const & env1,
-            TypeList<OldTags...> old_tags,
-            env<Tags2, Tuple2> const & env2,
-            std::integer_sequence<int, Is...>)
+            Env1 const & env1,
+            TypeList1<Tags1...> old_tags,
+            Env2 const & env2,
+            TypeList2<Tags2...>)
         {
             return std::tuple(
-                stdexec::get<OldTags>(env1)..., std::get<Is>(env2.values)...);
+                stdexec::get<Tags1>(env1)..., stdexec::get<Tags2>(env2)...);
         }
         template<
-            typename Tags1,
-            typename Tuple1,
+            typename Env1,
             template<class...>
-            class TypeList,
-            typename... OldTags,
-            typename Tags2,
-            typename Tuple2,
-            int... Is>
+            class TypeList1,
+            typename... Tags1,
+            typename Env2,
+            template<class...>
+            class TypeList2,
+            typename... Tags2>
         constexpr auto make_env_tuple(
-            env<Tags1, Tuple1> && env1,
-            TypeList<OldTags...> old_tags,
-            env<Tags2, Tuple2> const & env2,
-            std::integer_sequence<int, Is...>)
+            Env1 && env1,
+            TypeList1<Tags1...> old_tags,
+            Env2 const & env2,
+            TypeList2<Tags2...>)
         {
             return std::tuple(
-                stdexec::get<OldTags>(std::move(env1))...,
-                std::get<Is>(env2.values)...);
+                stdexec::get<Tags1>(std::move(env1))...,
+                stdexec::get<Tags2>(env2)...);
         }
         template<
-            typename Tags1,
-            typename Tuple1,
+            typename Env1,
             template<class...>
-            class TypeList,
-            typename... OldTags,
-            typename Tags2,
-            typename Tuple2,
-            int... Is>
+            class TypeList1,
+            typename... Tags1,
+            typename Env2,
+            template<class...>
+            class TypeList2,
+            typename... Tags2>
         constexpr auto make_env_tuple(
-            env<Tags1, Tuple1> const & env1,
-            TypeList<OldTags...> old_tags,
-            env<Tags2, Tuple2> && env2,
-            std::integer_sequence<int, Is...>)
+            Env1 const & env1,
+            TypeList1<Tags1...> old_tags,
+            Env2 && env2,
+            TypeList2<Tags2...>)
         {
             return std::tuple(
-                stdexec::get<OldTags>(env1)...,
-                std::get<Is>(std::move(env2.values))...);
+                stdexec::get<Tags1>(env1)...,
+                stdexec::get<Tags2>(std::move(env2))...);
         }
         template<
-            typename Tags1,
-            typename Tuple1,
+            typename Env1,
             template<class...>
-            class TypeList,
-            typename... OldTags,
-            typename Tags2,
-            typename Tuple2,
-            int... Is>
+            class TypeList1,
+            typename... Tags1,
+            typename Env2,
+            template<class...>
+            class TypeList2,
+            typename... Tags2>
         constexpr auto make_env_tuple(
-            env<Tags1, Tuple1> && env1,
-            TypeList<OldTags...> old_tags,
-            env<Tags2, Tuple2> && env2,
-            std::integer_sequence<int, Is...>)
+            Env1 && env1,
+            TypeList1<Tags1...> old_tags,
+            Env2 && env2,
+            TypeList2<Tags2...>)
         {
             return std::tuple(
-                stdexec::get<OldTags>(std::move(env1))...,
-                std::get<Is>(std::move(env2.values))...);
+                stdexec::get<Tags1>(std::move(env1))...,
+                stdexec::get<Tags2>(std::move(env2))...);
         }
     }
 
-    template<typename Tags1, typename Tuple1, typename Tags2, typename Tuple2>
-    constexpr auto
-    insert(env<Tags1, Tuple1> const & env1, env<Tags2, Tuple2> const & env2)
+    template<environment Env1, environment Env2>
+    constexpr auto insert(Env1 const & e1, Env2 const & e2)
     {
-        constexpr auto old_tags = detail::tl_set_diff(Tags1{}, Tags2{});
+        using tags1 = Env1::tags_type;
+        using tags2 = Env2::tags_type;
+        constexpr auto old_tags = detail::tl_set_diff(tags1{}, tags2{});
         return env(
-            detail::tl_cat(old_tags, Tags2{}),
-            detail::make_env_tuple(
-                env1,
-                old_tags,
-                env2,
-                std::make_integer_sequence<int, std::tuple_size_v<Tuple2>>{}));
+            detail::tl_cat(old_tags, tags2{}),
+            detail::make_env_tuple(e1, old_tags, e2, tags2{}));
     }
 
-    template<typename Tags1, typename Tuple1, typename Tags2, typename Tuple2>
-    constexpr auto
-    insert(env<Tags1, Tuple1> && env1, env<Tags2, Tuple2> const & env2)
+    template<environment Env1, environment Env2>
+    constexpr auto insert(Env1 && e1, Env2 const & e2)
     {
-        constexpr auto old_tags = detail::tl_set_diff(Tags1{}, Tags2{});
+        using tags1 = Env1::tags_type;
+        using tags2 = Env2::tags_type;
+        constexpr auto old_tags = detail::tl_set_diff(tags1{}, tags2{});
         return env(
-            detail::tl_cat(old_tags, Tags2{}),
-            detail::make_env_tuple(
-                std::move(env1),
-                old_tags,
-                env2,
-                std::make_integer_sequence<int, std::tuple_size_v<Tuple2>>{}));
+            detail::tl_cat(old_tags, tags2{}),
+            detail::make_env_tuple(std::move(e1), old_tags, e2, tags2{}));
     }
 
-    template<typename Tags1, typename Tuple1, typename Tags2, typename Tuple2>
-    constexpr auto
-    insert(env<Tags1, Tuple1> const & env1, env<Tags2, Tuple2> && env2)
+    template<environment Env1, environment Env2>
+    constexpr auto insert(Env1 const & e1, Env2 && e2)
     {
-        constexpr auto old_tags = detail::tl_set_diff(Tags1{}, Tags2{});
+        using tags1 = Env1::tags_type;
+        using tags2 = Env2::tags_type;
+        constexpr auto old_tags = detail::tl_set_diff(tags1{}, tags2{});
         return env(
-            detail::tl_cat(old_tags, Tags2{}),
-            detail::make_env_tuple(
-                env1,
-                old_tags,
-                std::move(env2),
-                std::make_integer_sequence<int, std::tuple_size_v<Tuple2>>{}));
+            detail::tl_cat(old_tags, tags2{}),
+            detail::make_env_tuple(e1, old_tags, std::move(e2), tags2{}));
     }
 
-    template<typename Tags1, typename Tuple1, typename Tags2, typename Tuple2>
-    constexpr auto
-    insert(env<Tags1, Tuple1> && env1, env<Tags2, Tuple2> && env2)
+    template<environment Env1, environment Env2>
+    constexpr auto insert(Env1 && e1, Env2 && e2)
     {
-        constexpr auto old_tags = detail::tl_set_diff(Tags1{}, Tags2{});
+        using tags1 = Env1::tags_type;
+        using tags2 = Env2::tags_type;
+        constexpr auto old_tags = detail::tl_set_diff(tags1{}, tags2{});
         return env(
-            detail::tl_cat(old_tags, Tags2{}),
+            detail::tl_cat(old_tags, tags2{}),
             detail::make_env_tuple(
-                std::move(env1),
-                old_tags,
-                std::move(env2),
-                std::make_integer_sequence<int, std::tuple_size_v<Tuple2>>{}));
+                std::move(e1), old_tags, std::move(e2), tags2{}));
     }
 
-    namespace detail {
-        template<
-            typename Tags1,
-            typename Tuple1,
-            int... Is,
-            typename Tags2,
-            typename Tuple2,
-            template<class...>
-            class TypeList,
-            typename... NewTags>
-        constexpr auto make_env_tuple(
-            env<Tags1, Tuple1> const & env1,
-            std::integer_sequence<int, Is...>,
-            env<Tags2, Tuple2> const & env2,
-            TypeList<NewTags...> new_tags)
-        {
-            return std::tuple(
-                std::get<Is>(env1.values)..., stdexec::get<NewTags>(env2)...);
-        }
-        template<
-            typename Tags1,
-            typename Tuple1,
-            int... Is,
-            typename Tags2,
-            typename Tuple2,
-            template<class...>
-            class TypeList,
-            typename... NewTags>
-        constexpr auto make_env_tuple(
-            env<Tags1, Tuple1> && env1,
-            std::integer_sequence<int, Is...>,
-            env<Tags2, Tuple2> const & env2,
-            TypeList<NewTags...> new_tags)
-        {
-            return std::tuple(
-                std::get<Is>(std::move(env1.values))...,
-                stdexec::get<NewTags>(env2)...);
-        }
-        template<
-            typename Tags1,
-            typename Tuple1,
-            int... Is,
-            typename Tags2,
-            typename Tuple2,
-            template<class...>
-            class TypeList,
-            typename... NewTags>
-        constexpr auto make_env_tuple(
-            env<Tags1, Tuple1> const & env1,
-            std::integer_sequence<int, Is...>,
-            env<Tags2, Tuple2> && env2,
-            TypeList<NewTags...> new_tags)
-        {
-            return std::tuple(
-                std::get<Is>(env1.values)...,
-                stdexec::get<NewTags>(std::move(env2))...);
-        }
-        template<
-            typename Tags1,
-            typename Tuple1,
-            int... Is,
-            typename Tags2,
-            typename Tuple2,
-            template<class...>
-            class TypeList,
-            typename... NewTags>
-        constexpr auto make_env_tuple(
-            env<Tags1, Tuple1> && env1,
-            std::integer_sequence<int, Is...>,
-            env<Tags2, Tuple2> && env2,
-            TypeList<NewTags...> new_tags)
-        {
-            return std::tuple(
-                std::get<Is>(std::move(env1.values))...,
-                stdexec::get<NewTags>(std::move(env2))...);
-        }
+    template<environment Env1, environment Env2>
+    constexpr auto insert_unique(Env1 const & e1, Env2 const & e2)
+    {
+        using tags1 = Env1::tags_type;
+        using tags2 = Env2::tags_type;
+        constexpr auto new_tags = detail::tl_set_diff(tags2{}, tags1{});
+        return env(
+            detail::tl_cat(tags1{}, new_tags),
+            detail::make_env_tuple(e1, tags1{}, e2, new_tags));
+    }
+    template<environment Env1, environment Env2>
+    constexpr auto insert_unique(Env1 const & e1, Env2 && e2)
+    {
+        using tags1 = Env1::tags_type;
+        using tags2 = Env2::tags_type;
+        constexpr auto new_tags = detail::tl_set_diff(tags2{}, tags1{});
+        return env(
+            detail::tl_cat(tags1{}, new_tags),
+            detail::make_env_tuple(e1, tags1{}, std::move(e2), new_tags));
+    }
+    template<environment Env1, environment Env2>
+    constexpr auto insert_unique(Env1 && e1, Env2 const & e2)
+    {
+        using tags1 = Env1::tags_type;
+        using tags2 = Env2::tags_type;
+        constexpr auto new_tags = detail::tl_set_diff(tags2{}, tags1{});
+        return env(
+            detail::tl_cat(tags1{}, new_tags),
+            detail::make_env_tuple(std::move(e1), tags1{}, e2, new_tags));
+    }
+    template<environment Env1, environment Env2>
+    constexpr auto insert_unique(Env1 && e1, Env2 && e2)
+    {
+        using tags1 = Env1::tags_type;
+        using tags2 = Env2::tags_type;
+        constexpr auto new_tags = detail::tl_set_diff(tags2{}, tags1{});
+        return env(
+            detail::tl_cat(tags1{}, new_tags),
+            detail::make_env_tuple(
+                std::move(e1), tags1{}, std::move(e2), new_tags));
     }
 
-    template<typename Tags1, typename Tuple1, typename Tags2, typename Tuple2>
-    constexpr auto insert_unique(
-        env<Tags1, Tuple1> const & env1, env<Tags2, Tuple2> const & env2)
+    template<typename Tag, environment Env>
+    requires tag_of<Tag, Env>
+    constexpr auto erase(Env const & e, Tag)
     {
-        constexpr auto new_tags = detail::tl_set_diff(Tags2{}, Tags1{});
-        return env(
-            detail::tl_cat(Tags1{}, new_tags),
-            detail::make_env_tuple(
-                env1,
-                std::make_integer_sequence<int, std::tuple_size_v<Tuple1>>{},
-                env2,
-                new_tags));
-    }
-    template<typename Tags1, typename Tuple1, typename Tags2, typename Tuple2>
-    constexpr auto
-    insert_unique(env<Tags1, Tuple1> const & env1, env<Tags2, Tuple2> && env2)
-    {
-        constexpr auto new_tags = detail::tl_set_diff(Tags2{}, Tags1{});
-        return env(
-            detail::tl_cat(Tags1{}, new_tags),
-            detail::make_env_tuple(
-                env1,
-                std::make_integer_sequence<int, std::tuple_size_v<Tuple1>>{},
-                std::move(env2),
-                new_tags));
-    }
-    template<typename Tags1, typename Tuple1, typename Tags2, typename Tuple2>
-    constexpr auto
-    insert_unique(env<Tags1, Tuple1> && env1, env<Tags2, Tuple2> const & env2)
-    {
-        constexpr auto new_tags = detail::tl_set_diff(Tags2{}, Tags1{});
-        return env(
-            detail::tl_cat(Tags1{}, new_tags),
-            detail::make_env_tuple(
-                std::move(env1),
-                std::make_integer_sequence<int, std::tuple_size_v<Tuple1>>{},
-                env2,
-                new_tags));
-    }
-    template<typename Tags1, typename Tuple1, typename Tags2, typename Tuple2>
-    constexpr auto
-    insert_unique(env<Tags1, Tuple1> && env1, env<Tags2, Tuple2> && env2)
-    {
-        constexpr auto new_tags = detail::tl_set_diff(Tags2{}, Tags1{});
-        return env(
-            detail::tl_cat(Tags1{}, new_tags),
-            detail::make_env_tuple(
-                std::move(env1),
-                std::make_integer_sequence<int, std::tuple_size_v<Tuple1>>{},
-                std::move(env2),
-                new_tags));
-    }
-
-    // TODO: Make all these functions take an environment, not an env.
-
-    template<typename Tag, typename Tags, typename Tuple>
-    requires in_type_list<Tag, Tags>
-    constexpr auto erase(env<Tags, Tuple> const & env_, Tag)
-    {
-        constexpr auto folded = detail::to_type_fold(Tags{});
+        using tags_t = Env::tags_type;
+        constexpr auto folded = detail::to_type_fold(tags_t{});
         constexpr int i = folded.index(detail::wrap<Tag>());
         return env(
-            detail::tl_without_i<i>(folded, Tags{}),
-            detail::tuple_without_i<i>(env_.values));
+            detail::tl_without_i<i>(folded, tags_t{}),
+            detail::tuple_without_i<i>(e.values));
     }
-    template<typename Tag, typename Tags, typename Tuple>
-    requires in_type_list<Tag, Tags>
-    constexpr auto erase(env<Tags, Tuple> && env_, Tag)
+    template<typename Tag, environment Env>
+    requires tag_of<Tag, Env>
+    constexpr auto erase(Env && e, Tag)
     {
-        constexpr auto folded = detail::to_type_fold(Tags{});
+        using tags_t = Env::tags_type;
+        constexpr auto folded = detail::to_type_fold(tags_t{});
         constexpr int i = folded.index(detail::wrap<Tag>());
         return env(
-            detail::tl_without_i<i>(folded, Tags{}),
-            detail::tuple_without_i<i>(std::move(env_.values)));
+            detail::tl_without_i<i>(folded, tags_t{}),
+            detail::tuple_without_i<i>(std::move(e.values)));
     }
 
-    // clang-format off
     template<
-      typename Tags,
-      typename Tuple,
-      template<class...>
-      class TypeList,
-      typename... Tags2>
-    requires (in_type_list<Tags2, Tags> && ...)
-    constexpr auto erase(env<Tags, Tuple> const & env_, TypeList<Tags2...>)
-    // clang-format on
+        environment Env,
+        template<class...>
+        class TypeList,
+        tag_of<Env>... Tags>
+    constexpr auto erase(Env const & e, TypeList<Tags...>)
     {
+        using tags_t = Env::tags_type;
         constexpr auto remaining_tags =
-            detail::tl_set_diff(Tags{}, types<Tags2...>{});
-        return stdexec::subset(env_, remaining_tags);
+            detail::tl_set_diff(tags_t{}, types<Tags...>{});
+        return stdexec::subset(e, remaining_tags);
     }
 
-    // clang-format off
     template<
-      typename Tags,
-      typename Tuple,
-      template<class...>
-      class TypeList,
-      typename... Tags2>
-    requires (in_type_list<Tags2, Tags> && ...)
-    constexpr auto erase(env<Tags, Tuple> && env_, TypeList<Tags2...>)
-    // clang-format on
+        environment Env,
+        template<class...>
+        class TypeList,
+        tag_of<Env>... Tags>
+    constexpr auto erase(Env && e, TypeList<Tags...>)
     {
+        using tags_t = Env::tags_type;
         constexpr auto remaining_tags =
-            detail::tl_set_diff(Tags{}, types<Tags2...>{});
-        return stdexec::subset(std::move(env_), remaining_tags);
+            detail::tl_set_diff(tags_t{}, types<Tags...>{});
+        return stdexec::subset(std::move(e), remaining_tags);
     }
 
-    // clang-format off
-    template<typename Tags, typename Tuple, typename... Tags2>
-    requires (in_type_list<Tags2, Tags> && ...)
-    constexpr auto erase(env<Tags, Tuple> const & env_, Tags2...)
-    // clang-format on
+    template<environment Env, tag_of<Env>... Tags>
+    constexpr auto erase(Env const & e, Tags...)
     {
-        return stdexec::erase(env_, types<Tags2...>{});
+        return stdexec::erase(e, types<Tags...>{});
     }
 
-    // clang-format off
-    template<typename Tags, typename Tuple, typename... Tags2>
-    requires (in_type_list<Tags2, Tags> && ...)
-    constexpr auto erase(env<Tags, Tuple> && env_, Tags2...)
-    // clang-format on
+    template<environment Env, tag_of<Env>... Tags>
+    constexpr auto erase(Env && e, Tags...)
     {
-        return stdexec::erase(std::move(env_), types<Tags2...>{});
+        return stdexec::erase(std::move(e), types<Tags...>{});
     }
 
 
