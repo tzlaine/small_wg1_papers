@@ -5,6 +5,14 @@
 #define DO_TESTING 1
 #endif
 
+#ifndef USE_DONT_INVOKE
+#define USE_DONT_INVOKE 0
+#endif
+
+#ifndef USE_AUTO_INVOKE
+#define USE_AUTO_INVOKE 0
+#endif
+
 #if DO_TESTING
 #include <gtest/gtest.h>
 #include <string>
@@ -217,11 +225,13 @@ namespace stdexec {
     } && detail::queryable_with_all<T, properties_t<T>>;
     // clang-format on
 
+#if USE_DONT_INVOKE
     template<typename T>
     struct dont_invoke
     {
         T value;
     };
+#endif
 
     template<typename T>
     struct value_type_for
@@ -264,10 +274,12 @@ namespace stdexec {
     };
 
     namespace detail {
+#if USE_DONT_INVOKE
         template<typename T>
         constexpr bool is_dont_invoke = false;
         template<typename T>
         constexpr bool is_dont_invoke<dont_invoke<T>> = true;
+#endif
 
         template<typename Prop, typename Props>
         constexpr bool has_type = 0 <= detail::index_from_prop<Prop>(Props{});
@@ -425,11 +437,15 @@ namespace stdexec {
         constexpr auto prop_to_value(T && x)
         {
             using just_t = std::remove_cvref_t<T>;
+#if USE_DONT_INVOKE
             if constexpr (is_dont_invoke<just_t>) {
                 return (T &&) x;
             } else {
                 return value_type_for<just_t>{}((T &&) x);
             }
+#else
+            return value_type_for<just_t>{}((T &&) x);
+#endif
         }
     }
 
@@ -476,6 +492,7 @@ namespace stdexec {
             return std::tuple(std::move(folded).value(cw<Is>)...);
         }
 
+#if USE_AUTO_INVOKE
         template<typename T>
         concept nonvoid_nullary_invocable = std::invocable<T> &&
             (!std::is_void_v<std::invoke_result_t<T>>);
@@ -502,6 +519,7 @@ namespace stdexec {
         {
             return env(props, std::move(values));
         }
+#endif
     }
 
     template<type_list Properties, typename Tuple>
@@ -560,95 +578,131 @@ namespace stdexec {
         constexpr decltype(auto) operator[](this Self && self, Prop p)
         {
             constexpr size_t i = detail::index_from_prop<Prop>(Properties{});
+#if USE_AUTO_INVOKE
             using result_type = std::remove_cvref_t<decltype(std::get<i>(
                 ((Self &&) self).values))>;
+#if USE_DONT_INVOKE
             if constexpr (detail::is_dont_invoke<result_type>) {
                 return std::get<i>(((Self &&) self).values).value;
-            } else if constexpr (detail::nonvoid_nullary_invocable<
-                                     result_type>) {
+            } else
+#endif
+                if constexpr (detail::nonvoid_nullary_invocable<result_type>) {
                 return std::get<i>(((Self &&) self).values)();
-            } else if constexpr (detail::
-                                     nonvoid_prop_invocable<result_type, Prop>) {
+            } else if constexpr (detail::nonvoid_prop_invocable<
+                                     result_type,
+                                     Prop>) {
                 return std::get<i>(((Self &&) self).values)(t);
             } else {
                 return std::get<i>(((Self &&) self).values);
             }
+#else
+            return std::get<i>(((Self &&) self).values);
+#endif
         }
 #else
         template<in_type_list<Properties> Prop>
         constexpr decltype(auto) operator[](Prop p) &
         {
             constexpr size_t i = detail::index_from_prop<Prop>(Properties{});
+#if USE_AUTO_INVOKE
             using result_type =
                 std::remove_cvref_t<decltype(std::get<i>(values))>;
+#if USE_DONT_INVOKE
             if constexpr (detail::is_dont_invoke<result_type>) {
                 return std::get<i>(values).value;
-            } else if constexpr (detail::nonvoid_nullary_invocable<
-                                     result_type>) {
+            } else
+#endif
+                if constexpr (detail::nonvoid_nullary_invocable<result_type>) {
                 return std::get<i>(values)();
-            } else if constexpr (detail::
-                                     nonvoid_prop_invocable<result_type, Prop>) {
+            } else if constexpr (detail::nonvoid_prop_invocable<
+                                     result_type,
+                                     Prop>) {
                 return std::get<i>(values)(p);
             } else {
                 return std::get<i>(values);
             }
+#else
+            return std::get<i>(values);
+#endif
         }
         template<in_type_list<Properties> Prop>
         constexpr decltype(auto) operator[](Prop p) const &
         {
             constexpr size_t i = detail::index_from_prop<Prop>(Properties{});
+#if USE_AUTO_INVOKE
             using result_type =
                 std::remove_cvref_t<decltype(std::get<i>(values))>;
+#if USE_DONT_INVOKE
             if constexpr (detail::is_dont_invoke<result_type>) {
                 return std::get<i>(values).value;
-            } else if constexpr (detail::nonvoid_nullary_invocable<
-                                     result_type>) {
+            } else
+#endif
+                if constexpr (detail::nonvoid_nullary_invocable<result_type>) {
                 return std::get<i>(values)();
-            } else if constexpr (detail::
-                                     nonvoid_prop_invocable<result_type, Prop>) {
+            } else if constexpr (detail::nonvoid_prop_invocable<
+                                     result_type,
+                                     Prop>) {
                 return std::get<i>(values)(p);
             } else {
                 return std::get<i>(values);
             }
-        }
+#else
+            return std::get<i>(values);
+#endif
+       }
         template<in_type_list<Properties> Prop>
         constexpr decltype(auto) operator[](Prop p) &&
         {
             constexpr size_t i = detail::index_from_prop<Prop>(Properties{});
+#if USE_AUTO_INVOKE
             using result_type =
                 std::remove_cvref_t<decltype(std::get<i>(std::move(values)))>;
+#if USE_DONT_INVOKE
             if constexpr (detail::is_dont_invoke<result_type>) {
                 return std::get<i>(std::move(values)).value;
-            } else if constexpr (detail::nonvoid_nullary_invocable<
-                                     result_type>) {
+            } else
+#endif
+                if constexpr (detail::nonvoid_nullary_invocable<result_type>) {
                 return std::get<i>(std::move(values))();
-            } else if constexpr (detail::
-                                     nonvoid_prop_invocable<result_type, Prop>) {
+            } else if constexpr (detail::nonvoid_prop_invocable<
+                                     result_type,
+                                     Prop>) {
                 return std::get<i>(std::move(values))(p);
             } else {
                 return std::get<i>(std::move(values));
             }
+#else
+            return std::get<i>(std::move(values));
+#endif
         }
         template<in_type_list<Properties> Prop>
         constexpr decltype(auto) operator[](Prop p) const &&
         {
             constexpr size_t i = detail::index_from_prop<Prop>(Properties{});
+#if USE_AUTO_INVOKE
             using result_type =
                 std::remove_cvref_t<decltype(std::get<i>(std::move(values)))>;
+#if USE_DONT_INVOKE
             if constexpr (detail::is_dont_invoke<result_type>) {
                 return std::get<i>(std::move(values)).value;
-            } else if constexpr (detail::nonvoid_nullary_invocable<
-                                     result_type>) {
+            } else
+#endif
+                if constexpr (detail::nonvoid_nullary_invocable<result_type>) {
                 return std::get<i>(std::move(values))();
-            } else if constexpr (detail::
-                                     nonvoid_prop_invocable<result_type, Prop>) {
+            } else if constexpr (detail::nonvoid_prop_invocable<
+                                     result_type,
+                                     Prop>) {
                 return std::get<i>(std::move(values))(p);
             } else {
                 return std::get<i>(std::move(values));
             }
+#else
+            return std::get<i>(std::move(values));
+#endif
         }
 #endif
 
+#if USE_AUTO_INVOKE
 #if defined(__cpp_explicit_this_parameter)
         template<typename Self>
         constexpr auto deep_copy(this Self && self)
@@ -677,6 +731,7 @@ namespace stdexec {
                     std::move(values)));
         }
         auto deep_copy() const && = delete;
+#endif
 #endif
 
         [[no_unique_address]] Properties properties;
@@ -1082,6 +1137,7 @@ namespace stdexec {
         return stdexec::erase(std::move(e), types<Props...>{});
     }
 
+#if USE_AUTO_INVOKE
     template<typename Properties, typename Tuple>
     constexpr auto deep_copy(env<Properties, Tuple> const & e)
     {
@@ -1093,6 +1149,7 @@ namespace stdexec {
     {
         return std::move(e).deep_copy();
     }
+#endif
 
     namespace detail {
         template<
@@ -1912,6 +1969,7 @@ TEST(env_, type_get)
 #endif
 }
 
+#if USE_AUTO_INVOKE
 TEST(env_, invocable_get)
 {
     auto nullary = []() { return 77; };
@@ -1941,6 +1999,7 @@ TEST(env_, invocable_get)
         static_assert(
             std::invocable<decltype(stdexec::get<int_2_prop>(env)), int_prop>);
     }
+#if USE_DONT_INVOKE
     {
         auto env = stdexec::env(
             stdexec::types<int_prop, nullary_func_prop, unary_func_prop>{},
@@ -1955,7 +2014,9 @@ TEST(env_, invocable_get)
                       decltype(stdexec::get<unary_func_prop>(env)),
                       unary_func_prop>);
     }
+#endif
 }
+#endif
 
 TEST(env_, nttp_get)
 {
