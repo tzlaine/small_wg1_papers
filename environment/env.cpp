@@ -194,8 +194,8 @@ namespace stdexec {
     }
     // clang-format off
     template<typename T, typename U>
-    concept queryable_with = requires (T env, U prop) {
-        { env[prop] } -> detail::non_void;
+    concept queryable_with = requires (T && env, U prop) {
+        { ((T &&) env)[prop] } -> detail::non_void;
     };
     // clang-format on
     namespace detail {
@@ -207,10 +207,10 @@ namespace stdexec {
     }
     // clang-format off
     template<typename T>
-    concept environment =
-        requires(T x) { typename T::properties_type; } &&
-        type_list<typename T::properties_type> &&
-        detail::queryable_with_all<T, typename T::properties_type>;
+    concept environment = requires {
+        typename T::properties_type;
+        requires type_list<typename T::properties_type>;
+    } && detail::queryable_with_all<T, typename T::properties_type>;
     // clang-format on
 
     namespace detail {
@@ -1352,7 +1352,7 @@ namespace stdexec {
 
     // clang-format off
     template<environment E, type_list Props>
-    requires(contains_all_of<E>(Props{}))
+    requires (contains_all_of<E>(Props{}))
     struct with_only_env
     // clang-format on
     {
