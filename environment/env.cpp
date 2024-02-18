@@ -1178,7 +1178,7 @@ namespace stdexec {
         }
 
     private:
-        E * base_;
+        E * base_ = nullptr;
     };
 
     template<environment E>
@@ -1224,7 +1224,7 @@ namespace stdexec {
         }
 
     private:
-        F f_;
+        F f_ = F();
     };
 
     template<environment E1, environment E2>
@@ -1303,8 +1303,8 @@ namespace stdexec {
 #endif
 
     private:
-        E1 base_1_;
-        E2 base_2_;
+        E1 base_1_ = E1();
+        E2 base_2_ = E2();
     };
 
     template<typename E1, typename E2>
@@ -1399,7 +1399,7 @@ namespace stdexec {
 #endif
 
     private:
-        E base_;
+        E base_ = E();
     };
 
     template<typename E, typename Props>
@@ -1477,7 +1477,7 @@ namespace stdexec {
 #endif
 
     private:
-        E base_;
+        E base_ = E();
     };
 
     template<typename E, typename Props>
