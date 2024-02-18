@@ -205,15 +205,70 @@ namespace stdexec {
         constexpr bool queryable_with_all<T, TypeList<Ts...>> =
             (queryable_with<T, Ts> && ...);
     }
+
+    template<typename T>
+    using properties_t = typename std::remove_cvref_t<T>::properties_type;
+
     // clang-format off
     template<typename T>
     concept environment = requires {
-        typename T::properties_type;
-        requires type_list<typename T::properties_type>;
-    } && detail::queryable_with_all<T, typename T::properties_type>;
+        typename properties_t<T>;
+        requires type_list<properties_t<T>>;
+    } && detail::queryable_with_all<T, properties_t<T>>;
     // clang-format on
 
+    template<typename T>
+    struct dont_invoke
+    {
+        T value;
+    };
+
+    template<typename T>
+    struct value_type_for
+    {
+        template<typename T_ = T>
+        static T_ && operator()(T_ && x)
+        {
+            return (T_ &&) x;
+        }
+    };
+
+    template<typename T>
+    struct value_type_for<std::reference_wrapper<T>>
+    {
+        static auto operator()(std::reference_wrapper<T> ref)
+        {
+            return ref.get();
+        }
+    };
+
+    template<typename CharT, typename Traits>
+    struct value_type_for<std::basic_string_view<CharT, Traits>>
+    {
+        static auto operator()(std::basic_string_view<CharT, Traits> sv)
+        {
+            return std::basic_string<CharT, Traits>(sv);
+        }
+    };
+
+    template<typename T, size_t Extent>
+    struct value_type_for<std::span<T, Extent>>
+    {
+        static auto operator()(std::span<T, Extent> span)
+        {
+            if constexpr (Extent == std::dynamic_extent)
+                return std::vector<T>(span.begin(), span.end());
+            else
+                return std::array<T, Extent>(span.begin(), span.end());
+        }
+    };
+
     namespace detail {
+        template<typename T>
+        constexpr bool is_dont_invoke = false;
+        template<typename T>
+        constexpr bool is_dont_invoke<dont_invoke<T>> = true;
+
         template<typename Prop, typename Props>
         constexpr bool has_type = 0 <= detail::index_from_prop<Prop>(Props{});
 
@@ -365,6 +420,17 @@ namespace stdexec {
         constexpr bool is_tuple_v<std::tuple<Ts...>> = true;
         template<typename T>
         concept is_tuple = is_tuple_v<T>;
+
+        template<typename T>
+        constexpr auto prop_to_value(T && x)
+        {
+            using just_t = std::remove_cvref_t<T>;
+            if constexpr (is_dont_invoke<just_t>) {
+                return (T &&) x;
+            } else {
+                return value_type_for<just_t>{}((T &&) x);
+            }
+        }
     }
 
     template<typename T, typename Types>
@@ -409,19 +475,6 @@ namespace stdexec {
         {
             return std::tuple(std::move(folded).value(cw<Is>)...);
         }
-    }
-
-    template<typename T>
-    struct dont_invoke
-    {
-        T value;
-    };
-
-    namespace detail {
-        template<typename T>
-        constexpr bool is_dont_invoke = false;
-        template<typename T>
-        constexpr bool is_dont_invoke<dont_invoke<T>> = true;
 
         template<typename T>
         concept nonvoid_nullary_invocable = std::invocable<T> &&
@@ -429,6 +482,26 @@ namespace stdexec {
         template<typename T, typename Prop>
         concept nonvoid_prop_invocable = std::invocable<T, Prop> &&
             (!std::is_void_v<std::invoke_result_t<T, Prop>>);
+
+        template<typename Properties, typename Tuple, typename Prop>
+        decltype(auto) get_no_invoke(Tuple && tuple)
+        {
+            constexpr size_t i = detail::index_from_prop<Prop>(Properties{});
+            return std::get<i>((Tuple &&) tuple);
+        }
+
+        template<int... Is, typename Tuple>
+        auto tuple_deep_copy(std::integer_sequence<int, Is...>, Tuple && tuple)
+        {
+            return std::tuple(
+                detail::prop_to_value(std::get<Is>((Tuple &&) tuple))...);
+        }
+
+        template<typename Properties, typename Tuple>
+        auto make_env(Properties props, Tuple && values)
+        {
+            return env(props, std::move(values));
+        }
     }
 
     template<type_list Properties, typename Tuple>
@@ -451,11 +524,11 @@ namespace stdexec {
             requires std::assignable_from<Tuple &, Tuple &&> = default;
         // clang-format on
 
-        constexpr env(Properties props, Tuple const & values) :
-            properties(props), values(values)
+        constexpr env(Properties props, Tuple const & tup) :
+            properties(props), values(tup)
         {}
-        constexpr env(Properties props, Tuple && values) :
-            properties(props), values(std::move(values))
+        constexpr env(Properties props, Tuple && tup) :
+            properties(props), values(std::move(tup))
         {}
 
         template<
@@ -472,7 +545,12 @@ namespace stdexec {
                 std::move(folded), std::make_integer_sequence<int, I + 1>{}))
         {}
 
-        constexpr bool operator==(env const & other) const
+        // clang-format off
+        template<typename Properties2, typename Tuple2>
+        constexpr bool operator==(env<Properties2, Tuple2> const & other) const
+        requires std::same_as<Properties, Properties2> &&
+                 std::equality_comparable_with<Tuple, Tuple2>
+        // clang-format on
         {
             return values == other.values;
         }
@@ -571,6 +649,36 @@ namespace stdexec {
         }
 #endif
 
+#if defined(__cpp_explicit_this_parameter)
+        template<typename Self>
+        constexpr auto deep_copy(this Self && self)
+        {
+            return detail::make_env(
+                properties,
+                detail::tuple_deep_copy(
+                    std::make_integer_sequence<int, std::tuple_size_v<Tuple>>{},
+                    ((Self &&) self)).values));
+        }
+#else
+        constexpr auto deep_copy() const &
+        {
+            return detail::make_env(
+                properties,
+                detail::tuple_deep_copy(
+                    std::make_integer_sequence<int, std::tuple_size_v<Tuple>>{},
+                    values));
+        }
+        auto deep_copy() &&
+        {
+            return detail::make_env(
+                properties,
+                detail::tuple_deep_copy(
+                    std::make_integer_sequence<int, std::tuple_size_v<Tuple>>{},
+                    std::move(values)));
+        }
+        auto deep_copy() const && = delete;
+#endif
+
         [[no_unique_address]] Properties properties;
         Tuple values;
     };
@@ -625,17 +733,14 @@ namespace stdexec {
     template<environment Env, typename Prop>
     constexpr bool contains(Env const &, Prop)
     {
-        return in_type_list<Prop, typename Env::properties_type>;
+        return in_type_list<Prop, properties_t<Env>>;
     }
 
     template<environment Env, typename Prop>
     constexpr bool contains(Prop)
     {
-        return in_type_list<Prop, typename Env::properties_type>;
+        return in_type_list<Prop, properties_t<Env>>;
     }
-
-    template<typename T, typename Env>
-    concept property_of = std::default_initializable<T> && contains<Env>(T{});
 
     template<
         environment Env,
@@ -645,7 +750,7 @@ namespace stdexec {
     requires type_list<TypeList<Props2...>>
     constexpr bool contains_all_of(Env const &, TypeList<Props2...>)
     {
-        return (in_type_list<Props2, typename Env::properties_type> && ...);
+        return (in_type_list<Props2, properties_t<Env>> && ...);
     }
 
     template<
@@ -655,8 +760,12 @@ namespace stdexec {
         typename... Props2>
     constexpr bool contains_all_of(TypeList<Props2...>)
     {
-        return (in_type_list<Props2, typename Env::properties_type> && ...);
+        return (in_type_list<Props2, properties_t<Env>> && ...);
     }
+
+    template<typename T, typename Env>
+    concept property_of = environment<Env> &&
+        in_type_list<T, typename Env::properties_type>; // TODO properties_t<Env>>;
 
     // clang-format off
     template<typename Prop, environment Env>
@@ -690,7 +799,7 @@ namespace stdexec {
     requires (!property_of<Prop, Env>)
     constexpr auto insert(Env const & e, Prop, T && x)
     {
-        using props_t = Env::properties_type;
+        using props_t = properties_t<Env>;
         return env(
             detail::tl_append<std::remove_cvref_t<Prop>>(props_t{}),
             tuple_cat(e.values, std::tuple((T &&) x)));
@@ -699,7 +808,7 @@ namespace stdexec {
     requires (!property_of<Prop, Env>)
     constexpr auto insert(Env && e, Prop, T && x)
     {
-        using props_t = Env::properties_type;
+        using props_t = properties_t<Env>;
         return env(
             detail::tl_append<Prop>(props_t{}),
             tuple_cat(std::move(e.values), std::tuple((T &&) x)));
@@ -713,7 +822,7 @@ namespace stdexec {
         typename TypeList,
         property_of<Env>... Props>
     requires type_list<TypeList<Props...>>
-    constexpr decltype(auto) slice(Env const& e, TypeList<Props...> props)
+    constexpr decltype(auto) slice(Env const & e, TypeList<Props...> props)
     // clang-format on
     {
         return env(props, std::tuple(e[Props{}]...));
@@ -726,7 +835,7 @@ namespace stdexec {
         typename TypeList,
         property_of<Env>... Props>
     requires type_list<TypeList<Props...>>
-    constexpr decltype(auto) slice(Env&& e, TypeList<Props...> props)
+    constexpr decltype(auto) slice(Env && e, TypeList<Props...> props)
     // clang-format on
     {
         return env(props, std::tuple(std::move(e)[Props{}]...));
@@ -735,14 +844,14 @@ namespace stdexec {
     template<environment Env, property_of<Env>... Props>
     constexpr decltype(auto) slice(Env const & e, Props...)
     {
-        using props_t = Env::properties_type;
+        using props_t = properties_t<Env>;
         return stdexec::slice(e, detail::tl_like(props_t{}, Props{}...));
     }
 
     template<environment Env, property_of<Env>... Props>
     constexpr decltype(auto) slice(Env && e, Props...)
     {
-        using props_t = Env::properties_type;
+        using props_t = properties_t<Env>;
         return stdexec::slice(
             std::move(e), detail::tl_like(props_t{}, Props{}...));
     }
@@ -828,8 +937,8 @@ namespace stdexec {
     template<environment Env1, environment Env2>
     constexpr auto insert(Env1 const & e1, Env2 const & e2)
     {
-        using props1 = Env1::properties_type;
-        using props2 = Env2::properties_type;
+        using props1 = properties_t<Env1>;
+        using props2 = properties_t<Env2>;
         constexpr auto old_props = detail::tl_set_diff(props1{}, props2{});
         return env(
             detail::tl_cat(old_props, props2{}),
@@ -839,8 +948,8 @@ namespace stdexec {
     template<environment Env1, environment Env2>
     constexpr auto insert(Env1 && e1, Env2 const & e2)
     {
-        using props1 = Env1::properties_type;
-        using props2 = Env2::properties_type;
+        using props1 = properties_t<Env1>;
+        using props2 = properties_t<Env2>;
         constexpr auto old_props = detail::tl_set_diff(props1{}, props2{});
         return env(
             detail::tl_cat(old_props, props2{}),
@@ -850,8 +959,8 @@ namespace stdexec {
     template<environment Env1, environment Env2>
     constexpr auto insert(Env1 const & e1, Env2 && e2)
     {
-        using props1 = Env1::properties_type;
-        using props2 = Env2::properties_type;
+        using props1 = properties_t<Env1>;
+        using props2 = properties_t<Env2>;
         constexpr auto old_props = detail::tl_set_diff(props1{}, props2{});
         return env(
             detail::tl_cat(old_props, props2{}),
@@ -861,8 +970,8 @@ namespace stdexec {
     template<environment Env1, environment Env2>
     constexpr auto insert(Env1 && e1, Env2 && e2)
     {
-        using props1 = Env1::properties_type;
-        using props2 = Env2::properties_type;
+        using props1 = properties_t<Env1>;
+        using props2 = properties_t<Env2>;
         constexpr auto old_props = detail::tl_set_diff(props1{}, props2{});
         return env(
             detail::tl_cat(old_props, props2{}),
@@ -873,8 +982,8 @@ namespace stdexec {
     template<environment Env1, environment Env2>
     constexpr auto insert_unique(Env1 const & e1, Env2 const & e2)
     {
-        using props1 = Env1::properties_type;
-        using props2 = Env2::properties_type;
+        using props1 = properties_t<Env1>;
+        using props2 = properties_t<Env2>;
         constexpr auto new_props = detail::tl_set_diff(props2{}, props1{});
         return env(
             detail::tl_cat(props1{}, new_props),
@@ -883,8 +992,8 @@ namespace stdexec {
     template<environment Env1, environment Env2>
     constexpr auto insert_unique(Env1 const & e1, Env2 && e2)
     {
-        using props1 = Env1::properties_type;
-        using props2 = Env2::properties_type;
+        using props1 = properties_t<Env1>;
+        using props2 = properties_t<Env2>;
         constexpr auto new_props = detail::tl_set_diff(props2{}, props1{});
         return env(
             detail::tl_cat(props1{}, new_props),
@@ -893,8 +1002,8 @@ namespace stdexec {
     template<environment Env1, environment Env2>
     constexpr auto insert_unique(Env1 && e1, Env2 const & e2)
     {
-        using props1 = Env1::properties_type;
-        using props2 = Env2::properties_type;
+        using props1 = properties_t<Env1>;
+        using props2 = properties_t<Env2>;
         constexpr auto new_props = detail::tl_set_diff(props2{}, props1{});
         return env(
             detail::tl_cat(props1{}, new_props),
@@ -903,8 +1012,8 @@ namespace stdexec {
     template<environment Env1, environment Env2>
     constexpr auto insert_unique(Env1 && e1, Env2 && e2)
     {
-        using props1 = Env1::properties_type;
-        using props2 = Env2::properties_type;
+        using props1 = properties_t<Env1>;
+        using props2 = properties_t<Env2>;
         constexpr auto new_props = detail::tl_set_diff(props2{}, props1{});
         return env(
             detail::tl_cat(props1{}, new_props),
@@ -916,7 +1025,7 @@ namespace stdexec {
     requires property_of<Prop, Env>
     constexpr auto erase(Env const & e, Prop)
     {
-        using props_t = Env::properties_type;
+        using props_t = properties_t<Env>;
         constexpr auto folded = detail::to_type_fold(props_t{});
         constexpr int i = folded.index(detail::wrap<Prop>());
         return env(
@@ -927,7 +1036,7 @@ namespace stdexec {
     requires property_of<Prop, Env>
     constexpr auto erase(Env && e, Prop)
     {
-        using props_t = Env::properties_type;
+        using props_t = properties_t<Env>;
         constexpr auto folded = detail::to_type_fold(props_t{});
         constexpr int i = folded.index(detail::wrap<Prop>());
         return env(
@@ -942,7 +1051,7 @@ namespace stdexec {
         property_of<Env>... Props>
     constexpr auto erase(Env const & e, TypeList<Props...>)
     {
-        using props_t = Env::properties_type;
+        using props_t = properties_t<Env>;
         constexpr auto remaining_props =
             detail::tl_set_diff(props_t{}, types<Props...>{});
         return stdexec::slice(e, remaining_props);
@@ -955,7 +1064,7 @@ namespace stdexec {
         property_of<Env>... Props>
     constexpr auto erase(Env && e, TypeList<Props...>)
     {
-        using props_t = Env::properties_type;
+        using props_t = properties_t<Env>;
         constexpr auto remaining_props =
             detail::tl_set_diff(props_t{}, types<Props...>{});
         return stdexec::slice(std::move(e), remaining_props);
@@ -973,11 +1082,37 @@ namespace stdexec {
         return stdexec::erase(std::move(e), types<Props...>{});
     }
 
+    template<typename Properties, typename Tuple>
+    constexpr auto deep_copy(env<Properties, Tuple> const & e)
+    {
+        return e.deep_copy();
+    }
 
+    template<typename Properties, typename Tuple>
+    constexpr auto deep_copy(env<Properties, Tuple> && e)
+    {
+        return std::move(e).deep_copy();
+    }
 
-    // TODO: Add a value_type_env()?  It would convert a ref_env R to R.base_,
-    // convert reference_wrapper<T> members of a ref to T,
-    // std::string_view->string, etc.
+    namespace detail {
+        template<
+            typename Env,
+            template<typename...>
+            typename TypeList,
+            typename... Ts>
+        constexpr auto deep_copy_impl(Env && e, TypeList<Ts...> tl)
+        {
+            return env(
+                tl, std::tuple(detail::prop_to_value(((Env &&) e)[Ts{}])...));
+        }
+    }
+
+    template<environment Env>
+    constexpr auto deep_copy(Env && e)
+    {
+        using props_t = properties_t<Env>;
+        return detail::deep_copy_impl((Env &&) e, props_t{});
+    }
 
 
 
@@ -1159,7 +1294,7 @@ namespace stdexec {
     template<environment E>
     struct ref_env
     {
-        using properties_type = typename E::properties_type;
+        using properties_type = properties_t<E>;
 
         ref_env() = default;
         ref_env(E & base) : base_(std::addressof(base)) {}
@@ -1231,10 +1366,8 @@ namespace stdexec {
     struct layer_env
     {
         using properties_type = decltype(detail::tl_cat(
-            typename E1::properties_type{},
-            detail::tl_set_diff(
-                typename E2::properties_type{},
-                typename E1::properties_type{})));
+            properties_t<E1>{},
+            detail::tl_set_diff(properties_t<E2>{}, properties_t<E1>{})));
 
         // clang-format off
         layer_env()
@@ -1262,7 +1395,7 @@ namespace stdexec {
         template<typename Self, in_type_list<properties_type> Prop>
         constexpr decltype(auto) operator[](this Self && self, Prop p)
         {
-            if constexpr (in_type_list<Prop, typename E1::properties_type>)
+            if constexpr (in_type_list<Prop, properties_t<E1>>)
                 return ((Self &&) self).base_1_[p];
             else
                 return ((Self &&) self).base_2_[p];
@@ -1271,7 +1404,7 @@ namespace stdexec {
         template<in_type_list<properties_type> Prop>
         constexpr decltype(auto) operator[](Prop p) &
         {
-            if constexpr (in_type_list<Prop, typename E1::properties_type>)
+            if constexpr (in_type_list<Prop, properties_t<E1>>)
                 return base_1_[p];
             else
                 return base_2_[p];
@@ -1279,7 +1412,7 @@ namespace stdexec {
         template<in_type_list<properties_type> Prop>
         constexpr decltype(auto) operator[](Prop p) const &
         {
-            if constexpr (in_type_list<Prop, typename E1::properties_type>)
+            if constexpr (in_type_list<Prop, properties_t<E1>>)
                 return base_1_[p];
             else
                 return base_2_[p];
@@ -1287,7 +1420,7 @@ namespace stdexec {
         template<in_type_list<properties_type> Prop>
         constexpr decltype(auto) operator[](Prop p) &&
         {
-            if constexpr (in_type_list<Prop, typename E1::properties_type>)
+            if constexpr (in_type_list<Prop, properties_t<E1>>)
                 return std::move(base_1_)[p];
             else
                 return std::move(base_2_)[p];
@@ -1295,7 +1428,7 @@ namespace stdexec {
         template<in_type_list<properties_type> Prop>
         constexpr decltype(auto) operator[](Prop p) const &&
         {
-            if constexpr (in_type_list<Prop, typename E1::properties_type>)
+            if constexpr (in_type_list<Prop, properties_t<E1>>)
                 return std::move(base_1_)[p];
             else
                 return std::move(base_2_)[p];
@@ -1433,8 +1566,8 @@ namespace stdexec {
     template<environment E, type_list Props>
     struct without_env
     {
-        using properties_type = decltype(detail::tl_set_diff(
-            typename E::properties_type{}, Props{}));
+        using properties_type =
+            decltype(detail::tl_set_diff(properties_t<E>{}, Props{}));
 
         // clang-format off
         without_env() requires std::default_initializable<E> = default;
@@ -2124,7 +2257,6 @@ TEST(env_, single_insert)
             auto const expected = stdexec::env(
                 stdexec::types<int_prop, double_prop, string_prop>{},
                 std::tuple(42, 13.0, std::string("foo")));
-
             auto inserted =
                 stdexec::insert(env, string_prop{}, std::string("foo"));
             EXPECT_TRUE(inserted == expected);
@@ -2265,7 +2397,6 @@ TEST(env_, slice)
             auto slice = stdexec::slice(env, string_prop{}, double_prop{});
             EXPECT_TRUE(slice == expected);
         }
-#if HAVE_BOOST_MP11
         {
             auto const expected = stdexec::env(
                 mp_list<int_prop, double_prop, string_prop>{},
@@ -2292,12 +2423,9 @@ TEST(env_, slice)
             auto slice = stdexec::slice(env, string_prop{}, double_prop{});
             EXPECT_TRUE(slice == expected);
         }
-#endif
     }
 #endif
 }
-
-// TODO: property concept from Lewis's godbolt.
 
 TEST(env_, insert_env)
 {
@@ -2809,6 +2937,69 @@ TEST(env_, multi_erase)
 #endif
 }
 
+TEST(env_, deep_copy_)
+{
+    {
+        auto env = stdexec::env(
+            stdexec::types<int_prop, double_prop, string_prop>{},
+            std::tuple(42, 13.0, std::string("foo")));
+
+        auto copy = stdexec::deep_copy(env);
+
+        EXPECT_TRUE(copy == env);
+    }
+    {
+        auto env = stdexec::env(
+            stdexec::types<int_prop, double_prop, string_prop>{},
+            std::tuple(42, 13.0, std::string_view("foo")));
+
+        static_assert(
+            std::same_as<
+                decltype(env),
+                stdexec::env<
+                    stdexec::types<int_prop, double_prop, string_prop>,
+                    std::tuple<
+                        int,
+                        double,
+                        std::
+                            basic_string_view<char, std::char_traits<char>>>>>);
+
+        auto copy = stdexec::deep_copy(env);
+
+        static_assert(
+            std::same_as<
+                decltype(copy),
+                stdexec::env<
+                    stdexec::types<int_prop, double_prop, string_prop>,
+                    std::tuple<
+                        int,
+                        double,
+                        std::basic_string<char, std::char_traits<char>>>>>);
+
+        EXPECT_EQ(copy[int_prop{}], env[int_prop{}]);
+        EXPECT_EQ(copy[double_prop{}], env[double_prop{}]);
+        EXPECT_EQ(copy[string_prop{}], env[string_prop{}]);
+
+        EXPECT_TRUE(copy == env);
+    }
+    {
+        auto initial_env = stdexec::env(
+            stdexec::types<int_prop, double_prop, string_prop>{},
+            std::tuple(42, 13.0, std::string_view("foo")));
+
+        auto env = stdexec::with_only(
+            std::ref(initial_env), stdexec::types<string_prop, int_prop>{});
+
+        auto const expected = stdexec::env(
+            stdexec::types<string_prop, int_prop>{},
+            std::tuple(std::string("foo"), 42));
+
+        auto copy = stdexec::deep_copy(env);
+
+        EXPECT_TRUE(copy == expected);
+    }
+}
+
 TEST(env_, ref_env_)
 {
     {
@@ -2826,6 +3017,12 @@ TEST(env_, ref_env_)
         EXPECT_EQ(ref1[int_prop{}], ref2[int_prop{}]);
         EXPECT_EQ(ref1[double_prop{}], ref2[double_prop{}]);
         EXPECT_EQ(ref1[string_prop{}], ref2[string_prop{}]);
+
+        static_assert(stdexec::environment<decltype(ref1)>);
+        static_assert(stdexec::environment<decltype(ref1) &>);
+        static_assert(stdexec::environment<decltype(ref1) const &>);
+        static_assert(stdexec::environment<decltype(ref1) &&>);
+        static_assert(stdexec::environment<decltype(ref1) const &&>);
 
         {
             auto const & c_env = env;
@@ -2852,11 +3049,17 @@ TEST(env_, computed_env_)
         universal, stdexec::types<int_prop, double_prop, string_prop>{});
 
     static_assert(stdexec::contains_all_of<decltype(env)>(
-        typename decltype(env)::properties_type{}));
+        stdexec::properties_t<decltype(env)>{}));
 
     EXPECT_EQ(env[int_prop{}], universal(int_prop{}));
     EXPECT_EQ(env[double_prop{}], universal(double_prop{}));
     EXPECT_EQ(env[string_prop{}], universal(string_prop{}));
+
+    static_assert(stdexec::environment<decltype(env)>);
+    static_assert(stdexec::environment<decltype(env) &>);
+    static_assert(stdexec::environment<decltype(env) const &>);
+    static_assert(stdexec::environment<decltype(env) &&>);
+    static_assert(stdexec::environment<decltype(env) const &&>);
 }
 
 TEST(env_, layer_env_)
@@ -2965,6 +3168,12 @@ TEST(env_, layer_env_)
             EXPECT_EQ(env[int_prop{}], 55);
             EXPECT_EQ(env[double_prop{}], double_env[double_prop{}]);
             EXPECT_EQ(env[string_prop{}], string_env[string_prop{}]);
+
+            static_assert(stdexec::environment<decltype(env)>);
+            static_assert(stdexec::environment<decltype(env) &>);
+            static_assert(stdexec::environment<decltype(env) const &>);
+            static_assert(stdexec::environment<decltype(env) &&>);
+            static_assert(stdexec::environment<decltype(env) const &&>);
         }
 
         {
@@ -2993,6 +3202,12 @@ TEST(env_, with_only_env_)
             static_assert(!stdexec::contains(env, double_prop{}));
             EXPECT_EQ(env[int_prop{}], initial_env[int_prop{}]);
             EXPECT_EQ(env[string_prop{}], initial_env[string_prop{}]);
+
+            static_assert(stdexec::environment<decltype(env)>);
+            static_assert(stdexec::environment<decltype(env) &>);
+            static_assert(stdexec::environment<decltype(env) const &>);
+            static_assert(stdexec::environment<decltype(env) &&>);
+            static_assert(stdexec::environment<decltype(env) const &&>);
         }
     }
 }
@@ -3011,6 +3226,12 @@ TEST(env_, without_env_)
             static_assert(!stdexec::contains(env, double_prop{}));
             EXPECT_EQ(env[int_prop{}], initial_env[int_prop{}]);
             EXPECT_EQ(env[string_prop{}], initial_env[string_prop{}]);
+
+            static_assert(stdexec::environment<decltype(env)>);
+            static_assert(stdexec::environment<decltype(env) &>);
+            static_assert(stdexec::environment<decltype(env) const &>);
+            static_assert(stdexec::environment<decltype(env) &&>);
+            static_assert(stdexec::environment<decltype(env) const &&>);
         }
     }
 }
