@@ -1,5 +1,11 @@
+#include <algorithm>
+#include <iterator>
 #include <ranges>
+#include <span>
+#include <string>
 #include <tuple>
+#include <utility>
+#include <vector>
 
 #ifndef DO_TESTING
 #define DO_TESTING 1
@@ -15,7 +21,6 @@
 
 #if DO_TESTING
 #include <gtest/gtest.h>
-#include <string>
 
 #if __has_include(<boost/mp11/list.hpp>)
 #define HAVE_BOOST_MP11 1
@@ -233,6 +238,11 @@ namespace stdexec {
     };
 #endif
 
+    namespace detail{
+        template<typename T>
+        constexpr auto prop_to_value(T && x);
+    }
+
     template<typename T>
     struct value_type_for
     {
@@ -248,7 +258,7 @@ namespace stdexec {
     {
         static auto operator()(std::reference_wrapper<T> ref)
         {
-            return ref.get();
+            return detail::prop_to_value(ref.get());
         }
     };
 
@@ -261,15 +271,84 @@ namespace stdexec {
         }
     };
 
+    namespace detail {
+        template<typename T>
+        auto value_type_for_vec_transform(T const & from)
+        {
+            using value_type = decltype(detail::prop_to_value(*from.begin()));
+            std::vector<value_type> retval;
+            retval.reserve(from.size());
+            std::ranges::transform(
+                from, std::back_inserter(retval), [](auto & x) {
+                    return detail::prop_to_value(x);
+                });
+            return retval;
+        }
+        template<size_t N, typename T>
+        auto value_type_for_arr_transform(T const & from)
+        {
+            using value_type = decltype(detail::prop_to_value(*from.begin()));
+            std::array<value_type, N> retval;
+            std::ranges::transform(from, retval.begin(), [](auto & x) {
+                return detail::prop_to_value(x);
+            });
+            return retval;
+        }
+    }
+
     template<typename T, size_t Extent>
     struct value_type_for<std::span<T, Extent>>
     {
         static auto operator()(std::span<T, Extent> span)
         {
-            if constexpr (Extent == std::dynamic_extent)
-                return std::vector<T>(span.begin(), span.end());
+            using value_type_before =
+                std::ranges::range_value_t<std::vector<T>>;
+            using value_type_after =
+                std::remove_cvref_t<decltype(detail::prop_to_value(
+                    *span.begin()))>;
+            if constexpr (std::same_as<value_type_before, value_type_after>) {
+                return span;
+            } else {
+                if constexpr (Extent == std::dynamic_extent)
+                    return detail::value_type_for_vec_transform(span);
+                else
+                    return detail::value_type_for_arr_transform<Extent>(span);
+            }
+        }
+    };
+
+    template<typename T>
+    struct value_type_for<std::vector<T>>
+    {
+        static auto operator()(std::vector<T> const & vec)
+        {
+            using value_type_before =
+                std::ranges::range_value_t<std::vector<T>>;
+            using value_type_after =
+                std::remove_cvref_t<decltype(detail::prop_to_value(
+                    *vec.begin()))>;
+            if constexpr (std::same_as<value_type_before, value_type_after>) {
+                return vec;
+            } else {
+                return detail::value_type_for_vec_transform(vec);
+            }
+        }
+    };
+
+    template<typename T, size_t N>
+    struct value_type_for<std::array<T, N>>
+    {
+        static auto operator()(std::array<T, N> const & arr)
+        {
+            using value_type_before =
+                std::ranges::range_value_t<std::array<T, N>>;
+            using value_type_after =
+                std::remove_cvref_t<decltype(detail::prop_to_value(
+                    *arr.begin()))>;
+            if constexpr (std::same_as<value_type_before, value_type_after>)
+                return arr;
             else
-                return std::array<T, Extent>(span.begin(), span.end());
+                return detail::value_type_for_arr_transform<N>(arr);
         }
     };
 
@@ -2118,6 +2197,38 @@ TEST(env_, nttp_get)
                       std::string &&>);
     }
 #endif
+}
+
+TEST(env_, detail_prop_to_value)
+{
+    std::array<std::string, 4> strings_arr = {"a", "b", "c", "d"};
+    std::vector<std::string> strings_vec(
+        strings_arr.begin(), strings_arr.end());
+    std::vector<std::string_view> string_views = {
+        strings_vec[0], strings_vec[1], strings_vec[2], strings_vec[3]};
+    std::vector<std::reference_wrapper<std::string_view>> string_refs_vec = {
+        std::ref(string_views[0]),
+        std::ref(string_views[1]),
+        std::ref(string_views[2]),
+        std::ref(string_views[3])};
+    std::array<std::reference_wrapper<std::string_view>, 4> string_refs_arr = {
+        std::ref(string_views[0]),
+        std::ref(string_views[1]),
+        std::ref(string_views[2]),
+        std::ref(string_views[3])};
+
+    EXPECT_EQ(stdexec::detail::prop_to_value(strings_arr), strings_arr);
+    EXPECT_EQ(stdexec::detail::prop_to_value(strings_vec), strings_vec);
+    EXPECT_EQ(stdexec::detail::prop_to_value(string_views), strings_vec);
+    EXPECT_EQ(stdexec::detail::prop_to_value(string_refs_vec), strings_vec);
+    EXPECT_EQ(stdexec::detail::prop_to_value(string_refs_arr), strings_arr);
+
+    std::span<std::reference_wrapper<std::string_view>, 4> fixed_span(
+        string_refs_vec);
+    std::span<std::reference_wrapper<std::string_view>> span(string_refs_vec);
+
+    EXPECT_EQ(stdexec::detail::prop_to_value(fixed_span), strings_arr);
+    EXPECT_EQ(stdexec::detail::prop_to_value(span), strings_vec);
 }
 
 TEST(env_, index_contains_equals)
