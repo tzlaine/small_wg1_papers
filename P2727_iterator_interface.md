@@ -757,11 +757,11 @@ specializations of `iterator_interface`.
 
 ```c++
 template<class D>
-  constexpr auto operator+(D it, difference_type n) requires requires { it += n; } {
+  constexpr auto operator+(D it, typename D::difference_type n) requires requires { it += n; } {
     return it += n;
   }
 template<class D>
-  constexpr auto operator+(difference_type n, D it) requires requires { it += n; } {
+  constexpr auto operator+(typename D::difference_type n, D it) requires requires { it += n; } {
     return it += n;
   }
 
@@ -1111,26 +1111,26 @@ Add to `[iterator.synopsis]`, just before `[stream.iterators]`:
 >    };
 >
 >  template<class D>
->    constexpr auto operator+(D it, difference_type n) requires requires { it += n; };          // @*freestanding*@
+>    constexpr auto operator+(D it, typename D::difference_type n) requires requires { it += n; }; // @*freestanding*@
 >  template<class D>
->    constexpr auto operator+(difference_type n, D it) requires requires { it += n; };          // @*freestanding*@
+>    constexpr auto operator+(typename D::difference_type n, D it) requires requires { it += n; }; // @*freestanding*@
 >  template<class D1, class D2>
->    constexpr auto operator-(D1 lhs, D2 rhs)                                                   // @*freestanding*@
+>    constexpr auto operator-(D1 lhs, D2 rhs)                                                      // @*freestanding*@
 >      requires requires { iterator_interface_access::base(lhs) - iterator_interface_access::base(rhs); };
 >  template<class D>
->    constexpr auto operator-(D it, typename D::difference_type n)                              // @*freestanding*@
+>    constexpr auto operator-(D it, typename D::difference_type n)                                 // @*freestanding*@
 >      requires requires { it += -n; };
 >  template<class D1, class D2>
->    constexpr auto operator<=>(D1 lhs, D2 rhs)                                                 // @*freestanding*@
+>    constexpr auto operator<=>(D1 lhs, D2 rhs)                                                    // @*freestanding*@
 >      requires @*base-iter-3way*@<D1, D2> || @*iter-sub*@<D1, D2>;
 >  template<class D1, class D2>
->    constexpr bool operator<(D1 lhs, D2 rhs) requires @*iter-sub*@<D1, D2>;                        // @*freestanding*@
+>    constexpr bool operator<(D1 lhs, D2 rhs) requires @*iter-sub*@<D1, D2>;                           // @*freestanding*@
 >  template<class D1, class D2>
->    constexpr bool operator<=(D1 lhs, D2 rhs) requires @*iter-sub*@<D1, D2>;                       // @*freestanding*@
+>    constexpr bool operator<=(D1 lhs, D2 rhs) requires @*iter-sub*@<D1, D2>;                          // @*freestanding*@
 >  template<class D1, class D2>
->    constexpr bool operator>(D1 lhs, D2 rhs) requires @*iter-sub*@<D1, D2>;                        // @*freestanding*@
+>    constexpr bool operator>(D1 lhs, D2 rhs) requires @*iter-sub*@<D1, D2>;                           // @*freestanding*@
 >  template<class D1, class D2>
->    constexpr bool operator>=(D1 lhs, D2 rhs) requires @*iter-sub*@<D1, D2>;                       // @*freestanding*@
+>    constexpr bool operator>=(D1 lhs, D2 rhs) requires @*iter-sub*@<D1, D2>;                          // @*freestanding*@
 >
 >  template<class D1, class D2>
 >    concept @*base-iter-comparable*@ =              // @*exposition only*@
@@ -1293,11 +1293,11 @@ namespace std {
   };
 
   template<class D>
-    constexpr auto operator+(D it, difference_type n) requires requires { it += n; } {
+    constexpr auto operator+(D it, typename D::difference_type n) requires requires { it += n; } {
       return it += n;
     }
   template<class D>
-    constexpr auto operator+(difference_type n, D it) requires requires { it += n; } {
+    constexpr auto operator+(typename D::difference_type n, D it) requires requires { it += n; } {
       return it += n;
     }
 
