@@ -42,6 +42,10 @@ reflector discussion:
 
 - Wording.
 
+## Changes since R4
+
+- Minor pre-LWG wording fixes.  Thanks to Steve Downy for pointing them out!
+
 # Motivation
 
 ## The story for everyday users writing STL iterators is not great
