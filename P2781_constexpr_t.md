@@ -1,6 +1,6 @@
 ---
 title: "`std::constant_wrapper`"
-document: P2781R4
+document: D2781R5
 date: 2024-02-05
 audience:
   - LEWG
@@ -55,6 +55,11 @@ monofont: "DejaVu Sans Mono"
 - Change the defaulted template parameter of the `constexpr_v` (formerly
   "`T`") to be exposition-only.
 - `constexpr_v` -> `constant_wrapper`, and `c_` -> `cw`.
+
+## Changes since R4
+
+- Remove superfluous `inline` from `constexpr` variable templates. "Thanks,"
+  Casey.
 
 # Relationship to previous work
 
@@ -163,7 +168,7 @@ Let's now add a `constexpr` variable template with a shorter name, say `cw`.
 ```c++
 namespace std {
   template<auto X>
-  inline constexpr constant_wrapper<X> cw{};
+  constexpr constant_wrapper<X> cw{};
 }
 ```
 
@@ -641,7 +646,7 @@ namespace std {
   };
 
   template<auto X>
-    inline constexpr constant_wrapper<X> cw{};
+    constexpr constant_wrapper<X> cw{};
 }
 ```
 
@@ -684,7 +689,7 @@ template <class T, class SelfT>
     @*constexpr-param*@<T> && (derived_from<T, SelfT> || !@*derived-from-constexpr*@<T>);
 
 template<auto X>
-  inline constexpr constant_wrapper<X> cw;
+  constexpr constant_wrapper<X> cw;
 ```
 
 :::
@@ -803,7 +808,7 @@ struct constant_wrapper {
 };
 
 template<auto X>
-  inline constexpr constant_wrapper<X> cw{};
+  constexpr constant_wrapper<X> cw{};
 ```
 
 [2]{.pnum} The class template `constant_wrapper` aids in metaprogramming by
