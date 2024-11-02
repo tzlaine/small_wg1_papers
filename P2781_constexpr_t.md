@@ -1,7 +1,7 @@
 ---
 title: "`std::constant_wrapper`"
 document: D2781R5
-date: 2024-02-05
+date: 2024-11-02
 audience:
   - LEWG
   - LWG
@@ -137,14 +137,15 @@ holds a `constexpr` value that it is given as an non-type template parameter.
 
 ```c++
 namespace std {
-  template<auto X>
+  template</* ... */ X>
   struct constant_wrapper
   {
-    using value_type = remove_cvref_t<decltype(X)>;
+    using value_type = typename decltype(X)::type;
     using type = constant_wrapper;
 
-    constexpr operator value_type() const { return X; }
-    static constexpr value_type value = X;
+    static constexpr const auto & value = X.data;
+
+    constexpr operator decltype(auto)() const noexcept { return value; }
 
     // The rest of the members are discussed below ....
   };
@@ -170,7 +171,7 @@ Let's now add a `constexpr` variable template with a shorter name, say `cw`.
 
 ```c++
 namespace std {
-  template<auto X>
+  template</* ... */ X>
   constexpr constant_wrapper<X> cw{};
 }
 ```
@@ -201,20 +202,51 @@ implies, ADL!  Even though the type of `X` is deduced with or without
 work.  For instance:
 
 ```c++
-auto f = std::cw<strlit("foo")>; // Using the strlit from later in this paper.
+auto f = std::cw<"foo">;
 std::cout << f << "\n";
 ```
 
 The stream insertion breaks without the `@*adl-type*@` parameter.
-`@*adl-type*@` is `strlit</*...*/>`, which pulls `strlit`'s `operator<<` into
-consideration during ADL.  Note that this ADL support is imperfect.  The use
-op `operator<<` above is due to the way the operator overload is declared:
+`@*adl-type*@` is `char const [4]`, which pulls the proper `operator<<` into
+consideration during ADL.  Note that this ADL support is imperfect.  An
+earlier version of the paper showed using `std::cw<strlit("foo)">` in a
+nstream insertion operation, where `strlit` is a strucutral type that contains
+the bytes that comprise `"foo"`:
 
 ```c++
-friend std::ostream & operator<<(std::ostream & os, strlit l) { /* ...*/ }
-```
+template<size_t N>
+struct strlit
+{
+    constexpr strlit(char const (&str)[N]) { std::copy_n(str, N, value); }
 
-If it is instead declared as a non-`friend`:
+    template<size_t M>
+    constexpr bool operator==(strlit<M> rhs) const
+    {
+        return std::ranges::equal(bytes_, rhs.bytes_);
+    }
+
+    friend std::ostream & operator<<(std::ostream & os, strlit l)
+    {
+        assert(!l.value[N - 1] && "value must be null-terminated");
+        return os.write(l.value, N - 1);
+    }
+
+    char value[N];
+};
+
+int main()
+void print_foo()
+{
+    auto f = std::cw<strlit("foo")>;
+    std::cout << f; // Prints "foo".
+    std::cout << std::cw<"foo">; // Prints "foo".
+}
+ ```
+
+This worked because of the way the `operator<<` above is declared -- as a
+`friend`.
+
+If it were instead declared as a non-`friend`:
 
 ```c++
 template<size_t N>
@@ -224,6 +256,55 @@ std::ostream & operator<<(std::ostream & os, strlit<N> l) { /* ...*/ }
 ... ADL's help doesn't suffice. The deduction of `N` is not possible from a
 type that isn't a `strlit<N>` itself (e.g. base class) even if it is
 implicitly convertible to `strlit<N>`.
+
+# The type of `X`
+
+The type of `X` was elided above for simplicity; now let's look at it.  This
+is what is used:
+
+```c++
+template<typename T>
+struct fixed_value {
+  using type = T;
+  constexpr fixed_value(type v) noexcept: data(v) { }
+  T data;
+};
+
+template<typename T, size_t Extent>
+struct fixed_value<T[Extent]> {
+  using type = T[Extent];
+  constexpr fixed_value(T (&arr)[Extent]) noexcept: fixed_value(arr, std::make_index_sequence<Extent>()) { }
+  T data[Extent];
+
+private:
+  template<size_t... Idx>
+  constexpr fixed_value(T (&arr)[Extent], std::index_sequence<Idx...>) noexcept: data{arr[Idx]...} { }
+};
+
+template<typename T, size_t Extent>
+fixed_value(T (&)[Extent]) -> fixed_value<T[Extent]>;
+template<typename T>
+fixed_value(T) -> fixed_value<T>;
+```
+
+By writing `constant_wrapper` as `constant_wrapper<fixed_value X>`, we are
+able to use CTAD in `fixed_value X` to defer writing the type of the
+underlying value, and use deduction to cosntruct the write specialization of
+`fixed_value` at the point of specialization of `constant_wrapper`:
+
+```c++
+constexpr foo = constant_wrapper<"foo">;
+static_assert(std::same_as<
+                  decltype(foo),
+                  const constant_wrapper<fixed_value<const char[4]>{"foo"}>>);
+constexpr bar = constant_wrapper<42>;
+static_assert(std::same_as<
+                  decltype(bar),
+                  const constant_wrapper<fixed_value<int>{42}>>);
+```
+
+This indirection allows the support for arrays that was added in this revision
+of the paper.
 
 # Making `constant_wrapper` more useful
 
@@ -242,25 +323,27 @@ might wrap.
 
 ```c++
 namespace std {
+  struct operators {
+    // unary -
+    template<constexpr_param T>
+      friend constexpr auto operator-(T) noexcept -> constant_wrapper<(-T::value)> { return {}; }
+
+    // binary + and -
+    template<constexpr_param L, constexpr_param R>
+      friend constexpr auto operator+(L, R) noexcept -> constant_wrapper<(L::value + R::value)> { return {}; }
+    template<constexpr_param L, constexpr_param R>
+      friend constexpr auto operator-(L, R) noexcept -> constant_wrapper<(L::value - R::value)> { return {}; }
+
+    // etc... (full listing later)
+  };
+
   template<auto X>
-  struct constant_wrapper {
+  struct constant_wrapper : operators {
     using value_type = remove_cvref_t<decltype(X)>;
     using type = constant_wrapper;
 
     constexpr operator value_type() const { return X; }
     static constexpr value_type value = X;
-
-    // unary -
-    template<auto Y = X>
-      constexpr constant_wrapper<-Y> operator-() const { return {}; }
-
-    // binary + and -
-    template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
-      friend constexpr constant_wrapper<U::value + V::value> operator+(U, V) { return {}; }
-    template <@*lhs-constexpr-param*@<type> U, @*constexpr-param*@ V>
-      friend constexpr constant_wrapper<U::value - V::value> operator-(U, V) { return {}; }
-
-    // etc... (full listing later)
   };
 }
 ```
@@ -329,13 +412,13 @@ integral types.
 
 # What about strings?
 
-In earlier versions of the paper, `std::cw<"foo">` did not work, because
-language rules prohibit using a reference to an array as an NTTP.  However,
-the latest implementation uses an exposition-only structural type
-`@*cw-fixed-value*@` as the `constant_wrapper` NTTP; `@*cw-fixed-value*@` can be
-constructed from a variety of different types, including arrays.  This allows
-an array to be given as the template parameter to `std::cw`, including an
-array of `char`, like a string literal.  For instance:
+As mentioned above, in earlier versions of the paper, `std::cw<"foo">` did not
+work, because language rules prohibit using a reference to an array as an
+NTTP.  However, the latest implementation uses an exposition-only structural
+type `@*cw-fixed-value*@` as the `constant_wrapper` NTTP; `@*cw-fixed-value*@`
+can be constructed from a variety of different types, including arrays.  This
+allows an array to be given as the template parameter to `std::cw`, including
+an array of `char`, like a string literal.  For instance:
 
 ```c++
 void print_foo()
@@ -512,8 +595,8 @@ namespace std {
   template<typename T>
     struct @*cw-fixed-value*@;                                                        // @*exposition only*@
 
-  template<@*cw-fixed-value*@ Value,
-           typename @*adl-type*@ = typename decltype(@*cw-fixed-value*@(Value))::type>    // @*exposition only*@
+  template<@*cw-fixed-value*@ X,
+           typename @*adl-type*@ = typename decltype(@*cw-fixed-value*@(X))::type>        // @*exposition only*@
     struct constant_wrapper;
 
   template<class T>
@@ -664,24 +747,24 @@ namespace std {
         { return constant_wrapper<[] { auto v = T::value; return v >>= R::value; }()>{}; }
   };
 
-  template<@*cw-fixed-value*@ Value, typename @*adl-type*@>
+  template<@*cw-fixed-value*@ X, typename @*adl-type*@>
   struct constant_wrapper: @*cw-operators*@ {
-    static constexpr const auto & value = Value.data;
+    static constexpr const auto & value = X.data;
     using type = constant_wrapper;
-    using value_type = typename decltype(Value)::type;
+    using value_type = typename decltype(X)::type;
 
     template<constexpr_param R>
       constexpr auto operator=(R) const noexcept requires requires(value_type x) { x = R::value; }
         { return constant_wrapper<[] { auto v = value; return v = R::value; }()>{}; }
 
     constexpr operator decltype(auto)() const noexcept { return value; }
-    constexpr decltype(auto) operator()() const noexcept { return value; }
+    constexpr decltype(auto) operator()() const noexcept requires (!std::invocable<value_type>) { return value; }
 
     using @*cw-operators*@::operator();
   };
 
-  template<@*cw-fixed-value*@ Value>
-    constexpr auto cw = constant_wrapper<Value>{};
+  template<@*cw-fixed-value*@ X>
+    constexpr auto cw = constant_wrapper<X>{};
 }
 ```
 
@@ -690,11 +773,6 @@ namespace std {
 Add a new feature macro, `__cpp_lib_constant_wrapper`.
 
 # Implementation experience
-
-Look up a few lines to see an implementation of `std::constant_wrapper`.  At the
-time of this writing, there is one caveat: `operator[]()` looks correct to the
-authors, but does not work in any compiler tested, due to the very limited
-multi-variate `operator[]` support in even the latest compilers.
 
 Additionally, an `integral_constant` with most of the operator overloads has
 been a part of
@@ -712,8 +790,8 @@ Add the following to [meta.type.synop], after `false_type`:
 template<typename T>
   struct @*cw-fixed-value*@;                                                        // @*exposition only*@
 
-template<@*cw-fixed-value*@ Value,
-         typename @*adl-type*@ = typename decltype(@*cw-fixed-value*@(Value))::type>    // @*exposition only*@
+template<@*cw-fixed-value*@ X,
+         typename @*adl-type*@ = typename decltype(@*cw-fixed-value*@(X))::type>        // @*exposition only*@
   struct constant_wrapper;
 
 template<class T>
@@ -721,8 +799,8 @@ template<class T>
 
 struct @*cw-operators*@;                                                            // @*exposition only*@
 
-template<@*cw-fixed-value*@ Value>
-  constexpr auto cw = constant_wrapper<Value>{};
+template<@*cw-fixed-value*@ X>
+  constexpr auto cw = constant_wrapper<X>{};
 ```
 
 :::
@@ -877,24 +955,24 @@ struct @*cw-operators*@ {                                                       
       { return constant_wrapper<[] { auto v = T::value; return v >>= R::value; }()>{}; }
 };
 
-template<@*cw-fixed-value*@ Value, typename @*adl-type*@>
+template<@*cw-fixed-value*@ X, typename @*adl-type*@>
 struct constant_wrapper: @*cw-operators*@ {
-  static constexpr const auto & value = Value.data;
+  static constexpr const auto & value = X.data;
   using type = constant_wrapper;
-  using value_type = typename decltype(Value)::type;
+  using value_type = typename decltype(X)::type;
 
   template<constexpr_param R>
     constexpr auto operator=(R) const noexcept requires requires(value_type x) { x = R::value; }
       { return constant_wrapper<[] { auto v = value; return v = R::value; }()>{}; }
 
   constexpr operator decltype(auto)() const noexcept { return value; }
-  constexpr decltype(auto) operator()() const noexcept { return value; }
+  constexpr decltype(auto) operator()() const noexcept requires (!std::invocable<value_type>) { return value; }
 
   using @*cw-operators*@::operator();
 };
 
-template<@*cw-fixed-value*@ Value>
-  constexpr auto cw = constant_wrapper<Value>{};
+template<@*cw-fixed-value*@ X>
+  constexpr auto cw = constant_wrapper<X>{};
 ```
 
 [2]{.pnum} The class template `constant_wrapper` aids in metaprogramming by
