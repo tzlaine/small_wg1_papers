@@ -1,6 +1,6 @@
 ---
 title: "`std::constant_wrapper`"
-document: D2781R5
+document: P2781R5
 date: 2024-11-02
 audience:
   - LEWG
@@ -427,6 +427,34 @@ void print_foo()
 }
 ```
 
+This is not without its problems, however.  Consider these two uses.
+
+First, `std::cw<"foo"> == std::cw<"foo">`.  This is expression is true, but it only
+compares pointers.
+
+Second, `std::cw<"bar"> < std::cw<"foo">` is not a constant expression.
+Runtime evaluation compares the pointers of "foo" and "bar".  That's a
+footgun.
+
+In general, strings and other array types are not passed nearly as ofter as
+arguments to `constexpr` functions.  It is questionable whether we should
+delay the very useful semantics of `std::cw<>` `constexpr` function arguments
+trying to find a design that supports array types.  This is a question
+that LEWG should answer.
+
+Option 1: Support array values as NTTP template arguments to
+`std::constant_wrapper`.
+
+Option 2: Leave all the code in place to support array value as NTTP template
+arguments to `std::constant_wrapper`, except disable the specialization that
+enables array values to work.
+
+Option 1 is represented in the code that follows by `#define`ing
+`SUPPORT_ARRAY_VALUES` to a truthy value.  The idea of Option 2 is that it
+allows us easily to enable this in future if we decide we want it.  Note that
+under either option, `std::cw<std::fixed_string<"foo">>` and
+`std::cw<std::array<int, 2>{42, 13}>` work fine.
+
 # An example using `operator()`
 
 The addition of non-arithmetic operators may seem academic at first.  However,
@@ -609,6 +637,7 @@ namespace std {
     T data;
   };
 
+#if SUPPORT_ARRAY_VALUES
   template<typename T, size_t Extent>
   struct @*cw-fixed-value*@<T[Extent]> {                                              // @*exposition only*@
     using type = T[Extent];
@@ -619,6 +648,12 @@ namespace std {
     template<size_t... Idx>
     constexpr @*cw-fixed-value*@(T (&arr)[Extent], std::index_sequence<Idx...>) noexcept: data{arr[Idx]...} { }
   };
+#else
+  template<typename T, size_t Extent>
+  struct @*cw-fixed-value*@<T[Extent]> {                                              // @*exposition only*@
+      constexpr @*cw-fixed-value*@(T (&)[Extent]) noexcept = delete;
+  };
+#endif
 
   template<typename T, size_t Extent>
     @*cw-fixed-value*@(T (&)[Extent]) -> @*cw-fixed-value*@<T[Extent]>;                   // @*exposition only*@
@@ -817,6 +852,7 @@ struct @*cw-fixed-value*@ {                                                     
   T data;
 };
 
+#if SUPPORT_ARRAY_VALUES
 template<typename T, size_t Extent>
 struct @*cw-fixed-value*@<T[Extent]> {                                              // @*exposition only*@
   using type = T[Extent];
@@ -827,6 +863,12 @@ private:
   template<size_t... Idx>
   constexpr @*cw-fixed-value*@(T (&arr)[Extent], std::index_sequence<Idx...>) noexcept: data{arr[Idx]...} { }
 };
+#else
+  template<typename T, size_t Extent>
+  struct @*cw-fixed-value*@<T[Extent]> {                                              // @*exposition only*@
+      constexpr @*cw-fixed-value*@(T (&)[Extent]) noexcept = delete;
+  };
+#endif
 
 template<typename T, size_t Extent>
   @*cw-fixed-value*@(T (&)[Extent]) -> @*cw-fixed-value*@<T[Extent]>;                   // @*exposition only*@
