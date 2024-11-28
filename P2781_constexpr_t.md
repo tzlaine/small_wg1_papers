@@ -122,7 +122,7 @@ struct my_complex
 inline constexpr short foo = 2;
 
 template<typename T>
-struct X
+struct S
 {
     void f(auto c)
     {
@@ -131,7 +131,7 @@ struct X
 };
 ```
 
-We would like to be able to call `X::f()` with a value, and have that value
+We would like to be able to call `S::f()` with a value, and have that value
 keep its `constexpr`-ness.  Let's introduce a template "`constant_wrapper`" that
 holds a `constexpr` value that it is given as an non-type template parameter.
 
@@ -156,14 +156,14 @@ Now we can write this.
 
 ```c++
 template<typename T>
-void g(X<T> x)
+void g(S<T> s)
 {
-    x.f(std::constant_wrapper<1>{});
-    x.f(std::constant_wrapper<2uz>{});
-    x.f(std::constant_wrapper<3.0>{});
-    x.f(std::constant_wrapper<4.f>{});
-    x.f(std::constant_wrapper<foo>{});
-    x.f(std::constant_wrapper<my_complex(1.f, 1.f)>{});
+    s.f(std::constant_wrapper<1>{});
+    s.f(std::constant_wrapper<2uz>{});
+    s.f(std::constant_wrapper<3.0>{});
+    s.f(std::constant_wrapper<4.f>{});
+    s.f(std::constant_wrapper<foo>{});
+    s.f(std::constant_wrapper<my_complex(1.f, 1.f)>{});
 }
 ```
 
@@ -180,14 +180,14 @@ And now we can write this.
 
 ```c++
 template<typename T>
-void g(X<T> x)
+void g(S<T> s)
 {
-    x.f(std::cw<1>);
-    x.f(std::cw<2uz>);
-    x.f(std::cw<3.0>);
-    x.f(std::cw<4.f>);
-    x.f(std::cw<foo>);
-    x.f(std::cw<my_complex(1.f, 1.f)>);
+    s.f(std::cw<1>);
+    s.f(std::cw<2uz>);
+    s.f(std::cw<3.0>);
+    s.f(std::cw<4.f>);
+    s.f(std::cw<foo>);
+    s.f(std::cw<my_complex(1.f, 1.f)>);
 }
 ```
 
