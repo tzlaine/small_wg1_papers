@@ -1,13 +1,15 @@
 ---
 title: "Extending Conditionally Borrowed"
 document: D3117R1
-date: 2024-02-05
+date: today
 audience:
   - SG-9
   - LEWG
 author:
   - name: Zach Laine
     email: <whatwasthataddress@gmail.com>
+  - name: Jonathan Müller
+    email: <jonathanmueller.dev@gmail.com>
   - name: Barry Revzin
     email: <barry.revzin@gmail.com>
 toc: true
@@ -132,7 +134,8 @@ All these changes are in `std::ranges`.
 
 ```c++
 template<class F>
-  constexpr bool @*tidy-func*@ = is_empty_v<F> && is_trivially_constructible_v<F>;
+  constexpr bool @*tidy-func*@ =
+    is_empty_v<F> && is_trivially_default_constructible_v<F> && is_trivially_destructible_v<F>;
 ```
 
 `@*tidy-func*@` evaluates to `true` when an invocable is a candidate for being
