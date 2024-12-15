@@ -1,6 +1,6 @@
 ---
 title: "Extending Conditionally Borrowed"
-document: D3117R1
+document: P3117R1
 date: today
 audience:
   - SG-9
