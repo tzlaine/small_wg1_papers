@@ -1,6 +1,6 @@
 ---
 title: "`std::constant_wrapper`"
-document: D2781R6
+document: P2781R6
 date: today
 audience:
   - LEWG
