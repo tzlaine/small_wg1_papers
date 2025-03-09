@@ -80,6 +80,8 @@ the reflector.  This includes:
   `operator||`.
 - Change the constraint on `operator()` from `invocable<value_type>` to
   `invocable<const value_type&>`.
+- Change the definition of the exposition-only *`integral-constant-like`* in
+  [span.syn] to be compatible with `constant_wrapper`.
 
 # Relationship to previous work
 
@@ -897,6 +899,15 @@ namespace std {
 }
 ```
 
+## Tweak the definition of *`integral-constant-like`*
+
+In `[span.syn]`, there is an exposition-only concept,
+*`integral-constant-like`*.  It needs to be adjusted slightly to change the
+`is_integral_v` part of the concept to
+`is_integral_v<remove_cvref_t<delctype(value)>>`.  The required change is to
+make `constant_wrapper` compatible with *`integral-constant-like`*.  This was
+suggested by one of the mdsubspan paper authors.
+
 ## Add a feature macro
 
 Add a new feature macro, `__cpp_lib_constant_wrapper`.
@@ -1165,6 +1176,21 @@ nominate `constant_wrapper` values.
 elements of `arr`.
 
 :::
+
+Change [span.syn]:
+
+```diff
+  template<class T>
+    concept @*integral-constant-like*@ =                    // exposition only
+-     is_integral_v<decltype(T::value)>
++     is_integral_v<remove_cvref_t<decltype(T::value)>> &&
+      !is_same_v<bool, remove_const_t<decltype(T::value)>> &&
+      convertible_to<T, decltype(T::value)> &&
+      equality_comparable_with<T, decltype(T::value)> &&
+      bool_constant<T() == T::value>::value &&
+      bool_constant<static_cast<decltype(T::value)>(T()) == T::value>::value;
+```
+
 
 Add to [version.syn]:
 
