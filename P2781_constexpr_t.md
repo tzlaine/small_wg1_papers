@@ -70,16 +70,16 @@ monofont: "DejaVu Sans Mono"
 
 ## Changes since R6
 
-Changes suggested during LWG review in Hagenberg.  This includes:
+Changes suggested during LWG review in Hagenberg, and subsequent comments on
+the reflector.  This includes:
 
 - Remove "exposition-only" from the second param to constant_wrapper.
-
 - Strike `operator,`.
-
 - Express the semantics of *`cw-fixed-value`* in words instead of code.
-
 - Add additional `!is_constructible_v<>` constraints to `operator&&` and
   `operator||`.
+- Change the constraint on `operator()` from `invocable<value_type>` to
+  `invocable<const value_type&>`.
 
 # Relationship to previous work
 
@@ -390,8 +390,8 @@ The only downside to adding `std::constant_wrapper::operator()` is that it
 would represent a break from the design of `std::integral_constant`, making it
 an imperfect drop-in replacement for that template.  Nullary
 `std::constant_wrapper::operator()` with the same semantics as
-`std::integral_constant::operator()` is defined when
-`requires (!std::invocable<value_type>)` is `true`, so this incompatibility is
+`std::integral_constant::operator()` is defined when `requires
+(!std::invocable<const value_type&>)` is `true`, so this incompatibility is
 truly a corner case.
 
 The operators are designed to interoperate with other types and templates that
@@ -886,7 +886,8 @@ namespace std {
         { return constant_wrapper<[] { auto v = value; return v = R::value; }()>{}; }
 
     constexpr operator decltype(auto)() const noexcept { return value; }
-    constexpr decltype(auto) operator()() const noexcept requires (!std::invocable<value_type>) { return value; }
+    constexpr decltype(auto) operator()() const noexcept requires (!invocable<const value_type&>)
+      { return value; }
 
     using @*cw-operators*@::operator();
   };
@@ -1094,7 +1095,8 @@ struct constant_wrapper: @*cw-operators*@ {
       { return constant_wrapper<[] { auto v = value; return v = R::value; }()>{}; }
 
   constexpr operator decltype(auto)() const noexcept { return value; }
-  constexpr decltype(auto) operator()() const noexcept requires (!std::invocable<value_type>) { return value; }
+  constexpr decltype(auto) operator()() const noexcept requires (!invocable<const value_type&>)
+    { return value; }
 
   using @*cw-operators*@::operator();
 };
