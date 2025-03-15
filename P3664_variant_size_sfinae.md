@@ -50,7 +50,7 @@ implementation.
 
 In [variant.helper]{.sref}:
 
-[2]{.pnum} Let `VS` denote `variant_size<T>` of the cv-unqualified type `T`. [Then]{.rm}[If the expression VS::value is well-formed when treated as an unevaluated operand, then]{.add} each specialization of the template meets the *Cpp17UnaryTypeTrait* requirements (`[meta.rqmts]`) with a base characteristic of `integral_constant<size_t, VS::value>`.
+[2]{.pnum} Let `VS` denote `variant_size<T>` of the cv-unqualified type `T`. [Then]{.rm}[If the expression `VS::value` is well-formed when treated as an unevaluated operand, then]{.add} each specialization of the template meets the *Cpp17UnaryTypeTrait* requirements (`[meta.rqmts]`) with a base characteristic of `integral_constant<size_t, VS::value>`.
 [Otherwise, it has no member `value`.]{.add}
 
 ::: add
