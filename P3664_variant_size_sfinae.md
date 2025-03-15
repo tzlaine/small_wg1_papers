@@ -15,7 +15,7 @@ monofont: "DejaVu Sans Mono"
 # Rationale
 
 Consider this example using the pattern matching design proposed in
-[P2688R5](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2025/p2688r5.html).
+[@P2688R5].
 
 ```cpp
 void f(const std::any& a) {
