@@ -12,7 +12,32 @@ monofont: "DejaVu Sans Mono"
 
 ---
 
-# Relationship to previous work
+# Rationale
+
+Consider this example using the pattern matching design proposed in
+[P2688R5](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2025/p2688r5.html).
+
+```cpp
+void f(const std::any& a) {
+  a match {
+    int: let i => ...
+    double: let d => ...
+  };
+}
+```
+
+The protocol for evaluating alternative patterns is to check for completeness
+of `variant_size<remove_reference_t<decltype((e))>>`, where `e` is the
+expression being matched.
+
+So for the code above, `variant_size<const std::any>` is instantiated before
+trying to use the `try_cast` protocol (which applies to `std::any` in
+particular).  In the current design for `variant_size`, `variant_size` tries
+to unconditionally define a `value` nested type, whether that would be
+well-formed or not.  Therefore even instantiating `variant_size<std::any>` at
+all, even without naming its `value` nested type, generates a hard error.
+
+# Relationship to `tuple_size`
 
 When `tuple_size` was introduced, it was not SFINAE friendly.  [@LWG2770]
 notes that this caused a problem with structured bindings.  This is taken
@@ -38,6 +63,8 @@ directly from the issue:
 >
 > The latter seems like the better option to me, and like a good idea regardless
 > of decomposition declarations.
+
+This is essentially the same problem, just with a different `_size` template.
 
 # Design
 
