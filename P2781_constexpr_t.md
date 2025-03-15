@@ -1,6 +1,6 @@
 ---
 title: "`std::constant_wrapper`"
-document: P2781R7
+document: P2781R8
 date: today
 audience:
   - LEWG
@@ -82,6 +82,10 @@ the reflector.  This includes:
   `invocable<const value_type&>`.
 - Change the definition of the exposition-only *`integral-constant-like`* in
   [span.syn] to be compatible with `constant_wrapper`.
+
+## Changes since R7
+
+
 
 # Relationship to previous work
 
