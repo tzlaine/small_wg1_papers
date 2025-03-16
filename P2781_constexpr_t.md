@@ -85,6 +85,12 @@ the reflector.  This includes:
 
 ## Changes since R7
 
+Changes resulting from the telecon on 11 March, 2025.
+
+- Re-introduce `operator,()`{.cpp}, but define it as `delete`{.cpp}d.
+- Strike the `operator()` that returns `value` (not the one that returns a
+  `constant_wrapper`).
+- Strike the identiy deduction guide for *`cw-fixed-value`*.
 
 
 # Relationship to previous work
@@ -306,8 +312,6 @@ private:
 
 template<typename T, size_t Extent>
 fixed_value(T (&)[Extent]) -> fixed_value<T[Extent]>;
-template<typename T>
-fixed_value(T) -> fixed_value<T>;
 ```
 
 By writing `constant_wrapper` as `constant_wrapper<fixed_value X>`, we are
@@ -394,11 +398,7 @@ return a pointer type, which is not very useful at compile time.
 
 The only downside to adding `std::constant_wrapper::operator()` is that it
 would represent a break from the design of `std::integral_constant`, making it
-an imperfect drop-in replacement for that template.  Nullary
-`std::constant_wrapper::operator()` with the same semantics as
-`std::integral_constant::operator()` is defined when `requires
-(!std::invocable<const value_type&>)` is `true`, so this incompatibility is
-truly a corner case.
+an imperfect drop-in replacement for that template.
 
 The operators are designed to interoperate with other types and templates that
 have a constexpr static `value` member.  This works with `std::constant_wrapper`s
@@ -757,8 +757,6 @@ namespace std {
 
   template<class T, size_t Extent>
     @*cw-fixed-value*@(T (&)[Extent]) -> @*cw-fixed-value*@<T[Extent]>;                   // @*exposition only*@
-  template<class T>
-    @*cw-fixed-value*@(T) -> @*cw-fixed-value*@<T>;                                       // @*exposition only*@
 
   struct @*cw-operators*@ {                                                           // @*exposition only*@
     // unary operators
@@ -821,6 +819,8 @@ namespace std {
     template<@*constexpr-param*@ L, @*constexpr-param*@ R>
       friend constexpr auto operator>=(L, R) noexcept -> constant_wrapper<(L::value >= R::value)> { return {}; }
 
+    template<@*constexpr-param*@ L, @*constexpr-param*@ R>
+      friend constexpr auto operator,(L, R) noexcept = delete;
     template<@*constexpr-param*@ L, @*constexpr-param*@ R>
       friend constexpr auto operator->*(L, R) noexcept -> constant_wrapper<L::value.operator->*(R::value)>
         { return {}; }
@@ -892,10 +892,6 @@ namespace std {
         { return constant_wrapper<[] { auto v = value; return v = R::value; }()>{}; }
 
     constexpr operator decltype(auto)() const noexcept { return value; }
-    constexpr decltype(auto) operator()() const noexcept requires (!invocable<const value_type&>)
-      { return value; }
-
-    using @*cw-operators*@::operator();
   };
 
   template<@*cw-fixed-value*@ X>
@@ -975,8 +971,6 @@ struct @*cw-fixed-value*@<T[Extent]> {                                          
 
 template<class T, size_t Extent>
   @*cw-fixed-value*@(T (&)[Extent]) -> @*cw-fixed-value*@<T[Extent]>;                   // @*exposition only*@
-template<class T>
-  @*cw-fixed-value*@(T) -> @*cw-fixed-value*@<T>;                                       // @*exposition only*@
 
 struct @*cw-operators*@ {                                                           // @*exposition only*@
   // unary operators
@@ -1039,6 +1033,8 @@ struct @*cw-operators*@ {                                                       
   template<@*constexpr-param*@ L, @*constexpr-param*@ R>
     friend constexpr auto operator>=(L, R) noexcept -> constant_wrapper<(L::value >= R::value)> { return {}; }
 
+  template<@*constexpr-param*@ L, @*constexpr-param*@ R>
+    friend constexpr auto operator,(L, R) noexcept = delete;
   template<@*constexpr-param*@ L, @*constexpr-param*@ R>
     friend constexpr auto operator->*(L, R) noexcept -> constant_wrapper<L::value.operator->*(R::value)>
       { return {}; }
@@ -1110,10 +1106,6 @@ struct constant_wrapper: @*cw-operators*@ {
       { return constant_wrapper<[] { auto v = value; return v = R::value; }()>{}; }
 
   constexpr operator decltype(auto)() const noexcept { return value; }
-  constexpr decltype(auto) operator()() const noexcept requires (!invocable<const value_type&>)
-    { return value; }
-
-  using @*cw-operators*@::operator();
 };
 
 template<@*cw-fixed-value*@ X>
