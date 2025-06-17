@@ -1,6 +1,6 @@
 ---
 title: "`std::constant_wrapper`"
-document: P2781R8
+document: P2781R9
 date: today
 audience:
   - LEWG
@@ -91,6 +91,22 @@ Changes resulting from the telecon on 11 March, 2025.
 - Strike the `operator()` that returns value (not the one that returns a
   `constant_wrapper`).
 - Strike the identiy deduction guide for `@*cw-fixed-value*@`.
+
+## Changes since R8
+
+Changes requested in LWG review in Sofia on 17 June, 2025.
+
+- `type` and `data` members of `@*cw-fixed-value*@` should be exposition-only.
+- Change `constinit` to `constexpr` in multiple places.
+- Remove the repeated declaration of `cw`.
+- In the implementation of `operator->*`, remove "`e.operator`".
+- Strike paragragraph 4 about `cw`'s purpose.
+- Remove the "Constructors:" heading.
+- Remove `constexpr` from variables in `impeccable_underground_planning()` in
+  the example.
+- Add a semicolon to the constructor definition.
+- Italicize `data` in the "Effects:" clause.
+- Add "freestanding" to the comment on the feature test macro.
 
 # Relationship to previous work
 
@@ -728,7 +744,7 @@ namespace std {
   template<class T>
     struct @*cw-fixed-value*@;                                                        // @*exposition only*@
 
-  template<@*cw-fixed-value*@ X, class = typename decltype(@*cw-fixed-value*@(X))::type>
+  template<@*cw-fixed-value*@ X, class = typename decltype(@*cw-fixed-value*@(X))::@*type*@>
     struct constant_wrapper;
 
   template<class T>
@@ -736,20 +752,20 @@ namespace std {
 
   template<class T>
   struct @*cw-fixed-value*@ {                                                         // @*exposition only*@
-    using type = T;
-    constexpr @*cw-fixed-value*@(type v) noexcept: data(v) { }
-    T data;
+    using @*type*@ = T;                                                               // @*exposition only*@
+    constexpr @*cw-fixed-value*@(@*type*@ v) noexcept: @*data*@(v) { }
+    T @*data*@;                                                                       // @*exposition only*@
   };
 
   template<class T, size_t Extent>
   struct @*cw-fixed-value*@<T[Extent]> {                                              // @*exposition only*@
-    using type = T[Extent];
+    using @*type*@ = T[Extent];                                                       // @*exposition only*@
     constexpr @*cw-fixed-value*@(T (&arr)[Extent]) noexcept: @*cw-fixed-value*@(arr, std::make_index_sequence<Extent>()) { }
-    T data[Extent];
+    T @*data*@[Extent];                                                               // @*exposition only*@
 
   private:
     template<size_t... Idx>
-    constexpr @*cw-fixed-value*@(T (&arr)[Extent], std::index_sequence<Idx...>) noexcept: data{arr[Idx]...} { }
+    constexpr @*cw-fixed-value*@(T (&arr)[Extent], std::index_sequence<Idx...>) noexcept: @*data*@{arr[Idx]...} { }
   };
 
   template<class T, size_t Extent>
@@ -819,7 +835,7 @@ namespace std {
     template<@*constexpr-param*@ L, @*constexpr-param*@ R>
       friend constexpr auto operator,(L, R) noexcept = delete;
     template<@*constexpr-param*@ L, @*constexpr-param*@ R>
-      friend constexpr auto operator->*(L, R) noexcept -> constant_wrapper<L::value.operator->*(R::value)>
+      friend constexpr auto operator->*(L, R) noexcept -> constant_wrapper<L::value->*(R::value)>
         { return {}; }
 
     // call and index
@@ -880,9 +896,9 @@ namespace std {
 
   template<@*cw-fixed-value*@ X, class>
   struct constant_wrapper: @*cw-operators*@ {
-    static constexpr const auto & value = X.data;
+    static constexpr const auto & value = X.@*data*@;
     using type = constant_wrapper;
-    using value_type = typename decltype(X)::type;
+    using value_type = typename decltype(X)::@*type*@;
 
     template<@*constexpr-param*@ R>
       constexpr auto operator=(R) const noexcept requires requires(value_type x) { x = R::value; }
@@ -892,7 +908,7 @@ namespace std {
   };
 
   template<@*cw-fixed-value*@ X>
-    constinit auto cw = constant_wrapper<X>{};
+    constexpr auto cw = constant_wrapper<X>{};
 }
 ```
 
@@ -931,7 +947,7 @@ Add the following to [meta.type.synop], after `false_type`:
 template<class T>
   struct @*cw-fixed-value*@;                                                        // @*exposition only*@
 
-template<@*cw-fixed-value*@ X, class = typename decltype(@*cw-fixed-value*@(X))::type>
+template<@*cw-fixed-value*@ X, class = typename decltype(@*cw-fixed-value*@(X))::@*type*@>
   struct constant_wrapper;
 
 template<class T>
@@ -940,7 +956,7 @@ template<class T>
 struct @*cw-operators*@;                                                            // @*exposition only*@
 
 template<@*cw-fixed-value*@ X>
-  constinit auto cw = constant_wrapper<X>{};
+  constexpr auto cw = constant_wrapper<X>{};
 ```
 
 :::
@@ -954,16 +970,16 @@ Add the following to [meta.help], after `integral_constant`:
 ```c++
 template<class T>
 struct @*cw-fixed-value*@ {                                                         // @*exposition only*@
-  using type = T;
-  constexpr @*cw-fixed-value*@(type v) noexcept: data(v) { }
-  T data;
+  using @*type*@ = T;                                                               // @*exposition only*@
+  constexpr @*cw-fixed-value*@(@*type*@ v) noexcept: @*data*@(v) { }
+  T @*data*@;                                                                       // @*exposition only*@
 };
 
 template<class T, size_t Extent>
 struct @*cw-fixed-value*@<T[Extent]> {                                              // @*exposition only*@
-  using type = T[Extent];
+  using @*type*@ = T[Extent];                                                       // @*exposition only*@
   constexpr @*cw-fixed-value*@(T (&arr)[Extent]) noexcept;
-  T data[Extent];
+  T @*data*@[Extent];                                                               // @*exposition only*@
 };
 
 template<class T, size_t Extent>
@@ -1033,7 +1049,7 @@ struct @*cw-operators*@ {                                                       
   template<@*constexpr-param*@ L, @*constexpr-param*@ R>
     friend constexpr auto operator,(L, R) noexcept = delete;
   template<@*constexpr-param*@ L, @*constexpr-param*@ R>
-    friend constexpr auto operator->*(L, R) noexcept -> constant_wrapper<L::value.operator->*(R::value)>
+    friend constexpr auto operator->*(L, R) noexcept -> constant_wrapper<L::value->*(R::value)>
       { return {}; }
 
   // call and index
@@ -1094,9 +1110,9 @@ struct @*cw-operators*@ {                                                       
 
 template<@*cw-fixed-value*@ X, class>
 struct constant_wrapper: @*cw-operators*@ {
-  static constexpr const auto & value = X.data;
+  static constexpr const auto & value = X.@*data*@;
   using type = constant_wrapper;
-  using value_type = typename decltype(X)::type;
+  using value_type = typename decltype(X)::@*type*@;
 
   template<@*constexpr-param*@ R>
     constexpr auto operator=(R) const noexcept requires requires(value_type x) { x = R::value; }
@@ -1104,9 +1120,6 @@ struct constant_wrapper: @*cw-operators*@ {
 
   constexpr operator decltype(auto)() const noexcept { return value; }
 };
-
-template<@*cw-fixed-value*@ X>
-  constinit auto cw = constant_wrapper<X>{};
 ```
 
 [2]{.pnum} The class template `constant_wrapper` aids in metaprogramming by
@@ -1125,10 +1138,7 @@ for which `constant_wrapper`'s wrapped value is a suitable argument, but for
 which the `constant_wrapper` itself is not.
 :::
 
-[4]{.pnum} The variable template `cw` is provided as a convenient way to
-nominate `constant_wrapper` values.
-
-[5]{.pnum}
+[4]{.pnum}
 
 :::example
 
@@ -1147,9 +1157,9 @@ nominate `constant_wrapper` values.
   }
 
   void impeccable_underground_planning() {
-    constexpr auto gathered_quantity = middle_phase(initial_phase(std::cw<42>, std::cw<13>));
+    auto gathered_quantity = middle_phase(initial_phase(std::cw<42>, std::cw<13>));
     static_assert(gathered_quantity == 55);
-    constexpr auto all_available = std::cw<55>;
+    auto all_available = std::cw<55>;
     final_phase(gathered_quantity, all_available);
   }
 
@@ -1161,11 +1171,9 @@ nominate `constant_wrapper` values.
 ```
 :::
 
-???.??? Constructors [const.wrap.ctor]
+`constexpr @*cw-fixed-value*@(T (&arr)[Extent]) noexcept;`
 
-`constexpr @*cw-fixed-value*@(T (&arr)[Extent]) noexcept`
-
-[1]{.pnum} *Effects:* Initialize elements of `data` with corresponding
+[1]{.pnum} *Effects:* Initialize elements of *`data`* with corresponding
 elements of `arr`.
 
 :::
@@ -1190,7 +1198,7 @@ Add to [version.syn]:
 :::add
 
 ```
-#define __cpp_lib_constant_wrapper XXXXXXL // also in <type_traits>
+#define __cpp_lib_constant_wrapper XXXXXXL // freestanding, also in <type_traits>
 ```
 
 :::
