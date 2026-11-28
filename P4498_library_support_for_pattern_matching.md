@@ -318,19 +318,47 @@ the value state or the error state; there are no "oddball" states.
 `state` represents the possible states of a `std::expected` in the form of an
 enumeration.  It is used in `index()` and `get()`.  It also provides the named
 selectors `.value` and `.error`.  Named and indexed selectors for a type `C`
-are found by the compiler by looking within
-`std::alternative_traits<C>::state`.  Any names found there become selectors.
-If we had written this for `state` instead:
+are found by the compiler by looking within the scope associated with the
+return type of `index`; in this case, that is `state`.  Any names found there
+become selectors.
+
+Here is a completely different way of accomplishing the same thing.
 
 ```cpp
-class state {
+template <class T, class E>
+struct alternative_traits<expected<T, E>> {
+  static constexpr alternative_info alternatives[] = {^^T, ^^E};
+  static constexpr bool has_residual_states = false;
+
+  struct index_result {
+    bool value_;
+    constexpr operator bool() const { return value_; }
     static constexpr bool value = false;
     static constexpr bool error = true;
+  };
+
+  static constexpr index_result index(const expected<T, E>& value) noexcept {
+    return index_result{value.has_value() ? index_result::value : index_result::error};
+  }
+
+  template <bool Result, class Self>
+  static constexpr decltype(auto) get(Self&& self) {
+    return match constexpr (Result) -> decltype(auto) {
+      case index_result::value => *std::forward<Self>(self);
+      case index_result::error => std::forward<Self>(self).error();
+    };
+  }
 };
 ```
 
-... the selectors would have been the same, though `state` would no longer be
-useful in `index()` and `get()`.
+Here, we call `index`'s result type `index_result` instead of `value`.  The
+selectors are just static data members of `index_result`.  Because they do not
+have the type `index_result` we cannot just return them from `index` directly
+(as we could in the original implementation where `state` is an enumeration).
+Instead, we have to construct an `index_result` from one of them in the body
+of `index`.  Note that we also use `bool Result` instead of `state State` as
+the first template parameter to `get`.  This works because `index_result` is
+implicitly convertible to `bool`.
 
 `index` is the function used to determine at runtime (or compile time for
 `match constexpr`) the current state of the `std::expected` passed to it.
@@ -655,9 +683,7 @@ struct alternative_traits<variant<Types...>> {
 First, it acts as the result type of `index`; it has an inplicit conversion to
 `size_t` so that it is compatible with the first template argument to `get`.
 Second, it is acting as a namespace in which the `index` indexed selectors
-(`.index<0>`, `.index<1>`, etc.).  This is not strictly necessary.  The author
-(one of this paper's authors) was trying to be clever.  Don't be clever like
-him.  Just make a separate result type for `index`.
+(`.index<0>`, `.index<1>`, etc.).
 
 `index` and `get` are very much what you would expect, except that `get` can
 use `unchecked_get`, since by the time it gets used, it is already certain
@@ -744,7 +770,8 @@ than the `my::Connection` object itself:
 std::optional<my::Connection> connection;
 
 match (connection) {
-case std::nullopt => ;                                     // ok
+case {} => ;                                               // ok; could also have been
+                                                           // "std::nullopt" instead of "{}"
 case { my::ConnectionState::disconnected } => reconnect(); // ok with the specialization
                                                            // above, ill-formed without
 case _ => ;
